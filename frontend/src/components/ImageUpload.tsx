@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import type { StoneDetection } from '../types/stoneDetection';
 import { predictImage } from '../services/api';
-import { LoadingSpinner } from './LoadingSpinner';
+import type { StoneDetection } from '../types/stoneDetection';
 import { ErrorMessage } from './ErrorMessage';
+import { LoadingSpinner } from './LoadingSpinner';
 import { PredictionCard } from './PredictionCard';
 
 const acceptedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -21,7 +21,7 @@ export function ImageUpload() {
       { label: 'Stone Size', value: detection?.stone_size ?? '—' },
       { label: 'Stone Location', value: detection?.stone_location ?? '—' },
     ],
-    [detection],
+    [detection]
   );
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,7 +60,9 @@ export function ImageUpload() {
       const response = await predictImage(formData);
       setDetection(response);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Unable to run image detection.');
+      setError(
+        submitError instanceof Error ? submitError.message : 'Unable to run image detection.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -68,16 +70,26 @@ export function ImageUpload() {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl shadow-slate-950/40">
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl shadow-slate-950/40"
+      >
         <div className="mb-4">
           <h2 className="text-xl font-semibold text-white">Image Upload</h2>
-          <p className="text-sm text-slate-400">Upload a renal image to request a mock stone detection result.</p>
+          <p className="text-sm text-slate-400">
+            Upload a renal image to request a mock stone detection result.
+          </p>
         </div>
 
         <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-cyan-400/40 bg-slate-950 p-6 text-center">
           <span className="text-sm font-medium text-cyan-300">Choose image</span>
           <span className="mt-1 text-xs text-slate-400">Allowed: jpg, jpeg, png</span>
-          <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="hidden" onChange={handleFileChange} />
+          <input
+            type="file"
+            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+            className="hidden"
+            onChange={handleFileChange}
+          />
         </label>
 
         {previewUrl ? (
@@ -94,8 +106,16 @@ export function ImageUpload() {
           {isLoading ? 'Uploading...' : 'Upload image'}
         </button>
 
-        {isLoading ? <div className="mt-4"><LoadingSpinner label="Analyzing uploaded image..." /></div> : null}
-        {error ? <div className="mt-4"><ErrorMessage message={error} /></div> : null}
+        {isLoading ? (
+          <div className="mt-4">
+            <LoadingSpinner label="Analyzing uploaded image..." />
+          </div>
+        ) : null}
+        {error ? (
+          <div className="mt-4">
+            <ErrorMessage message={error} />
+          </div>
+        ) : null}
       </form>
 
       <div className="space-y-4">
