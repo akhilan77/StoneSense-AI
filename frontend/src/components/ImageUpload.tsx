@@ -16,10 +16,9 @@ export function ImageUpload() {
 
   const detectionData = useMemo(
     () => [
-      { label: 'Detected', value: detection?.detected ? 'Yes' : 'No' },
-      { label: 'Confidence', value: `${((detection?.confidence ?? 0) * 100).toFixed(0)}%` },
-      { label: 'Stone Size', value: detection?.stone_size ?? '—' },
-      { label: 'Stone Location', value: detection?.stone_location ?? '—' },
+      { label: 'Classification', value: detection?.class_name ?? '—' },
+      { label: 'Confidence', value: detection ? `${((detection?.confidence ?? 0) * 100).toFixed(1)}%` : '—' },
+      { label: 'Inference Time', value: detection ? `${detection.inference_time_sec} sec` : '—' }
     ],
     [detection]
   );
@@ -77,7 +76,7 @@ export function ImageUpload() {
         <div className="mb-4">
           <h2 className="text-xl font-semibold text-white">Image Upload</h2>
           <p className="text-sm text-slate-400">
-            Upload a renal image to request a mock stone detection result.
+            Upload a renal image to request an AI classification result.
           </p>
         </div>
 
@@ -120,10 +119,10 @@ export function ImageUpload() {
 
       <div className="space-y-4">
         {detection ? (
-          <PredictionCard title="Stone Detection Output" data={detectionData} />
+          <PredictionCard title="Classification Output" data={detectionData} />
         ) : (
           <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400">
-            Upload an image to inspect the mock stone detection result.
+            Upload an image to inspect the classification prediction result.
           </div>
         )}
       </div>

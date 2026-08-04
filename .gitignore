@@ -216,3 +216,25 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ==========================
+# Dataset folders
+# ==========================
+ml/datasets/
+dl/datasets/
+
+# Processed data
+ml/processed/
+dl/processed/
+
+# Generated outputs
+ml/outputs/
+dl/outputs/
+
+# Training artifacts
+ml/artifacts/
+dl/artifacts/
+
+# Trained models
+ml/models/
+dl/models/

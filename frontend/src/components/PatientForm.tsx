@@ -73,7 +73,7 @@ export function PatientForm() {
           <div>
             <h2 className="text-xl font-semibold text-white">Patient Information</h2>
             <p className="text-sm text-slate-400">
-              Complete the biomarker profile to request a mock risk assessment.
+              Complete the biomarker profile to request a risk assessment.
             </p>
           </div>
           <button
@@ -230,7 +230,7 @@ export function PatientForm() {
           <PredictionCard title="Prediction Output" data={predictionData} />
         ) : (
           <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400">
-            Submit a patient profile to receive a mock risk prediction response.
+            Submit a patient profile to receive a risk prediction response.
           </div>
         )}
       </div>

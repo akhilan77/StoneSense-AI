@@ -1,15 +1,19 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { health, getModelInfo } from '../services/api';
+import type { HealthResponse, ModelInfoResponse } from '../services/api';
+import { ErrorMessage } from '../components/ErrorMessage';
 
 const summaryCards = [
   {
     route: '/risk-prediction',
     title: 'Risk Prediction',
-    description: 'Submit patient measurements to receive a mock risk classification.',
+    description: 'Submit patient measurements to receive risk classification scoring.',
   },
   {
     route: '/stone-detection',
     title: 'Stone Detection',
-    description: 'Upload a CT or ultrasound image and inspect the mock detection payload.',
+    description: 'Upload a CT or ultrasound image and inspect the detection details.',
   },
   {
     route: '/assessment',
@@ -19,6 +23,24 @@ const summaryCards = [
 ];
 
 export function HomePage() {
+  const [healthData, setHealthData] = useState<HealthResponse | null>(null);
+  const [modelInfo, setModelInfo] = useState<ModelInfoResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadStatus() {
+      try {
+        const h = await health();
+        setHealthData(h);
+        const m = await getModelInfo();
+        setModelInfo(m);
+      } catch (err) {
+        setError('Backend services are currently offline.');
+      }
+    }
+    loadStatus();
+  }, []);
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-800 bg-gradient-to-br from-cyan-500/15 via-slate-900 to-slate-950 p-8 shadow-2xl shadow-slate-950/50">
@@ -30,11 +52,35 @@ export function HomePage() {
             Explainable AI-based kidney stone detection and risk prediction system
           </h1>
           <p className="mt-4 text-slate-300">
-            This front-end consumes the existing FastAPI mock backend contract for health checks,
-            patient risk scoring, image detection, and full assessment feedback.
+            This front-end consumes the FastAPI backend endpoints for health checks,
+            patient risk scoring, image classification, and full multi-modal assessment.
           </p>
         </div>
       </section>
+
+      {error ? <ErrorMessage message={error} /> : null}
+
+      {/* System Status Dashboard */}
+      {healthData && modelInfo ? (
+        <section className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-slate-850 bg-slate-900/60 p-5">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Server Status</div>
+            <div className="mt-2 text-lg font-bold text-emerald-400">Online</div>
+          </div>
+          <div className="rounded-2xl border border-slate-850 bg-slate-900/60 p-5">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Device</div>
+            <div className="mt-2 text-lg font-bold text-cyan-400 capitalize">{healthData.hardware.active_device}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-850 bg-slate-900/60 p-5">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">CT ResNet18</div>
+            <div className="mt-2 text-lg font-bold text-white">{modelInfo.dl_resnet18.accuracy * 100}% Accuracy</div>
+          </div>
+          <div className="rounded-2xl border border-slate-850 bg-slate-900/60 p-5">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Risk XGBoost</div>
+            <div className="mt-2 text-lg font-bold text-white">{modelInfo.ml_xgboost.validation_accuracy * 100}% Accuracy</div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
         {summaryCards.map((card) => (
