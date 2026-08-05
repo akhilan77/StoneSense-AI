@@ -7,28 +7,28 @@ The project features a high-performance **FastAPI backend**, a modern **React (V
 Designed for robust developer productivity, StoneSense-AI comes equipped with end-to-end automation scripts (Windows Batch and PowerShell), rigorous backend unit and integration test suites, latency benchmarking tools, and comprehensive API documentation.
 
 ```mermaid
-graph TD
-    Client["React + Vite Frontend\n(Port 5173)"]
-    API["FastAPI REST Backend\n(Port 8000)"]
+flowchart TD
+    Client["React + Vite Frontend (Port 5173)"]
+    API["FastAPI REST Backend (Port 8000)"]
     
-    subgraph Presentation & API Layer
+    subgraph Presentation["Presentation & API Layer"]
         Client -->|HTTP / JSON / Multipart| API
         API -->|Swagger / OpenAPI Docs| Docs["/docs & /health"]
     end
     
-    subgraph Machine Learning Pipeline (ml/)
+    subgraph MLPipeline["Machine Learning Pipeline"]
         API -->|Predict Patient Risk| XGBoost["XGBoost Risk Model"]
         XGBoost -->|Feature Attributions| SHAP["SHAP Explainer"]
     end
     
-    subgraph Deep Learning Pipeline (dl/)
+    subgraph DLPipeline["Deep Learning Pipeline"]
         API -->|Classify CT Scan| ResNet["ResNet18 CNN"]
         ResNet -->|Saliency Map| GradCAM["Grad-CAM++ Overlay"]
     end
     
-    subgraph Data & Artifacts
+    subgraph DataArtifacts["Data & Artifacts"]
         XGBoost --- MLData["Tabular Urine Bio-markers"]
-        ResNet --- DLData["CT Scan Slices\n(Cyst, Normal, Stone, Tumor)"]
+        ResNet --- DLData["CT Scan Slices (Cyst, Normal, Stone, Tumor)"]
     end
 ```
 
