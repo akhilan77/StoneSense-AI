@@ -1,6 +1,6 @@
 export interface StoneDetection {
-  detected: boolean;
+  class_name: string;
   confidence: number;
-  stone_size: string;
-  stone_location: string;
+  inference_time_sec: number;
 }
+

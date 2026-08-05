@@ -39,7 +39,7 @@ export function PatientForm() {
     [prediction]
   );
 
-  const handleChange = (field: keyof Patient, value: string | boolean) => {
+  const handleChange = (field: keyof Patient, value: number | string | boolean) => {
     setPatient((current) => ({
       ...current,
       [field]: field === 'gender' ? (value as Patient['gender']) : value,
