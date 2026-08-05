@@ -408,7 +408,7 @@ git push origin main
 ## Contributors
 
 - **StoneSense-AI Development Team**
-- Contributions, issues, and feature requests are welcome!
+- Contributions, issues, and feature requests are welcome
 
 ---
 
