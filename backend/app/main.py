@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.routes.assessment_router import router as assessment_router
 from app.api.v1.routes.health_router import router as health_router
@@ -33,6 +34,20 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Register CORS middleware BEFORE routers to support preflight OPTIONS requests
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000"
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     application.include_router(root_router)
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(predict_router, prefix="/api/v1")
@@ -43,3 +58,4 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
