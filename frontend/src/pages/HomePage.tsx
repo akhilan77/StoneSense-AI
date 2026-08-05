@@ -48,6 +48,9 @@ export function HomePage() {
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">
             StoneSense AI
           </p>
+          <div className="mt-3 inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-medium text-cyan-200">
+            UI polish • quick preview
+          </div>
           <h1 className="mt-3 text-4xl font-bold text-white sm:text-5xl">
             Explainable AI-based kidney stone detection and risk prediction system
           </h1>
@@ -87,7 +90,7 @@ export function HomePage() {
           <Link
             key={card.route}
             to={card.route}
-            className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5 transition hover:border-cyan-400 hover:bg-slate-900"
+            className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5 transition duration-200 hover:-translate-y-1 hover:border-cyan-400 hover:bg-slate-900"
           >
             <div className="text-lg font-semibold text-white">{card.title}</div>
             <p className="mt-2 text-sm text-slate-400">{card.description}</p>
