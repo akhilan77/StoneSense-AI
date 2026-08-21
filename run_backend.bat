@@ -13,10 +13,24 @@ echo.
 if not exist "backend\.venv\Scripts\activate.bat" (
     echo [WARNING] Backend virtual environment missing. Attempting auto-repair...
     python -m venv backend\.venv
-    call backend\.venv\Scripts\activate.bat
-    pip install -r backend\requirements.txt
-) else (
-    call backend\.venv\Scripts\activate.bat
+)
+
+if not exist "backend\.venv\Scripts\python.exe" (
+    echo [ERROR] Could not create the backend virtual environment.
+    pause
+    exit /b 1
+)
+
+echo Checking backend dependencies...
+backend\.venv\Scripts\python.exe -c "import fastapi, uvicorn, joblib, xgboost, torch"
+if !ERRORLEVEL! neq 0 (
+    echo [WARNING] Backend dependencies are incomplete. Installing requirements...
+    backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+    if !ERRORLEVEL! neq 0 (
+        echo [ERROR] Backend dependency installation failed.
+        pause
+        exit /b 1
+    )
 )
 
 cd backend
@@ -31,7 +45,7 @@ echo Press Ctrl+C to stop the server.
 echo =========================================================
 echo.
 
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 if %ERRORLEVEL% neq 0 (
     echo.

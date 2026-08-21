@@ -6,17 +6,13 @@ Loads ML and DL models once at startup and stores them as singletons.
 from pathlib import Path
 import logging
 from typing import Dict, Any, Optional
-import torch
 import joblib
 
 # Setup paths to import ML and DL training components
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 import sys
-sys.path.append(str(PROJECT_ROOT / "dl" / "training"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
 sys.path.append(str(PROJECT_ROOT / "ml" / "training"))
-
-from model import build_resnet18_classifier
 
 logger = logging.getLogger("ModelLoader")
 
@@ -36,7 +32,11 @@ class ModelLoader:
         if self._initialized:
             return
         
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        try:
+            import torch
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        except ModuleNotFoundError:
+            self.device = "cpu"
         self.dl_model = None
         self.ml_model = None
         self.ml_pipeline = None
@@ -50,12 +50,18 @@ class ModelLoader:
         # 1. Load DL ResNet18 Model
         dl_model_path = PROJECT_ROOT / "dl" / "models" / "kidney_resnet18.pth"
         if dl_model_path.exists():
-            logger.info(f"Loading ResNet18 weights from {dl_model_path}...")
-            self.dl_model = build_resnet18_classifier(num_classes=4, freeze_backbone=False)
-            self.dl_model.load_state_dict(torch.load(dl_model_path, map_location=self.device))
-            self.dl_model.to(self.device)
-            self.dl_model.eval()
-            logger.info("ResNet18 loaded successfully.")
+            try:
+                import torch
+                from model import build_resnet18_classifier
+
+                logger.info(f"Loading ResNet18 weights from {dl_model_path}...")
+                self.dl_model = build_resnet18_classifier(num_classes=4, freeze_backbone=False)
+                self.dl_model.load_state_dict(torch.load(dl_model_path, map_location=self.device))
+                self.dl_model.to(self.device)
+                self.dl_model.eval()
+                logger.info("ResNet18 loaded successfully.")
+            except ModuleNotFoundError as exc:
+                logger.error(f"DL dependencies unavailable; CT model not loaded: {exc}")
         else:
             logger.error(f"ResNet18 weights not found at {dl_model_path}")
 

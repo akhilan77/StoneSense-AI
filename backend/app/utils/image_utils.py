@@ -1,14 +1,13 @@
 """Image utilities helper functions for CT Scan preprocessing."""
 
 import logging
+from typing import Any
 from PIL import Image
-import torch
-from torchvision import transforms
 
 logger = logging.getLogger("ImageUtils")
 
 
-def preprocess_ct_image(image_bytes: bytes, transform: transforms.Compose) -> torch.Tensor:
+def preprocess_ct_image(image_bytes: bytes, transform: Any) -> Any:
     """Preprocesses raw uploaded CT scan image bytes into PyTorch tensor.
     
     Args:

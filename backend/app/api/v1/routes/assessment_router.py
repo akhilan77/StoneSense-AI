@@ -49,6 +49,8 @@ async def create_assessment(
             image_bytes=image_bytes,
             gradcam_out_path=gradcam_path
         )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Assessment engine execution failed: {str(e)}")
 

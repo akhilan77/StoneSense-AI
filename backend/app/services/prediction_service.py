@@ -9,8 +9,7 @@ from pathlib import Path
 import logging
 from typing import Dict, Any, Tuple
 import numpy as np
-import torch
-import torch.nn as nn
+import joblib
 
 # Include path references to explainability engines
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -21,8 +20,6 @@ sys.path.append(str(PROJECT_ROOT / "ml" / "training"))
 from app.services.model_loader import model_loader
 from app.utils.image_utils import preprocess_ct_image
 from app.utils.preprocessing_utils import prepare_tabular_inputs
-from model import CLASS_MAPPING as DL_CLASS_MAPPING
-from transforms import get_val_test_transforms
 
 logger = logging.getLogger("PredictionService")
 
@@ -42,6 +39,10 @@ class PredictionService:
         """
         if model_loader.dl_model is None:
             raise RuntimeError("DL ResNet18 model is not loaded in prediction service.")
+
+        import torch
+        from model import CLASS_MAPPING as DL_CLASS_MAPPING
+        from transforms import get_val_test_transforms
 
         # Transform raw bytes to input tensor
         val_tf = get_val_test_transforms(image_size=(224, 224))

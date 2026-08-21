@@ -2,7 +2,6 @@
 
 import sys
 from fastapi import APIRouter
-import torch
 
 from app.services.model_loader import model_loader
 
@@ -21,7 +20,7 @@ async def get_health():
             "preprocessing_pipeline": model_loader.ml_pipeline is not None
         },
         "hardware": {
-            "cuda_available": torch.cuda.is_available(),
+            "cuda_available": str(model_loader.device).startswith("cuda"),
             "active_device": str(model_loader.device)
         }
     }

@@ -7,7 +7,6 @@ to return a unified final patient assessment.
 from datetime import datetime
 import time
 from typing import Dict, Any, Optional
-import shap
 import pandas as pd
 
 from app.services.prediction_service import PredictionService
@@ -19,8 +18,6 @@ from pathlib import Path
 import sys
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.append(str(PROJECT_ROOT / "dl" / "explainability"))
-
-from gradcam import GradCAMExplainer
 
 
 class AssessmentService:
@@ -50,16 +47,22 @@ class AssessmentService:
         # Calculate SHAP values
         shap_values_dict = {}
         if model_loader.ml_model is not None and model_loader.ml_pipeline is not None:
-            df_input = prepare_tabular_inputs(patient_data)
-            X_trans = model_loader.ml_pipeline.transform(df_input)
-            expected_cols = ["gravity", "ph", "osmo", "cond", "urea", "calc"]
-            df_trans = pd.DataFrame(X_trans, columns=expected_cols)
-            
-            explainer = shap.TreeExplainer(model_loader.ml_model)
-            shap_explanation = explainer(df_trans)[0]
-            
-            for col, val in zip(expected_cols, shap_explanation.values):
-                shap_values_dict[col] = float(val)
+            try:
+                import shap
+            except ModuleNotFoundError:
+                shap = None
+
+            if shap is not None:
+                df_input = prepare_tabular_inputs(patient_data)
+                X_trans = model_loader.ml_pipeline.transform(df_input)
+                expected_cols = ["gravity", "ph", "osmo", "cond", "urea", "calc"]
+                df_trans = pd.DataFrame(X_trans, columns=expected_cols)
+                
+                explainer = shap.TreeExplainer(model_loader.ml_model)
+                shap_explanation = explainer(df_trans)[0]
+                
+                for col, val in zip(expected_cols, shap_explanation.values):
+                    shap_values_dict[col] = float(val)
 
         # 2. CT classification & Grad-CAM visual activation overlay
         ct_prediction = {}
