@@ -10,22 +10,22 @@ Designed for robust developer productivity, StoneSense-AI comes equipped with en
 flowchart TD
     Client["React + Vite Frontend (Port 5173)"]
     API["FastAPI REST Backend (Port 8000)"]
-    
+
     subgraph Presentation["Presentation & API Layer"]
         Client -->|HTTP / JSON / Multipart| API
         API -->|Swagger / OpenAPI Docs| Docs["/docs & /health"]
     end
-    
+
     subgraph MLPipeline["Machine Learning Pipeline"]
         API -->|Predict Patient Risk| XGBoost["XGBoost Risk Model"]
         XGBoost -->|Feature Attributions| SHAP["SHAP Explainer"]
     end
-    
+
     subgraph DLPipeline["Deep Learning Pipeline"]
         API -->|Classify CT Scan| ResNet["ResNet18 CNN"]
         ResNet -->|Saliency Map| GradCAM["Grad-CAM++ Overlay"]
     end
-    
+
     subgraph DataArtifacts["Data & Artifacts"]
         XGBoost --- MLData["Tabular Urine Bio-markers"]
         ResNet --- DLData["CT Scan Slices (Cyst, Normal, Stone, Tumor)"]
@@ -51,15 +51,15 @@ flowchart TD
 
 ## Tech Stack
 
-| Category | Technologies / Libraries |
-| :--- | :--- |
-| **Frontend** | React 18, Vite 5, TypeScript 5, Tailwind CSS 3, React Router v6, Axios |
-| **Backend** | Python 3.10+, FastAPI, Uvicorn, Pydantic v2, Python-Multipart |
-| **Machine Learning** | XGBoost, Scikit-Learn, Pandas, NumPy |
-| **Deep Learning** | PyTorch, torchvision (ResNet18), Pillow, OpenCV |
-| **Explainability** | SHAP (SHapley Additive exPlanations), Grad-CAM (PyTorch-GradCAM) |
-| **Deployment & Scripts**| Windows Batch (`.bat`), PowerShell (`.ps1`), Uvicorn ASGI Server |
-| **Testing & Quality** | Pytest, Pytest-Asyncio, HTTPX, Coverage.py, ESLint, TypeScript Compiler (`tsc`) |
+| Category                 | Technologies / Libraries                                                        |
+| :----------------------- | :------------------------------------------------------------------------------ |
+| **Frontend**             | React 18, Vite 5, TypeScript 5, Tailwind CSS 3, React Router v6, Axios          |
+| **Backend**              | Python 3.10+, FastAPI, Uvicorn, Pydantic v2, Python-Multipart                   |
+| **Machine Learning**     | XGBoost, Scikit-Learn, Pandas, NumPy                                            |
+| **Deep Learning**        | PyTorch, torchvision (ResNet18), Pillow, OpenCV                                 |
+| **Explainability**       | SHAP (SHapley Additive exPlanations), Grad-CAM (PyTorch-GradCAM)                |
+| **Deployment & Scripts** | Windows Batch (`.bat`), PowerShell (`.ps1`), Uvicorn ASGI Server                |
+| **Testing & Quality**    | Pytest, Pytest-Asyncio, HTTPX, Coverage.py, ESLint, TypeScript Compiler (`tsc`) |
 
 ---
 
@@ -120,6 +120,7 @@ StoneSense-AI/
 ## Installation
 
 ### Prerequisites
+
 - **Python**: Version 3.10 or higher
 - **Node.js**: Version 18.0 or higher
 - **npm**: Version 9.0 or higher
@@ -136,6 +137,7 @@ install_all.bat
 To install individual components manually:
 
 #### 1. Backend Setup
+
 ```cmd
 python -m venv backend\.venv
 call backend\.venv\Scripts\activate
@@ -145,6 +147,7 @@ deactivate
 ```
 
 #### 2. Frontend Setup
+
 ```cmd
 cd frontend
 npm install
@@ -152,6 +155,7 @@ cd ..
 ```
 
 #### 3. Machine Learning Setup
+
 ```cmd
 python -m venv ml\.venv
 call ml\.venv\Scripts\activate
@@ -160,6 +164,7 @@ deactivate
 ```
 
 #### 4. Deep Learning Setup
+
 ```cmd
 python -m venv dl\.venv
 call dl\.venv\Scripts\activate
@@ -172,12 +177,15 @@ deactivate
 ## Quick Start
 
 ### Option 1: Launch Everything (Recommended)
+
 Run the full-stack launcher to start both backend and frontend servers simultaneously:
 
 ```cmd
 run_all.bat
 ```
+
 What this does:
+
 1. Verifies virtual environments and checks ports `8000` and `5173`.
 2. Launches FastAPI Backend in a dedicated terminal window on `http://127.0.0.1:8000`.
 3. Launches Vite Frontend in a dedicated terminal window on `http://localhost:5173`.
@@ -194,19 +202,20 @@ What this does:
 
 ## Developer Automation Scripts
 
-| Script | Type | Purpose & Description |
-| :--- | :--- | :--- |
-| [`developer_launcher.bat`](file:///c:/Users/akhil/StoneSense-AI/developer_launcher.bat) | Batch | Interactive Developer Console menu with single-key access to all commands. |
-| [`developer_launcher.ps1`](file:///c:/Users/akhil/StoneSense-AI/developer_launcher.ps1) | PowerShell | Advanced PowerShell menu with colored logs, automatic port detection, and log rotation. |
-| [`install_all.bat`](file:///c:/Users/akhil/StoneSense-AI/install_all.bat) | Batch | Verifies Python/Node prerequisites and builds all 3 virtual environments and npm packages. |
-| [`run_backend.bat`](file:///c:/Users/akhil/StoneSense-AI/run_backend.bat) | Batch | Activates `backend\.venv` and starts Uvicorn with auto-reload on port 8000. |
-| [`run_frontend.bat`](file:///c:/Users/akhil/StoneSense-AI/run_frontend.bat) | Batch | Verifies `node_modules` and starts Vite React dev server on port 5173. |
-| [`run_ml.bat`](file:///c:/Users/akhil/StoneSense-AI/run_ml.bat) | Batch | Interactive console for executing tabular ML pipeline steps. |
-| [`run_dl.bat`](file:///c:/Users/akhil/StoneSense-AI/run_dl.bat) | Batch | Interactive console for executing vision DL pipeline steps. |
-| [`run_all.bat`](file:///c:/Users/akhil/StoneSense-AI/run_all.bat) | Batch | Launches Backend & Frontend processes in parallel and opens browser tabs. |
-| [`stop_all.bat`](file:///c:/Users/akhil/StoneSense-AI/stop_all.bat) | Batch | Asks for user confirmation and safely stops `node.exe`, `python.exe`, and `uvicorn.exe`. |
+| Script                                                                                  | Type       | Purpose & Description                                                                      |
+| :-------------------------------------------------------------------------------------- | :--------- | :----------------------------------------------------------------------------------------- |
+| [`developer_launcher.bat`](file:///c:/Users/akhil/StoneSense-AI/developer_launcher.bat) | Batch      | Interactive Developer Console menu with single-key access to all commands.                 |
+| [`developer_launcher.ps1`](file:///c:/Users/akhil/StoneSense-AI/developer_launcher.ps1) | PowerShell | Advanced PowerShell menu with colored logs, automatic port detection, and log rotation.    |
+| [`install_all.bat`](file:///c:/Users/akhil/StoneSense-AI/install_all.bat)               | Batch      | Verifies Python/Node prerequisites and builds all 3 virtual environments and npm packages. |
+| [`run_backend.bat`](file:///c:/Users/akhil/StoneSense-AI/run_backend.bat)               | Batch      | Activates `backend\.venv` and starts Uvicorn with auto-reload on port 8000.                |
+| [`run_frontend.bat`](file:///c:/Users/akhil/StoneSense-AI/run_frontend.bat)             | Batch      | Verifies `node_modules` and starts Vite React dev server on port 5173.                     |
+| [`run_ml.bat`](file:///c:/Users/akhil/StoneSense-AI/run_ml.bat)                         | Batch      | Interactive console for executing tabular ML pipeline steps.                               |
+| [`run_dl.bat`](file:///c:/Users/akhil/StoneSense-AI/run_dl.bat)                         | Batch      | Interactive console for executing vision DL pipeline steps.                                |
+| [`run_all.bat`](file:///c:/Users/akhil/StoneSense-AI/run_all.bat)                       | Batch      | Launches Backend & Frontend processes in parallel and opens browser tabs.                  |
+| [`stop_all.bat`](file:///c:/Users/akhil/StoneSense-AI/stop_all.bat)                     | Batch      | Asks for user confirmation and safely stops `node.exe`, `python.exe`, and `uvicorn.exe`.   |
 
 ### Execution Examples
+
 ```cmd
 :: Using Batch Launchers
 run_all.bat
@@ -282,25 +291,27 @@ FastAPI automatically generates interactive OpenAPI documentation at `http://127
 
 ### Key Endpoints
 
-| Method | Endpoint | Description | Request Payload | Response Payload |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/` | Service root identity check | None | `{"message": "Welcome to StoneSense AI API"}` |
-| `GET` | `/api/v1/health` | Hardware & system readiness status | None | `HealthResponse` (status, device, models loaded) |
-| `GET` | `/api/v1/models` | Active model metadata & validation metrics | None | `ModelInfoResponse` (accuracies, features, layers) |
-| `POST` | `/api/v1/predict/risk` | Tabular urine biomarker risk scoring | `PatientInformation` (JSON) | `RiskPrediction` (probability, risk_level, confidence) |
-| `POST` | `/api/v1/predict/image` | CT scan slice image classification | `image` (Multipart Form) | `StoneDetection` (class_name, confidence, latency) |
-| `POST` | `/api/v1/assessment` | Multi-modal composite diagnostic report | `patient_data` + `image` (Form) | `AssessmentResponse` (predictions, SHAP, Grad-CAM, recommendation) |
+| Method | Endpoint                | Description                                | Request Payload                 | Response Payload                                                   |
+| :----- | :---------------------- | :----------------------------------------- | :------------------------------ | :----------------------------------------------------------------- |
+| `GET`  | `/`                     | Service root identity check                | None                            | `{"message": "Welcome to StoneSense AI API"}`                      |
+| `GET`  | `/api/v1/health`        | Hardware & system readiness status         | None                            | `HealthResponse` (status, device, models loaded)                   |
+| `GET`  | `/api/v1/models`        | Active model metadata & validation metrics | None                            | `ModelInfoResponse` (accuracies, features, layers)                 |
+| `POST` | `/api/v1/predict/risk`  | Tabular urine biomarker risk scoring       | `PatientInformation` (JSON)     | `RiskPrediction` (probability, risk_level, confidence)             |
+| `POST` | `/api/v1/predict/image` | CT scan slice image classification         | `image` (Multipart Form)        | `StoneDetection` (class_name, confidence, latency)                 |
+| `POST` | `/api/v1/assessment`    | Multi-modal composite diagnostic report    | `patient_data` + `image` (Form) | `AssessmentResponse` (predictions, SHAP, Grad-CAM, recommendation) |
 
 ---
 
 ## AI Models
 
 ### 1. ResNet18 (Deep Learning CT Classifier)
+
 - **Architecture**: Residual Network (18 layers) fine-tuned for medical imaging.
 - **Classes**: `Cyst`, `Normal`, `Stone`, `Tumor`.
 - **Why it's used**: ResNet's shortcut connections prevent vanishing gradients, allowing deep spatial feature extraction from CT slices while remaining lightweight for real-time inference.
 
 ### 2. XGBoost (Machine Learning Risk Predictor)
+
 - **Architecture**: Gradient Boosted Decision Trees (GBDT).
 - **Features**: Specific Gravity, pH, Osmolality, Conductivity, Urea, Calcium.
 - **Why it's used**: XGBoost delivers state-of-the-art predictive performance on tabular clinical biomarkers and seamlessly integrates with TreeSHAP for exact feature attribution.
@@ -312,10 +323,12 @@ FastAPI automatically generates interactive OpenAPI documentation at `http://127
 StoneSense-AI implements dual-layer interpretability to eliminate "black-box" predictions:
 
 ### 1. Grad-CAM (Visual Saliency Maps)
+
 - Computes gradients of the target class score with respect to the feature maps of the final convolutional layer of ResNet18 (`layer4[-1]`).
 - Produces a coarse heat map overlay highlighting the exact pixels in the CT slice that contributed to the model's decision (`Stone`, `Cyst`, etc.).
 
 ### 2. TreeSHAP (Tabular Feature Attributions)
+
 - Calculates exact game-theoretic Shapley values across urine parameters (`calcium`, `pH`, `gravity`).
 - Quantifies positive or negative contribution margins for individual patient risk scores.
 
@@ -350,12 +363,12 @@ cd backend
 
 The system performance parameters recorded in internal evaluation reports:
 
-| Metric / Model | CT ResNet18 Classifier | Tabular XGBoost Predictor |
-| :--- | :--- | :--- |
-| **Validation Accuracy** | **98.50%** | **91.67%** |
-| **Macro / Validation F1-Score** | **0.9793** | **0.9091** |
-| **Matthews Correlation (MCC)** | — | **0.8452** |
-| **Average Latency** | < 120 ms | < 15 ms |
+| Metric / Model                  | CT ResNet18 Classifier | Tabular XGBoost Predictor |
+| :------------------------------ | :--------------------- | :------------------------ |
+| **Validation Accuracy**         | **98.50%**             | **91.67%**                |
+| **Macro / Validation F1-Score** | **0.9793**             | **0.9091**                |
+| **Matthews Correlation (MCC)**  | —                      | **0.8452**                |
+| **Average Latency**             | < 120 ms               | < 15 ms                   |
 
 ---
 
@@ -384,14 +397,14 @@ git push origin main
 
 ## Troubleshooting
 
-| Problem | Cause | Solution |
-| :--- | :--- | :--- |
-| **Virtual environment missing** | Venv directory deleted or not initialized | Run `install_all.bat` or `python -m venv <path>\.venv`. |
-| **Port occupied (`8000` or `5173`)** | A previous server process was left open | Run `stop_all.bat` or use `developer_launcher.ps1` which prompts to kill conflicting processes. |
-| **Node modules missing** | `npm install` was skipped | Run `run_frontend.bat` (automatically installs missing modules) or `cd frontend && npm install`. |
-| **Model not loading** | Artifact paths missing or `.pkl`/`.pth` corrupt | Run `run_ml.bat` (Option 4) or `run_dl.bat` (Option 4) to retrain and regenerate model artifacts. |
-| **Blank React screen** | Stale node dependencies or type error | Run `npx tsc --noEmit` inside `frontend/` to verify types, or clear Vite cache (`frontend/node_modules/.vite`). |
-| **Python import errors** | Running scripts outside virtual environment | Ensure virtual environment is activated (`call backend\.venv\Scripts\activate.bat`). |
+| Problem                              | Cause                                           | Solution                                                                                                        |
+| :----------------------------------- | :---------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
+| **Virtual environment missing**      | Venv directory deleted or not initialized       | Run `install_all.bat` or `python -m venv <path>\.venv`.                                                         |
+| **Port occupied (`8000` or `5173`)** | A previous server process was left open         | Run `stop_all.bat` or use `developer_launcher.ps1` which prompts to kill conflicting processes.                 |
+| **Node modules missing**             | `npm install` was skipped                       | Run `run_frontend.bat` (automatically installs missing modules) or `cd frontend && npm install`.                |
+| **Model not loading**                | Artifact paths missing or `.pkl`/`.pth` corrupt | Run `run_ml.bat` (Option 4) or `run_dl.bat` (Option 4) to retrain and regenerate model artifacts.               |
+| **Blank React screen**               | Stale node dependencies or type error           | Run `npx tsc --noEmit` inside `frontend/` to verify types, or clear Vite cache (`frontend/node_modules/.vite`). |
+| **Python import errors**             | Running scripts outside virtual environment     | Ensure virtual environment is activated (`call backend\.venv\Scripts\activate.bat`).                            |
 
 ---
 
