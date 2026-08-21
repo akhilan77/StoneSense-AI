@@ -76,7 +76,7 @@ StoneSense-AI/
 │   │   └── utils/            # Image processing & helper utilities
 │   ├── tests/                # Unit, integration, & latency benchmark tests
 │   ├── main.py               # FastAPI entrypoint
-│   └── requirements.txt      # Backend Python dependencies
+│   └── requirements.txt      # Shared Python dependencies
 ├── frontend/                 # React + Vite Frontend Application
 │   ├── src/
 │   │   ├── components/       # Reusable UI components (PatientForm, ImageUpload, etc.)
@@ -140,7 +140,7 @@ To install individual components manually:
 python -m venv backend\.venv
 call backend\.venv\Scripts\activate
 pip install --upgrade pip
-pip install -r backend\requirements.txt
+    pip install -r requirements.txt
 deactivate
 ```
 
@@ -155,7 +155,7 @@ cd ..
 ```cmd
 python -m venv ml\.venv
 call ml\.venv\Scripts\activate
-pip install -r ml\requirements.txt
+    pip install -r requirements.txt
 deactivate
 ```
 
@@ -163,7 +163,7 @@ deactivate
 ```cmd
 python -m venv dl\.venv
 call dl\.venv\Scripts\activate
-pip install -r dl\requirements.txt
+    pip install -r requirements.txt
 deactivate
 ```
 

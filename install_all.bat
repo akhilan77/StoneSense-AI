@@ -54,10 +54,10 @@ if not exist "backend\.venv" (
         exit /b 1
     )
 )
-echo  - Installing backend requirements...
+echo  - Installing shared Python requirements...
 call backend\.venv\Scripts\activate.bat
 python -m pip install --upgrade pip >nul 2>&1
-pip install -r backend\requirements.txt
+pip install -r requirements.txt
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Failed to install backend dependencies.
     pause
@@ -93,18 +93,14 @@ if not exist "ml\.venv" (
         exit /b 1
     )
 )
-if exist "ml\requirements.txt" (
-    echo  - Installing ML requirements...
-    call ml\.venv\Scripts\activate.bat
-    python -m pip install --upgrade pip >nul 2>&1
-    pip install -r ml\requirements.txt
-    if %ERRORLEVEL% neq 0 (
-        echo [WARNING] Failed to install some ML dependencies.
-    )
-    call deactivate
-) else (
-    echo  - ml\requirements.txt not found, skipping package installation.
+echo  - Installing shared Python requirements in ML environment...
+call ml\.venv\Scripts\activate.bat
+python -m pip install --upgrade pip >nul 2>&1
+pip install -r requirements.txt
+if %ERRORLEVEL% neq 0 (
+    echo [WARNING] Failed to install some ML dependencies.
 )
+call deactivate
 echo  - ML environment ready!
 
 :: 5. Setup DL Virtual Environment & Dependencies
@@ -119,18 +115,14 @@ if not exist "dl\.venv" (
         exit /b 1
     )
 )
-if exist "dl\requirements.txt" (
-    echo  - Installing DL requirements...
-    call dl\.venv\Scripts\activate.bat
-    python -m pip install --upgrade pip >nul 2>&1
-    pip install -r dl\requirements.txt
-    if %ERRORLEVEL% neq 0 (
-        echo [WARNING] Failed to install some DL dependencies.
-    )
-    call deactivate
-) else (
-    echo  - dl\requirements.txt not found, skipping package installation.
+echo  - Installing shared Python requirements in DL environment...
+call dl\.venv\Scripts\activate.bat
+python -m pip install --upgrade pip >nul 2>&1
+pip install -r requirements.txt
+if %ERRORLEVEL% neq 0 (
+    echo [WARNING] Failed to install some DL dependencies.
 )
+call deactivate
 echo  - DL environment ready!
 
 echo.

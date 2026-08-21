@@ -78,7 +78,7 @@ function Install-All {
         python -m venv backend\.venv
     }
     & "backend\.venv\Scripts\python.exe" -m pip install --upgrade pip | Out-Null
-    & "backend\.venv\Scripts\pip.exe" install -r backend\requirements.txt
+    & "backend\.venv\Scripts\pip.exe" install -r requirements.txt
 
     # Setup frontend
     Write-Log "[2/4] Setting up Frontend Environment..." "INFO" -Color Yellow
@@ -91,18 +91,14 @@ function Install-All {
     if (!(Test-Path "ml\.venv")) {
         python -m venv ml\.venv
     }
-    if (Test-Path "ml\requirements.txt") {
-        & "ml\.venv\Scripts\pip.exe" install -r ml\requirements.txt -ErrorAction SilentlyContinue
-    }
+    & "ml\.venv\Scripts\pip.exe" install -r requirements.txt -ErrorAction SilentlyContinue
 
     # Setup DL
     Write-Log "[4/4] Setting up DL Environment..." "INFO" -Color Yellow
     if (!(Test-Path "dl\.venv")) {
         python -m venv dl\.venv
     }
-    if (Test-Path "dl\requirements.txt") {
-        & "dl\.venv\Scripts\pip.exe" install -r dl\requirements.txt -ErrorAction SilentlyContinue
-    }
+    & "dl\.venv\Scripts\pip.exe" install -r requirements.txt -ErrorAction SilentlyContinue
 
     Write-Log "All StoneSense AI components installed successfully!" "SUCCESS" -Color Green
     Read-Host "Press Enter to return..."
