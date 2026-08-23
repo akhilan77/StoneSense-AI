@@ -1,0 +1,63 @@
+{
+    "dataset_name": "CT-KIDNEY-DATASET-Normal-Cyst-Tumor-Stone",
+    "classes": [
+        "Cyst",
+        "Normal",
+        "Stone",
+        "Tumor"
+    ],
+    "total_images": 12446,
+    "image_dimensions": [
+        224,
+        224,
+        3
+    ],
+    "normalization": {
+        "mean": [
+            0.485,
+            0.456,
+            0.406
+        ],
+        "std": [
+            0.229,
+            0.224,
+            0.225
+        ]
+    },
+    "transform_pipeline": {
+        "train": [
+            "Resize(224, 224)",
+            "RandomHorizontalFlip(p=0.5)",
+            "RandomRotation(15)",
+            "ColorJitter(brightness=0.1, contrast=0.1)",
+            "ToTensor()",
+            "Normalize(ImageNet)"
+        ],
+        "validation_test": [
+            "Resize(224, 224)",
+            "ToTensor()",
+            "Normalize(ImageNet)"
+        ]
+    },
+    "split_counts": {
+        "train": {
+            "Cyst": 2596,
+            "Normal": 3553,
+            "Stone": 963,
+            "Tumor": 1598
+        },
+        "validation": {
+            "Cyst": 556,
+            "Normal": 761,
+            "Stone": 206,
+            "Tumor": 342
+        },
+        "test": {
+            "Cyst": 557,
+            "Normal": 763,
+            "Stone": 208,
+            "Tumor": 343
+        }
+    },
+    "batch_size": 32
+}

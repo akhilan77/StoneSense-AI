@@ -1,0 +1,36 @@
+{
+    "dataset_name": "StoneSense-AI Urine Analysis / Kidney Dataset",
+    "target_column": "target",
+    "feature_names": [
+        "gravity",
+        "ph",
+        "osmo",
+        "cond",
+        "urea",
+        "calc"
+    ],
+    "numerical_columns": [
+        "gravity",
+        "ph",
+        "osmo",
+        "cond",
+        "urea",
+        "calc"
+    ],
+    "categorical_columns": [],
+    "preprocessing_steps": [
+        "duplicate_row_removal",
+        "missing_target_row_dropping",
+        "median_numerical_imputation",
+        "mode_categorical_imputation",
+        "standard_scaler_numerical_normalization",
+        "one_hot_categorical_encoding",
+        "stratified_70_15_15_dataset_split"
+    ],
+    "dataset_splits": {
+        "train_size": 55,
+        "validation_size": 12,
+        "test_size": 12,
+        "total_size": 79
+    }
+}

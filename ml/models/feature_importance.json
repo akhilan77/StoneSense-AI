@@ -1,0 +1,26 @@
+[
+    {
+        "feature":"calc",
+        "importance":0.4159669876
+    },
+    {
+        "feature":"urea",
+        "importance":0.1908453703
+    },
+    {
+        "feature":"osmo",
+        "importance":0.1869326085
+    },
+    {
+        "feature":"gravity",
+        "importance":0.1322907805
+    },
+    {
+        "feature":"cond",
+        "importance":0.0608001091
+    },
+    {
+        "feature":"ph",
+        "importance":0.0131641012
+    }
+]
