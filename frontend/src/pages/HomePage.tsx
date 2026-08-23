@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { health, getModelInfo } from '../services/api';
-import type { HealthResponse, ModelInfoResponse } from '../services/api';
 import { ErrorMessage } from '../components/ErrorMessage';
+import type { HealthResponse, ModelInfoResponse } from '../services/api';
+import { getModelInfo, health } from '../services/api';
 
 const summaryCards = [
   {
@@ -14,11 +14,6 @@ const summaryCards = [
     route: '/stone-detection',
     title: 'Stone Detection',
     description: 'Upload a CT or ultrasound image and inspect the detection details.',
-  },
-  {
-    route: '/assessment',
-    title: 'Assessment',
-    description: 'Compose risk, image, and explainability into a final care recommendation.',
   },
 ];
 
@@ -55,8 +50,8 @@ export function HomePage() {
             Explainable AI-based kidney stone detection and risk prediction system
           </h1>
           <p className="mt-4 text-slate-300">
-            This front-end consumes the FastAPI backend endpoints for health checks,
-            patient risk scoring, image classification, and full multi-modal assessment.
+            This front-end consumes the FastAPI backend endpoints for health checks, patient risk
+            scoring and independent image classification with transparent explanations.
           </p>
         </div>
       </section>
@@ -67,20 +62,34 @@ export function HomePage() {
       {healthData && modelInfo ? (
         <section className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-slate-850 bg-slate-900/60 p-5">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Server Status</div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Server Status
+            </div>
             <div className="mt-2 text-lg font-bold text-emerald-400">Online</div>
           </div>
           <div className="rounded-2xl border border-slate-850 bg-slate-900/60 p-5">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Device</div>
-            <div className="mt-2 text-lg font-bold text-cyan-400 capitalize">{healthData.hardware.active_device}</div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Device
+            </div>
+            <div className="mt-2 text-lg font-bold text-cyan-400 capitalize">
+              {healthData.hardware.active_device}
+            </div>
           </div>
           <div className="rounded-2xl border border-slate-850 bg-slate-900/60 p-5">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">CT ResNet18</div>
-            <div className="mt-2 text-lg font-bold text-white">{modelInfo.dl_resnet18.accuracy * 100}% Accuracy</div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              CT ResNet18
+            </div>
+            <div className="mt-2 text-lg font-bold text-white">
+              {modelInfo.dl_resnet18.accuracy * 100}% Accuracy
+            </div>
           </div>
           <div className="rounded-2xl border border-slate-850 bg-slate-900/60 p-5">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Risk XGBoost</div>
-            <div className="mt-2 text-lg font-bold text-white">{modelInfo.ml_xgboost.validation_accuracy * 100}% Accuracy</div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Risk XGBoost
+            </div>
+            <div className="mt-2 text-lg font-bold text-white">
+              {modelInfo.ml_xgboost.validation_accuracy * 100}% Accuracy
+            </div>
           </div>
         </section>
       ) : null}

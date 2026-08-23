@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 from sklearn.model_selection import StratifiedKFold, GridSearchCV
-from sklearn.metrics import f1_score, roc_auc_score, matthews_corrcoef
+from sklearn.metrics import f1_score, roc_auc_score, matthews_corrcoef, precision_score, recall_score
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "preprocessing"))
 
@@ -104,9 +104,13 @@ class MLRiskTrainer:
         trained_models: Dict[str, Any] = {}
 
         for mname, clf in MODELS.items():
+            if mname == "XGBoost":
+                class_counts = np.bincount(y_train.astype(int))
+                if len(class_counts) == 2 and class_counts[1] > 0:
+                    clf.set_params(scale_pos_weight=class_counts[0] / class_counts[1])
             grid = PARAM_GRIDS[mname]
             logger.info(f"Tuning hyper-parameters for {mname}...")
-            
+
             start_time = time.time()
             grid_search = GridSearchCV(
                 estimator=clf,
@@ -134,8 +138,8 @@ class MLRiskTrainer:
             record = {
                 "Model": mname,
                 "Accuracy": round(acc, 4),
-                "Precision": round(float(np.mean(val_preds == y_val)), 4),  # simple surrogate or compute exact
-                "Recall": round(f1, 4),  # surrogate placeholder for summary table
+                "Precision": round(float(precision_score(y_val, val_preds, zero_division=0)), 4),
+                "Recall": round(float(recall_score(y_val, val_preds, zero_division=0)), 4),
                 "F1": round(f1, 4),
                 "ROC-AUC": round(roc_auc, 4),
                 "MCC": round(mcc, 4),
@@ -198,7 +202,7 @@ class MLRiskTrainer:
         """Plots and saves model comparison bar chart."""
         sns.set_theme(style="whitegrid")
         df_melt = pd.melt(df, id_vars=["Model"], value_vars=["Accuracy", "F1", "ROC-AUC"], var_name="Metric", value_name="Score")
-        
+
         plt.figure(figsize=(8, 5))
         sns.barplot(data=df_melt, x="Model", y="Score", hue="Metric", palette="muted")
         plt.title("Kidney Stone Risk Model Validation Comparison", fontsize=13, fontweight="bold", pad=15)
@@ -254,9 +258,9 @@ class MLRiskTrainer:
 
         report_md = f"""# Phase 5 Report — Model B: Kidney Stone Risk Prediction (ML)
 
-**Model Selected:** {best_mname} (Selected based on combined Validation ROC-AUC, F1, and MCC)  
-**Dataset:** Urine Analysis Dataset  
-**Target Variable:** `target` (0: Low Risk, 1: High Risk)  
+**Model Selected:** {best_mname} (Selected based on combined Validation ROC-AUC, F1, and MCC)
+**Dataset:** Urine Analysis Dataset
+**Target Variable:** `target` (0: Low Risk, 1: High Risk)
 
 ---
 

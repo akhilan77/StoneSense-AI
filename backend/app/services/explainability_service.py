@@ -1,6 +1,6 @@
-"""Unified Explainability Service to interface with CT Classification (Grad-CAM) and ML Risk (SHAP) models.
+"""Explainability service for CT classification (Grad-CAM) and ML risk (SHAP).
 
-Calculates visual saliency maps and tabular feature importances for combined patient assessments.
+Calculates visual saliency maps and tabular feature importances for independent model outputs.
 """
 
 import sys
@@ -31,12 +31,59 @@ import pandas as pd
 logger = logging.getLogger("ExplainabilityService")
 
 
+def generate_shap_for_patient(patient_features: Dict[str, Any]) -> Dict[str, Any]:
+    """Return local SHAP values using the models already loaded for inference."""
+    from app.services.model_loader import model_loader
+    from app.utils.preprocessing_utils import prepare_tabular_inputs
+
+    if model_loader.ml_model is None or model_loader.ml_pipeline is None:
+        raise RuntimeError("ML model or preprocessing pipeline is not loaded.")
+    frame = prepare_tabular_inputs(patient_features)
+    transformed = model_loader.ml_pipeline.transform(frame)
+    columns = ["gravity", "ph", "osmo", "cond", "urea", "calc"]
+    explanation = shap.TreeExplainer(model_loader.ml_model)(pd.DataFrame(transformed, columns=columns))[0]
+    contributions = {name: float(value) for name, value in zip(columns, explanation.values)}
+    return {
+        "top_features": sorted(contributions, key=lambda name: abs(contributions[name]), reverse=True),
+        "feature_contributions": contributions,
+        "feature_directions": {
+            name: "increases" if value > 0 else "decreases" if value < 0 else "neutral"
+            for name, value in contributions.items()
+        },
+        "summary": "The strongest SHAP contributors influenced the model output for this request; they do not establish causation.",
+    }
+
+
+def generate_gradcam_for_bytes(image_bytes: bytes, output_path: str) -> Dict[str, str]:
+    """Generate and save a Grad-CAM overlay for an uploaded image."""
+    from app.services.model_loader import model_loader
+    from app.utils.image_utils import preprocess_ct_image
+    import io
+    import cv2
+    from pytorch_grad_cam import GradCAM
+    from pytorch_grad_cam.utils.image import show_cam_on_image
+
+    if model_loader.dl_model is None:
+        raise RuntimeError("DL model is not loaded.")
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    transform = get_val_test_transforms(image_size=(224, 224))
+    tensor = preprocess_ct_image(image_bytes, transform).to(model_loader.device)
+    resized = np.asarray(image.resize((224, 224)), dtype=np.float32) / 255.0
+    cam = GradCAM(model=model_loader.dl_model, target_layers=[model_loader.dl_model.layer4[-1]])
+    grayscale = cam(input_tensor=tensor, targets=None)[0]
+    overlay = show_cam_on_image(resized, grayscale, use_rgb=True)
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(output), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
+    return {"overlay_path": str(output)}
+
+
 class ExplainabilityService:
     """Unified explainability manager exposing Grad-CAM and SHAP interface wrappers."""
 
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
         # Load DL ResNet18 model
         dl_model_path = PROJECT_ROOT / "dl" / "models" / "kidney_resnet18.pth"
         if dl_model_path.exists():
@@ -65,11 +112,11 @@ class ExplainabilityService:
 
     def generate_gradcam(self, image_path: str, output_path: Optional[str] = None) -> Dict[str, Any]:
         """Generates Grad-CAM activation heatmap overlay.
-        
+
         Args:
             image_path: Absolute or relative file path to the input CT scan.
             output_path: Optional file path to save the generated overlay.
-            
+
         Returns:
             Dict: Classification prediction, confidence score, and saved overlay path.
         """
@@ -106,7 +153,7 @@ class ExplainabilityService:
             out_p.parent.mkdir(parents=True, exist_ok=True)
             # Save overlay image
             import cv2
-            cv2.imwrite(str(out_p), cv2.cvtColor((overlay * 255).astype(np.uint8), cv2.COLOR_RGB2BGR))
+            cv2.imwrite(str(out_p), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
             saved_path = str(out_p)
 
         return {
@@ -117,10 +164,10 @@ class ExplainabilityService:
 
     def generate_shap(self, patient_features: Dict[str, Any]) -> Dict[str, Any]:
         """Calculates SHAP feature contribution attributions for clinical measurements.
-        
+
         Args:
             patient_features: Dict containing gravity, ph, osmo, cond, urea, calc features.
-            
+
         Returns:
             Dict: Predicted risk probability, level classification, and SHAP contributions.
         """
@@ -173,7 +220,7 @@ class ExplainabilityService:
         # Build clinical natural language summary
         ct_pred = gradcam_res.get("prediction", "N/A")
         risk_level = shap_res.get("risk_level", "N/A")
-        
+
         explanation_text = (
             f"CT scan classification identifies kidney condition as '{ct_pred}'. "
             f"Urine biochemistry analysis assesses patient stone risk level as '{risk_level}' "

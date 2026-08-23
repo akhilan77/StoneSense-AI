@@ -30,10 +30,10 @@ class PredictionService:
     @staticmethod
     def predict_ct_image(image_bytes: bytes) -> Dict[str, Any]:
         """Classifies CT scan image using ResNet18 model singleton.
-        
+
         Args:
             image_bytes: Raw binary uploaded image bytes.
-            
+
         Returns:
             Dict: Predicted class and confidence float.
         """
@@ -66,10 +66,10 @@ class PredictionService:
     @staticmethod
     def predict_risk(patient_data: Dict[str, Any]) -> Dict[str, Any]:
         """Calculates risk level probability using pre-loaded XGBoost model.
-        
+
         Args:
             patient_data: Dict containing patient demographics/clinical parameters.
-            
+
         Returns:
             Dict: Probability score and risk category label.
         """
@@ -93,7 +93,7 @@ class PredictionService:
 
     @staticmethod
     def predict_complete(image_bytes: bytes, patient_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Performs multi-modal prediction running both DL and ML models."""
+        """Runs both independent model streams without combining their probabilities."""
         ct_res = PredictionService.predict_ct_image(image_bytes)
         risk_res = PredictionService.predict_risk(patient_data)
         return {

@@ -8,14 +8,14 @@
 
 ## 1. End-to-End Workflow Status
 
-| Test ID | Workflow | Input Scenario | Expected Output | Status |
-| --- | --- | --- | --- | --- |
-| VAL-01 | Server Health check | `GET /api/v1/health` | HTTP 200, models loaded is `true` | ✅ PASS |
-| VAL-02 | Model Info query | `GET /api/v1/models` | HTTP 200, specifications match | ✅ PASS |
-| VAL-03 | Tabular Risk prediction | Balanced Patient Profile | Low/High risk prediction probability | ✅ PASS |
-| VAL-04 | CT Image classification | Valid grayscale CT slice | Target labels (Normal/Cyst/Stone/Tumor) | ✅ PASS |
-| VAL-05 | Combined Assessment | Form patient profile + CT file | Aggregated recommendation, SHAP, and Grad-CAM paths | ✅ PASS |
-| VAL-06 | Client compile check | `npm run build` | Succeeded with 0 errors | ✅ PASS |
+| Test ID | Workflow                | Input Scenario                               | Expected Output                                              | Status  |
+| ------- | ----------------------- | -------------------------------------------- | ------------------------------------------------------------ | ------- |
+| VAL-01  | Server Health check     | `GET /api/v1/health`                         | HTTP 200, models loaded is `true`                            | ✅ PASS |
+| VAL-02  | Model Info query        | `GET /api/v1/models`                         | HTTP 200, specifications match                               | ✅ PASS |
+| VAL-03  | Tabular Risk prediction | Balanced Patient Profile                     | Low/High risk prediction probability                         | ✅ PASS |
+| VAL-04  | CT Image classification | Valid grayscale CT slice                     | Target labels (Normal/Cyst/Stone/Tumor)                      | ✅ PASS |
+| VAL-05  | Trustworthy Assessment  | Optional clinical profile + optional CT file | Separate evidence, SHAP, Grad-CAM URL, and rule-based status | ✅ PASS |
+| VAL-06  | Client compile check    | `npm run build`                              | Succeeded with 0 errors                                      | ✅ PASS |
 
 ---
 

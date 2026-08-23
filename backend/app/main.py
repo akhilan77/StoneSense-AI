@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
-from app.api.v1.routes.assessment_router import router as assessment_router
 from app.api.v1.routes.health_router import router as health_router
 from app.api.v1.routes.predict_router import router as predict_router
 from app.api.v1.routes.root_router import router as root_router
@@ -51,8 +52,10 @@ def create_app() -> FastAPI:
     application.include_router(root_router)
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(predict_router, prefix="/api/v1")
-    application.include_router(assessment_router, prefix="/api/v1")
     application.include_router(model_router, prefix="/api/v1")
+    static_dir = Path(__file__).resolve().parent / "static"
+    static_dir.mkdir(parents=True, exist_ok=True)
+    application.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     return application
 

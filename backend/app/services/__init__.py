@@ -5,7 +5,6 @@
     implementation-specific details.
 """
 
-from app.services.assessment_service import AssessmentService
 from app.services.prediction_service import PredictionService
 
-__all__ = ["AssessmentService", "PredictionService"]
+__all__ = ["PredictionService"]

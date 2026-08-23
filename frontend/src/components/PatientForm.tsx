@@ -19,6 +19,9 @@ const initialPatient: Patient = {
   calcium: 24,
   uric_acid: 6.5,
   creatinine: 0.9,
+  osmolality: 550,
+  conductivity: 22,
+  urea: 250,
 };
 
 const fieldClassName =
@@ -34,7 +37,7 @@ export function PatientForm() {
     () => [
       { label: 'Probability', value: `${((prediction?.probability ?? 0) * 100).toFixed(0)}%` },
       { label: 'Risk Level', value: prediction?.risk_level ?? '—' },
-      { label: 'Confidence', value: `${((prediction?.confidence ?? 0) * 100).toFixed(0)}%` },
+      { label: 'Model', value: 'XGBoost' },
     ],
     [prediction]
   );
@@ -71,7 +74,7 @@ export function PatientForm() {
       >
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-white">Patient Information</h2>
+            <h2 className="text-xl font-semibold text-white">Clinical Input</h2>
             <p className="text-sm text-slate-400">
               Complete the biomarker profile to request a risk assessment.
             </p>
@@ -211,6 +214,36 @@ export function PatientForm() {
               onChange={(event) => handleChange('creatinine', Number(event.target.value))}
             />
           </label>
+          <label className="text-sm text-slate-300">
+            Osmolality
+            <input
+              type="number"
+              step="0.1"
+              className={fieldClassName}
+              value={patient.osmolality}
+              onChange={(event) => handleChange('osmolality', Number(event.target.value))}
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            Conductivity
+            <input
+              type="number"
+              step="0.1"
+              className={fieldClassName}
+              value={patient.conductivity}
+              onChange={(event) => handleChange('conductivity', Number(event.target.value))}
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            Urea
+            <input
+              type="number"
+              step="0.1"
+              className={fieldClassName}
+              value={patient.urea}
+              onChange={(event) => handleChange('urea', Number(event.target.value))}
+            />
+          </label>
         </div>
 
         {isLoading ? (
@@ -227,7 +260,47 @@ export function PatientForm() {
 
       <div className="space-y-4">
         {prediction ? (
-          <PredictionCard title="Prediction Output" data={predictionData} />
+          <div className="space-y-4">
+            <PredictionCard title="Clinical Risk Assessment" data={predictionData} />
+            <section className="rounded-3xl border border-emerald-400/30 bg-slate-900/70 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">
+                Clinical Evidence
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-white">Trustworthy Assessment</h2>
+              <h3 className="mt-4 text-sm font-semibold text-white">Key contributing factors</h3>
+              <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-slate-300">
+                {prediction.shap?.top_features.slice(0, 4).map((feature) => (
+                  <li key={feature}>
+                    {feature}
+                    <span className="ml-2 text-slate-400">
+                      {prediction.shap?.feature_directions[feature]} the model output
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-4 text-sm text-slate-400">
+                {prediction.shap?.summary ?? 'SHAP explanations are unavailable for this response.'}
+              </p>
+              <div className="mt-5 grid gap-3 border-t border-slate-800 pt-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs text-slate-500">Model</p>
+                  <p className="font-semibold text-white">XGBoost</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Explainability</p>
+                  <p className="font-semibold text-white">SHAP</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Input</p>
+                  <p className="font-semibold text-white">Clinical / Tabular Data</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Assessment type</p>
+                  <p className="font-semibold text-white">Clinical Risk Assessment</p>
+                </div>
+              </div>
+            </section>
+          </div>
         ) : (
           <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400">
             Submit a patient profile to receive a risk prediction response.

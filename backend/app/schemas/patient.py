@@ -25,3 +25,6 @@ class PatientInformation(BaseModel):
     calcium: float = Field(..., ge=0.0, description="Urinary calcium concentration.")
     uric_acid: float = Field(..., ge=0.0, description="Uric acid concentration.")
     creatinine: float = Field(..., ge=0.0, description="Serum creatinine concentration.")
+    osmolality: float = Field(default=0.0, ge=0.0, description="Urine osmolality used by the tabular model.")
+    conductivity: float = Field(default=0.0, ge=0.0, description="Urine conductivity used by the tabular model.")
+    urea: float = Field(default=0.0, ge=0.0, description="Urine urea used by the tabular model.")

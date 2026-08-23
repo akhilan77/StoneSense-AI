@@ -1,6 +1,6 @@
 # StoneSense-AI
 
-StoneSense-AI is a state-of-the-art, production-ready Explainable AI (XAI) clinical platform designed for multi-modal kidney stone detection and risk prediction. The system combines deep learning vision classifiers trained on CT scan slices with machine learning models trained on urine biochemistry biomarkers, providing interpretable visual and tabular attributions to assist clinicians.
+StoneSense-AI is an Explainable AI (XAI) decision-support platform for kidney-stone assessment. It independently analyzes structured urine biomarkers with XGBoost and CT scan slices with ResNet18, providing SHAP and Grad-CAM explanations for each evidence stream.
 
 The project features a high-performance **FastAPI backend**, a modern **React (Vite + TypeScript + Tailwind CSS)** web dashboard, and automated machine learning and deep learning pipelines. By leveraging **Grad-CAM** for spatial CT slice heatmaps and **SHAP** for local biomarker contribution scoring, StoneSense-AI bridges the gap between complex AI predictions and trustworthy clinical decision support.
 
@@ -41,11 +41,11 @@ flowchart TD
 - **Explainable AI (XAI)**: Dual-layer interpretability engine combining visual and feature-level attributions.
 - **Grad-CAM Visualization**: Class-activation heatmap generation highlighting focal renal regions on CT slices.
 - **SHAP Feature Importance**: Local and global TreeSHAP waterfall and summary plots detailing urine biomarker risk factors.
-- **REST APIs**: Fast, typed FastAPI endpoints for health readiness, model metadata, risk prediction, image detection, and multi-modal assessment.
+- **REST APIs**: Fast, typed FastAPI endpoints for health readiness, model metadata, clinical risk prediction, and CT image assessment.
 - **React Dashboard**: Modern dark-themed UI built with Vite, TypeScript, and Tailwind CSS.
 - **Health Monitoring & Model Metadata**: Real-time system hardware status (CUDA/CPU) and model accuracy indicators.
 - **Swagger Documentation**: Self-documenting OpenAPI specifications accessible at `/docs` and `/redoc`.
-- **End-to-End Diagnostic Assessment**: Unified assessment endpoint combining CT image analysis, risk prediction, SHAP attributions, and AI clinical recommendations.
+- **Trustworthy Assessment**: Presents independent clinical-risk and imaging evidence together with transparent, rule-based evidence agreement and decision support.
 
 ---
 
@@ -69,7 +69,7 @@ flowchart TD
 StoneSense-AI/
 ├── backend/                  # FastAPI REST API Backend
 │   ├── app/                  # Application core, routes, schemas, services
-│   │   ├── api/v1/routes/    # API endpoints (health, predict, assessment, models)
+│   │   ├── api/v1/routes/    # API endpoints (health, predict, models)
 │   │   ├── core/             # Configuration & environment setup
 │   │   ├── schemas/          # Pydantic request & response data contracts
 │   │   ├── services/         # Business logic and model loading orchestrators
@@ -81,7 +81,7 @@ StoneSense-AI/
 │   ├── src/
 │   │   ├── components/       # Reusable UI components (PatientForm, ImageUpload, etc.)
 │   │   ├── layouts/          # Page layouts & navigation header
-│   │   ├── pages/            # View pages (Home, Risk, Detection, Assessment)
+│   │   ├── pages/            # View pages (Home, Risk, Detection)
 │   │   ├── services/         # Axios API client layer
 │   │   ├── types/            # TypeScript data model contracts
 │   │   ├── main.tsx          # React application root entrypoint
@@ -291,14 +291,13 @@ FastAPI automatically generates interactive OpenAPI documentation at `http://127
 
 ### Key Endpoints
 
-| Method | Endpoint                | Description                                | Request Payload                 | Response Payload                                                   |
-| :----- | :---------------------- | :----------------------------------------- | :------------------------------ | :----------------------------------------------------------------- |
-| `GET`  | `/`                     | Service root identity check                | None                            | `{"message": "Welcome to StoneSense AI API"}`                      |
-| `GET`  | `/api/v1/health`        | Hardware & system readiness status         | None                            | `HealthResponse` (status, device, models loaded)                   |
-| `GET`  | `/api/v1/models`        | Active model metadata & validation metrics | None                            | `ModelInfoResponse` (accuracies, features, layers)                 |
-| `POST` | `/api/v1/predict/risk`  | Tabular urine biomarker risk scoring       | `PatientInformation` (JSON)     | `RiskPrediction` (probability, risk_level, confidence)             |
-| `POST` | `/api/v1/predict/image` | CT scan slice image classification         | `image` (Multipart Form)        | `StoneDetection` (class_name, confidence, latency)                 |
-| `POST` | `/api/v1/assessment`    | Multi-modal composite diagnostic report    | `patient_data` + `image` (Form) | `AssessmentResponse` (predictions, SHAP, Grad-CAM, recommendation) |
+| Method | Endpoint                | Description                                | Request Payload             | Response Payload                                       |
+| :----- | :---------------------- | :----------------------------------------- | :-------------------------- | :----------------------------------------------------- |
+| `GET`  | `/`                     | Service root identity check                | None                        | `{"message": "Welcome to StoneSense AI API"}`          |
+| `GET`  | `/api/v1/health`        | Hardware & system readiness status         | None                        | `HealthResponse` (status, device, models loaded)       |
+| `GET`  | `/api/v1/models`        | Active model metadata & validation metrics | None                        | `ModelInfoResponse` (accuracies, features, layers)     |
+| `POST` | `/api/v1/predict/risk`  | Tabular urine biomarker risk scoring       | `PatientInformation` (JSON) | `RiskPrediction` (probability, risk_level, confidence) |
+| `POST` | `/api/v1/predict/image` | CT scan slice image classification         | `image` (Multipart Form)    | `StoneDetection` (class_name, confidence, latency)     |
 
 ---
 
@@ -339,7 +338,15 @@ StoneSense-AI implements dual-layer interpretability to eliminate "black-box" pr
 - **Home (`/`)**: System dashboard displaying real-time server health, active hardware (CUDA/CPU), model accuracy stats, and feature cards.
 - **Risk Prediction (`/risk-prediction`)**: Interactive patient biomarker input form that submits measurements and displays predicted stone risk probability.
 - **Stone Detection (`/stone-detection`)**: Medical image upload portal for evaluating CT scan slices with instant classification feedback.
-- **Assessment (`/assessment`)**: Comprehensive diagnostic workflow combining image uploads, urine parameter inputs, ResNet18 classification, XGBoost risk predictions, SHAP attributions, and generated clinical recommendations.
+- **Risk Prediction (`/risk-prediction`)**: Provides the complete clinical feature form, XGBoost risk probability, SHAP contribution directions, and clinical model transparency.
+- **Stone Detection (`/stone-detection`)**: Provides CT image validation, ResNet18 classification, visible Grad-CAM output, and imaging model transparency.
+
+### Methodology and dataset limitation
+
+StoneSense AI independently analyzes clinical/tabular information with XGBoost and CT images with ResNet18. SHAP and Grad-CAM explain the respective model outputs. The evidence summary is a transparent rule-based comparison; it does not average probabilities or represent a new fused model.
+
+The current clinical and CT datasets were independently sourced and are not patient-level paired. The models were not trained or validated together, and the application must not be interpreted as providing a clinical diagnosis. Future work could use a patient-level paired dataset for true multimodal fusion and joint validation.
+
 - **404 Not Found (`/404`)**: Custom error page providing smooth navigation back to the application dashboard.
 
 ---

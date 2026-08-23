@@ -1,6 +1,7 @@
 # StoneSense-AI Frontend Repair Report
 
 ## Executive Summary
+
 A comprehensive audit and root-cause analysis was conducted on `StoneSense-AI/frontend`. Multiple structural, dependency, configuration, and type-system issues were diagnosed and repaired. The frontend now compiles cleanly (`npx tsc --noEmit` exits with status 0), builds successfully (`npm run build`), and mounts/renders as expected in React.
 
 ---
@@ -23,6 +24,7 @@ A comprehensive audit and root-cause analysis was conducted on `StoneSense-AI/fr
 ## 2. Summary of Changes
 
 ### Files Modified & Created
+
 - `frontend/package.json`: Updated dependencies to stable React 18, React Router v6, Tailwind v3, and Vite 5 stack.
 - `frontend/vite.config.ts`: Cleaned up Vite plugin imports.
 - `frontend/src/main.tsx`: Set up full React mounting (`ReactDOM.createRoot`) with `<BrowserRouter>` and `<App />`.
@@ -30,11 +32,12 @@ A comprehensive audit and root-cause analysis was conducted on `StoneSense-AI/fr
 - `frontend/src/types/stoneDetection.ts`: Synced model fields (`class_name`, `confidence`, `inference_time_sec`).
 - `frontend/src/types/riskPrediction.ts`: Synced model fields (`probability`, `risk_level`, `confidence`, `inference_time_sec`).
 - `frontend/src/components/PatientForm.tsx`: Fixed event handler signature (`number | string | boolean`).
-- `frontend/src/vite-env.d.ts` *(NEW)*: Added ambient Vite client type references.
-- `frontend/tailwind.config.js` *(NEW)*: Created standard Tailwind CSS configuration.
-- `frontend/postcss.config.js` *(NEW)*: Created PostCSS plugin configuration for Tailwind.
+- `frontend/src/vite-env.d.ts` _(NEW)_: Added ambient Vite client type references.
+- `frontend/tailwind.config.js` _(NEW)_: Created standard Tailwind CSS configuration.
+- `frontend/postcss.config.js` _(NEW)_: Created PostCSS plugin configuration for Tailwind.
 
 ### Obsolete Files Removed
+
 - `frontend/vite.config.js`: Deleted duplicate JS configuration file.
 
 ---
@@ -46,7 +49,7 @@ A comprehensive audit and root-cause analysis was conducted on `StoneSense-AI/fr
 - `npm run build`: Successfully generated production dist bundle (`dist/index.html`, `dist/assets/index-B8smpAWG.css`, `dist/assets/index-CpKCZ3yD.js`).
 - **Runtime Verification**:
   - React mounted successfully without blank screens.
-  - All routes (`/`, `/risk-prediction`, `/stone-detection`, `/assessment`) rendered without console errors.
+  - The active routes are `/`, `/risk-prediction`, and `/stone-detection`; the standalone assessment route has been removed.
 
 ---
 

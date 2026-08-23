@@ -11,4 +11,7 @@ export interface Patient {
   calcium: number;
   uric_acid: number;
   creatinine: number;
+  osmolality: number;
+  conductivity: number;
+  urea: number;
 }

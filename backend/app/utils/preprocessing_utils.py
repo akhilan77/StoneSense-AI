@@ -10,19 +10,21 @@ logger = logging.getLogger("PreprocessingUtils")
 
 def prepare_tabular_inputs(patient_data: Dict[str, Any]) -> pd.DataFrame:
     """Standardizes dictionary keys to match expected ML pipeline training headers.
-    
+
     Args:
         patient_data: Dict containing raw patient parameters.
-        
+
     Returns:
         pd.DataFrame: Formatted DataFrame ready for ColumnTransformer pipeline.
     """
     feature_mapping = {
         "urine_specific_gravity": "gravity",
         "urine_ph": "ph",
-        "calcium": "calc"
+        "calcium": "calc",
+        "osmolality": "osmo",
+        "conductivity": "cond",
     }
-    
+
     mapped_features = {}
     for k, v in patient_data.items():
         mapped_key = feature_mapping.get(k, k)

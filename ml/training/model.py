@@ -10,8 +10,8 @@ from xgboost import XGBClassifier
 
 # Models dictionary
 MODELS: Dict[str, Any] = {
-    "LogisticRegression": LogisticRegression(max_iter=1000, random_state=42),
-    "RandomForest": RandomForestClassifier(random_state=42),
+    "LogisticRegression": LogisticRegression(max_iter=1000, random_state=42, class_weight="balanced"),
+    "RandomForest": RandomForestClassifier(random_state=42, class_weight="balanced"),
     "XGBoost": XGBClassifier(use_label_encoder=False, eval_metric="logloss", random_state=42)
 }
 

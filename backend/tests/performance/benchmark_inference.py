@@ -15,7 +15,6 @@ sys.path.append(str(PROJECT_ROOT / "app"))
 
 from app.services.model_loader import model_loader
 from app.services.prediction_service import PredictionService
-from app.services.assessment_service import AssessmentService
 
 
 def benchmark_all():
@@ -51,23 +50,14 @@ def benchmark_all():
         _ = PredictionService.predict_risk(dummy_patient)
         risk_times.append(time.time() - t0)
 
-    # 3. Combined assessment latency
-    assess_times = []
-    for _ in range(10):
-        t0 = time.time()
-        _ = AssessmentService.build_assessment(patient_data=dummy_patient)
-        assess_times.append(time.time() - t0)
-
     avg_ct = np.mean(ct_times) * 1000
     avg_risk = np.mean(risk_times) * 1000
-    avg_assess = np.mean(assess_times) * 1000
 
     report_md = f"""# Performance Benchmarking Report
 
 - **Hardware Platform:** CPU Fallback ({model_loader.device})
 - **ResNet18 CT image classification average latency:** `{avg_ct:.2f} ms`
 - **XGBoost urine chemistry risk assessment average latency:** `{avg_risk:.2f} ms`
-- **Orchestrated assessment average latency:** `{avg_assess:.2f} ms`
 
 ---
 

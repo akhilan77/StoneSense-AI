@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+export { API_BASE_URL };
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -47,37 +48,23 @@ export interface RiskPrediction {
   risk_level: 'Low' | 'High';
   confidence: number;
   inference_time_sec: number;
+  shap?: ShapExplanation;
 }
 
 export interface StoneDetection {
   class_name: string;
   confidence: number;
   inference_time_sec: number;
+  gradcam?: {
+    overlay_url: string;
+  };
 }
 
 export interface ShapExplanation {
   top_features: string[];
   feature_contributions: Record<string, number>;
-}
-
-export interface AssessmentResponse {
-  risk_prediction: {
-    probability: number;
-    risk_level: 'Low' | 'High';
-    confidence: number;
-    inference_time_sec: number;
-  };
-  ct_prediction?: {
-    class_name: string;
-    confidence: number;
-    inference_time_sec: number;
-  };
-  gradcam?: {
-    overlay_path: string;
-  };
-  shap?: ShapExplanation;
-  recommendation: string;
-  processing_time_sec: number;
+  feature_directions: Record<string, 'increases' | 'decreases' | 'neutral'>;
+  summary: string;
 }
 
 export async function health(): Promise<HealthResponse> {
@@ -85,22 +72,13 @@ export async function health(): Promise<HealthResponse> {
   return response.data;
 }
 
-export async function predictRisk(payload: any): Promise<RiskPrediction> {
+export async function predictRisk(payload: unknown): Promise<RiskPrediction> {
   const response = await api.post<RiskPrediction>('/api/v1/predict/risk', payload);
   return response.data;
 }
 
 export async function predictImage(formData: FormData): Promise<StoneDetection> {
   const response = await api.post<StoneDetection>('/api/v1/predict/image', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return response.data;
-}
-
-export async function assess(formData: FormData): Promise<AssessmentResponse> {
-  const response = await api.post<AssessmentResponse>('/api/v1/assessment', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

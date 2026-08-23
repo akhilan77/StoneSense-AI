@@ -6,7 +6,6 @@ const navItems = [
   { to: '/', label: 'Home' },
   { to: '/risk-prediction', label: 'Risk Prediction' },
   { to: '/stone-detection', label: 'Stone Detection' },
-  { to: '/assessment', label: 'Assessment' },
 ];
 
 export function Navbar() {

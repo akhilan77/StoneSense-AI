@@ -8,6 +8,7 @@ Saves:
 """
 
 import sys
+import random
 from pathlib import Path
 import json
 import logging
@@ -46,6 +47,11 @@ def run_phase_4a_training(
     models_dir = Path(models_dir)
     models_dir.mkdir(parents=True, exist_ok=True)
 
+    random.seed(42)
+    torch.manual_seed(42)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(42)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Phase 4A Training initialized. Using device: {device}")
 
@@ -70,7 +76,10 @@ def run_phase_4a_training(
     model = build_resnet18_classifier(num_classes=len(class_names), freeze_backbone=True, unfreeze_layer4=True)
     model.to(device)
 
-    criterion = nn.CrossEntropyLoss()
+    train_targets = [target for _, target in train_loader.dataset.samples]
+    class_counts = torch.bincount(torch.tensor(train_targets), minlength=len(class_names)).float()
+    class_weights = class_counts.sum() / (len(class_names) * class_counts.clamp_min(1))
+    criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
     scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=2)
 
