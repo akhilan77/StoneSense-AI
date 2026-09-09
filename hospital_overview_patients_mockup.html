@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>StoneSense-AI — Hospital Patient Overview Mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #101B16;
+    --paper: #F3F6F1;
+    --teal: #1F6F5C;
+    --teal-dark: #175848;
+    --teal-light: rgba(31, 111, 92, 0.12);
+    --amber: #C97A2B;
+    --amber-light: rgba(201, 122, 43, 0.14);
+    --indigo: #3B3F8C;
+    --indigo-light: rgba(59, 63, 140, 0.08);
+    --line: #DDE3DC;
+    --line-subtle: rgba(221, 227, 220, 0.7);
+    --white: #FFFFFF;
+    --red: #B3261E;
+    --red-bg: rgba(179, 38, 30, 0.08);
+    --sidebar-bg: #101B16;
+    --sidebar-text: #F3F6F1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .brand-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 500;
+  }
+
+  .app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+  }
+
+  /* LEFT VERTICAL SIDEBAR (Fixed and persistent across all hospital pages) */
+  .sidebar {
+    width: 232px;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    height: 100vh;
+  }
+
+  .sidebar-header {
+    padding: 24px 20px 16px;
+  }
+
+  .brand-title {
+    font-size: 20px;
+    color: #FFFFFF;
+    letter-spacing: -0.01em;
+  }
+
+  .brand-subtitle {
+    font-size: 12px;
+    color: rgba(243, 246, 241, 0.5);
+    margin-top: 2px;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    color: rgba(243, 246, 241, 0.72);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .nav-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #FFFFFF;
+  }
+
+  .nav-item.active {
+    background: rgba(31, 111, 92, 0.28);
+    color: #FFFFFF;
+    font-weight: 500;
+    border: 1px solid rgba(31, 111, 92, 0.4);
+  }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: rgba(243, 246, 241, 0.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* MAIN CONTENT AREA */
+  .main-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--paper);
+  }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 36px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+  }
+
+  .topbar-titles h1 {
+    font-size: 26px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .topbar-titles p {
+    font-size: 13.5px;
+    color: rgba(16, 27, 22, 0.6);
+    margin-top: 4px;
+  }
+
+  .topbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hospital-select {
+    border: 1px solid var(--line);
+    background: var(--white);
+    border-radius: 7px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: rgba(16, 27, 22, 0.85);
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    outline: none;
+  }
+
+  .btn-outline {
+    border: 1px solid var(--line);
+    background: var(--white);
+    border-radius: 7px;
+    padding: 8px 16px;
+    font-size: 13px;
+    color: rgba(16, 27, 22, 0.8);
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    transition: all 0.15s ease;
+  }
+
+  .btn-outline:hover {
+    background: rgba(0,0,0,0.03);
+  }
+
+  /* CONTENT AREA */
+  .content-body {
+    padding: 24px 36px 40px;
+  }
+
+  /* TOOLBAR */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .search-box {
+    position: relative;
+    width: 320px;
+  }
+
+  .search-box svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    color: rgba(16, 27, 22, 0.45);
+  }
+
+  .search-box input {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 12px 9px 36px;
+    font-size: 13.5px;
+    font-family: inherit;
+    background: var(--white);
+    color: var(--ink);
+    outline: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    transition: border-color 0.15s ease;
+  }
+
+  .search-box input:focus {
+    border-color: var(--teal);
+  }
+
+  .btn-primary {
+    background: var(--teal);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(31, 111, 92, 0.2);
+    transition: background 0.15s ease;
+  }
+
+  .btn-primary:hover {
+    background: var(--teal-dark);
+  }
+
+  /* PATIENT TABLE CARD */
+  .table-card {
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-x: auto;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+  }
+
+  table.patient-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+    min-width: 950px;
+  }
+
+  table.patient-table thead th {
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(16, 27, 22, 0.5);
+    background: #F7F9F6;
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  table.patient-table tbody td {
+    padding: 14px 14px;
+    border-bottom: 1px solid var(--line-subtle);
+    vertical-align: middle;
+  }
+
+  table.patient-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  table.patient-table tbody tr:hover {
+    background: rgba(31, 111, 92, 0.025);
+  }
+
+  .patient-meta .name {
+    font-weight: 500;
+    color: var(--ink);
+    font-size: 13.5px;
+  }
+
+  .patient-meta .id {
+    color: rgba(16, 27, 22, 0.45);
+    font-size: 11.5px;
+    margin-top: 1px;
+  }
+
+  .phone-text { color: rgba(16, 27, 22, 0.85); font-family: monospace; font-size: 12px; }
+  .date-text { color: rgba(16, 27, 22, 0.75); font-size: 12px; white-space: nowrap; }
+
+  /* BADGES */
+  .badge-blood {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--red-bg);
+    color: var(--red);
+  }
+
+  .result-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .chip-amber { background: var(--amber-light); color: #B2651A; }
+  .chip-teal { background: var(--teal-light); color: var(--teal); }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .dot-amber { background: var(--amber); }
+  .dot-teal { background: var(--teal); }
+
+  .scan-btn {
+    background: transparent;
+    border: 1px solid var(--indigo);
+    color: var(--indigo);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+
+  .scan-btn:hover { background: var(--indigo-light); }
+
+  /* DOWNLOAD BUTTONS (SEPARATE COLUMNS) */
+  .btn-download-doc {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #F3F6F1;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn-download-doc:hover {
+    background: #E5EDE3;
+    border-color: #B8C7B4;
+    color: var(--teal);
+  }
+
+  .btn-download-ml {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(31, 111, 92, 0.08);
+    border: 1px solid rgba(31, 111, 92, 0.25);
+    color: var(--teal);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn-download-ml:hover {
+    background: var(--teal);
+    color: #fff;
+  }
+
+  .btn-download-dl {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(201, 122, 43, 0.1);
+    border: 1px solid rgba(201, 122, 43, 0.3);
+    color: #B2651A;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn-download-dl:hover {
+    background: var(--amber);
+    color: #fff;
+  }
+
+  .action-dots {
+    color: rgba(16, 27, 22, 0.4);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .action-dots:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+
+  /* PAGINATION */
+  .table-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    font-size: 12.5px;
+    color: rgba(16, 27, 22, 0.55);
+    border-top: 1px solid var(--line);
+    background: var(--white);
+  }
+
+  .page-numbers { display: flex; align-items: center; gap: 4px; }
+  .page-num {
+    padding: 3px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    color: rgba(16, 27, 22, 0.75);
+    transition: all 0.12s;
+  }
+  .page-num:hover:not(.ellipsis) { background: rgba(0,0,0,0.05); }
+  .page-num.active { background: var(--ink); color: var(--white); font-weight: 600; }
+
+  /* MODAL */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 27, 22, 0.48);
+    backdrop-filter: blur(2px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-box {
+    background: var(--white);
+    border-radius: 14px;
+    width: 580px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 30px 32px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+    animation: modalPop 0.2s ease-out;
+  }
+  @keyframes modalPop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+  .modal-box h2 { font-size: 22px; color: var(--ink); letter-spacing: -0.01em; }
+  .modal-box p.modal-subtitle { font-size: 13px; line-height: 1.4; color: rgba(16, 27, 22, 0.6); margin: 4px 0 22px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid .col-span-2 { grid-column: span 2; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 12.5px; font-weight: 500; color: rgba(16, 27, 22, 0.65); }
+  .form-group input, .form-group select {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: var(--white);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--teal); }
+
+  /* DROPZONE */
+  .upload-dropzone {
+    border: 1.5px dashed #C2CCC0;
+    border-radius: 9px;
+    background: #F9FAF8;
+    padding: 16px 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .upload-dropzone:hover { border-color: var(--teal); background: rgba(31, 111, 92, 0.04); }
+  .upload-icon { width: 28px; height: 28px; color: var(--teal); }
+  .upload-dropzone p.main-text { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .upload-dropzone p.sub-text { font-size: 11.5px; color: rgba(16, 27, 22, 0.5); }
+  .uploaded-file-tag {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    background: #EDF3ED;
+    border: 1px solid #D2E0D1;
+    border-radius: 6px;
+    padding: 7px 12px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .uploaded-file-tag.active { display: flex; }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .btn-cancel {
+    background: none;
+    border: none;
+    color: rgba(16, 27, 22, 0.6);
+    font-size: 13.5px;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 8px 14px;
+  }
+
+  /* TOAST */
+  .scan-dialog {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #101B16;
+    color: #fff;
+    padding: 14px 20px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    z-index: 200;
+    font-size: 13.5px;
+    align-items: center;
+    gap: 12px;
+  }
+  .scan-dialog.show { display: flex; animation: toastSlide 0.25s ease-out; }
+  @keyframes toastSlide { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- PERSISTENT LEFT VERTICAL SIDEBAR FOR HOSPITAL CONSOLE -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-header">
+        <h2 class="brand-title">StoneSense</h2>
+        <div class="brand-subtitle">Hospital console</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active" onclick="switchNav('overview', this)">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3z"/></svg>
+          Overview
+        </a>
+        <a class="nav-item" onclick="switchNav('risk', this)">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>
+          Risk prediction
+        </a>
+        <a class="nav-item" onclick="switchNav('stone', this)">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zM4.5 7.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5z"/></svg>
+          Stone detection
+        </a>
+      </nav>
+    </div>
+    <div class="sidebar-footer">
+      Evidence-based support only — not a clinical diagnosis.
+    </div>
+  </aside>
+
+  <!-- MAIN WRAPPER -->
+  <div class="main-wrapper">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-titles">
+        <h1>Patient overview</h1>
+        <p>All patients registered at this hospital, with ML & DL assessment status and downloadable reports.</p>
+      </div>
+      <div class="topbar-controls">
+        <select class="hospital-select" id="hospital-selector" onchange="changeHospital(this.value)">
+          <option value="AIIMS Urology Dept.">AIIMS Urology Dept.</option>
+          <option value="Apollo Renal Care">Apollo Renal Care</option>
+          <option value="Fortis Nephrology Wing">Fortis Nephrology Wing</option>
+          <option value="Manipal Nephrology Institute">Manipal Nephrology Institute</option>
+        </select>
+        <button class="btn-outline" onclick="handleLogout()">Log out</button>
+      </div>
+    </header>
+
+    <!-- CONTENT BODY -->
+    <main class="content-body">
+      <!-- TOOLBAR -->
+      <div class="toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Search by name, patient ID, or phone" oninput="filterPatients()" />
+        </div>
+        <button class="btn-primary" onclick="openAddPatientModal()">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+          + Add new patient
+        </button>
+      </div>
+
+      <!-- TABLE CARD WITH SEPARATE SUBMITTED DOCS & SEPARATE ML/DL REPORT DOWNLOAD COLUMNS -->
+      <div class="table-card">
+        <table class="patient-table">
+          <thead>
+            <tr>
+              <th>PATIENT</th>
+              <th>PHONE NUMBER</th>
+              <th>BLOOD</th>
+              <th>ADMITTED</th>
+              <th>LAST INSPECTED</th>
+              <th>ML RISK RESULT</th>
+              <th>DL IMAGING RESULT</th>
+              <th>SUBMITTED DOC</th>
+              <th>ML SCAN REPORT</th>
+              <th>DL SCAN REPORT</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="patientTableBody">
+            <!-- Row 1 -->
+            <tr data-patient-id="PT-2201">
+              <td>
+                <div class="patient-meta">
+                  <div class="name">Ramesh Iyer</div>
+                  <div class="id">PT-2201</div>
+                </div>
+              </td>
+              <td class="phone-text">+91 98400 12345</td>
+              <td><span class="badge-blood">O+</span></td>
+              <td class="date-text">04 Sep 2026</td>
+              <td class="date-text">08 Sep 2026</td>
+              <td>
+                <span class="result-chip chip-amber"><span class="dot dot-amber"></span> Moderate · 71%</span>
+              </td>
+              <td>
+                <span class="result-chip chip-amber"><span class="dot dot-amber"></span> Stone · 94.2%</span>
+              </td>
+              <td>
+                <button class="btn-download-doc" onclick="downloadFile('PT-2201_EHR_Records.pdf', 'Ramesh Iyer Submitted Records')">
+                  📄 EHR (1.4MB)
+                </button>
+              </td>
+              <td>
+                <button class="btn-download-ml" onclick="downloadFile('PT-2201_ML_Risk_Report.pdf', 'Ramesh Iyer ML Risk Report')">
+                  📥 ML Report
+                </button>
+              </td>
+              <td>
+                <button class="btn-download-dl" onclick="downloadFile('PT-2201_DL_CT_Report.pdf', 'Ramesh Iyer DL Imaging Report')">
+                  📥 DL Report
+                </button>
+              </td>
+              <td style="text-align: right;"><span class="action-dots" title="Options" onclick="openPatientActions('PT-2201', 'Ramesh Iyer')">⋯</span></td>
+            </tr>
+
+            <!-- Row 2 -->
+            <tr data-patient-id="PT-2202">
+              <td>
+                <div class="patient-meta">
+                  <div class="name">Priya Nair</div>
+                  <div class="id">PT-2202</div>
+                </div>
+              </td>
+              <td class="phone-text">+91 98450 66210</td>
+              <td><span class="badge-blood">A-</span></td>
+              <td class="date-text">05 Sep 2026</td>
+              <td class="date-text">05 Sep 2026</td>
+              <td>
+                <span class="result-chip chip-teal"><span class="dot dot-teal"></span> Low · 12%</span>
+              </td>
+              <td>
+                <button class="scan-btn" onclick="triggerScan('PT-2202', 'Priya Nair', 'imaging')">Scan now</button>
+              </td>
+              <td>
+                <button class="btn-download-doc" onclick="downloadFile('PT-2202_Urinalysis_Report.pdf', 'Priya Nair Lab Report')">
+                  📄 Lab (0.8MB)
+                </button>
+              </td>
+              <td>
+                <button class="btn-download-ml" onclick="downloadFile('PT-2202_ML_Risk_Report.pdf', 'Priya Nair ML Risk Report')">
+                  📥 ML Report
+                </button>
+              </td>
+              <td>
+                <span style="color: rgba(16,27,22,0.4); font-size: 11px;">Pending scan</span>
+              </td>
+              <td style="text-align: right;"><span class="action-dots" title="Options" onclick="openPatientActions('PT-2202', 'Priya Nair')">⋯</span></td>
+            </tr>
+
+            <!-- Row 3 -->
+            <tr data-patient-id="PT-2203">
+              <td>
+                <div class="patient-meta">
+                  <div class="name">Faizal Ahmed</div>
+                  <div class="id">PT-2203</div>
+                </div>
+              </td>
+              <td class="phone-text">+91 90032 88871</td>
+              <td><span class="badge-blood">B+</span></td>
+              <td class="date-text">06 Sep 2026</td>
+              <td class="date-text">—</td>
+              <td>
+                <button class="scan-btn" onclick="triggerScan('PT-2203', 'Faizal Ahmed', 'risk')">Scan now</button>
+              </td>
+              <td>
+                <button class="scan-btn" onclick="triggerScan('PT-2203', 'Faizal Ahmed', 'imaging')">Scan now</button>
+              </td>
+              <td>
+                <button class="btn-download-doc" onclick="downloadFile('PT-2203_Prescription_History.pdf', 'Faizal Ahmed EHR')">
+                  📄 Doc (0.5MB)
+                </button>
+              </td>
+              <td>
+                <span style="color: rgba(16,27,22,0.4); font-size: 11px;">Pending scan</span>
+              </td>
+              <td>
+                <span style="color: rgba(16,27,22,0.4); font-size: 11px;">Pending scan</span>
+              </td>
+              <td style="text-align: right;"><span class="action-dots" title="Options" onclick="openPatientActions('PT-2203', 'Faizal Ahmed')">⋯</span></td>
+            </tr>
+
+            <!-- Row 4 -->
+            <tr data-patient-id="PT-2190">
+              <td>
+                <div class="patient-meta">
+                  <div class="name">Lakshmi Menon</div>
+                  <div class="id">PT-2190</div>
+                </div>
+              </td>
+              <td class="phone-text">+91 97400 55123</td>
+              <td><span class="badge-blood">AB+</span></td>
+              <td class="date-text">29 Aug 2026</td>
+              <td class="date-text">07 Sep 2026</td>
+              <td>
+                <span class="result-chip chip-teal"><span class="dot dot-teal"></span> Low · 8%</span>
+              </td>
+              <td>
+                <span class="result-chip chip-teal"><span class="dot dot-teal"></span> Normal · 97.4%</span>
+              </td>
+              <td>
+                <button class="btn-download-doc" onclick="downloadFile('PT-2190_Clinical_Summary.pdf', 'Lakshmi Menon Records')">
+                  📄 EHR (2.1MB)
+                </button>
+              </td>
+              <td>
+                <button class="btn-download-ml" onclick="downloadFile('PT-2190_ML_Risk_Report.pdf', 'Lakshmi Menon ML Report')">
+                  📥 ML Report
+                </button>
+              </td>
+              <td>
+                <button class="btn-download-dl" onclick="downloadFile('PT-2190_DL_CT_Report.pdf', 'Lakshmi Menon DL Report')">
+                  📥 DL Report
+                </button>
+              </td>
+              <td style="text-align: right;"><span class="action-dots" title="Options" onclick="openPatientActions('PT-2190', 'Lakshmi Menon')">⋯</span></td>
+            </tr>
+
+            <!-- Row 5 -->
+            <tr data-patient-id="PT-2183">
+              <td>
+                <div class="patient-meta">
+                  <div class="name">Arvind Kumar</div>
+                  <div class="id">PT-2183</div>
+                </div>
+              </td>
+              <td class="phone-text">+91 99400 77812</td>
+              <td><span class="badge-blood">O-</span></td>
+              <td class="date-text">27 Aug 2026</td>
+              <td class="date-text">02 Sep 2026</td>
+              <td>
+                <span class="result-chip chip-amber"><span class="dot dot-amber"></span> High · 89%</span>
+              </td>
+              <td>
+                <button class="scan-btn" onclick="triggerScan('PT-2183', 'Arvind Kumar', 'imaging')">Scan now</button>
+              </td>
+              <td>
+                <button class="btn-download-doc" onclick="downloadFile('PT-2183_CT_Scan_Series.dcm', 'Arvind Kumar DICOM')">
+                  📄 CT (18MB)
+                </button>
+              </td>
+              <td>
+                <button class="btn-download-ml" onclick="downloadFile('PT-2183_ML_Risk_Report.pdf', 'Arvind Kumar ML Report')">
+                  📥 ML Report
+                </button>
+              </td>
+              <td>
+                <span style="color: rgba(16,27,22,0.4); font-size: 11px;">Pending scan</span>
+              </td>
+              <td style="text-align: right;"><span class="action-dots" title="Options" onclick="openPatientActions('PT-2183', 'Arvind Kumar')">⋯</span></td>
+            </tr>
+
+            <!-- Row 6 -->
+            <tr data-patient-id="PT-2204">
+              <td>
+                <div class="patient-meta">
+                  <div class="name">Divya Suresh</div>
+                  <div class="id">PT-2204</div>
+                </div>
+              </td>
+              <td class="phone-text">+91 96000 34410</td>
+              <td><span class="badge-blood">B-</span></td>
+              <td class="date-text">08 Sep 2026</td>
+              <td class="date-text">—</td>
+              <td>
+                <button class="scan-btn" onclick="triggerScan('PT-2204', 'Divya Suresh', 'risk')">Scan now</button>
+              </td>
+              <td>
+                <button class="scan-btn" onclick="triggerScan('PT-2204', 'Divya Suresh', 'imaging')">Scan now</button>
+              </td>
+              <td>
+                <span style="color: rgba(16,27,22,0.4); font-size: 11px;">— No file</span>
+              </td>
+              <td>
+                <span style="color: rgba(16,27,22,0.4); font-size: 11px;">Pending scan</span>
+              </td>
+              <td>
+                <span style="color: rgba(16,27,22,0.4); font-size: 11px;">Pending scan</span>
+              </td>
+              <td style="text-align: right;"><span class="action-dots" title="Options" onclick="openPatientActions('PT-2204', 'Divya Suresh')">⋯</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- PAGINATION -->
+        <div class="table-pagination">
+          <span id="paginationInfo">Showing 6 of 48 patients</span>
+          <div class="page-numbers">
+            <span class="page-num active">1</span>
+            <span class="page-num">2</span>
+            <span class="page-num">3</span>
+            <span class="page-num ellipsis">…</span>
+            <span class="page-num">8</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ADD NEW PATIENT MODAL WITH DOCUMENT UPLOAD OPTION -->
+<div class="modal-backdrop" id="addPatientModal" onclick="closeModalOnBackdrop(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h2>Add new patient</h2>
+    <p class="modal-subtitle">Core identity and contact details. ML/DL scans can be run afterward from the overview table.</p>
+
+    <form id="newPatientForm" onsubmit="handlePatientSubmit(event)">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Full name</label>
+          <input type="text" id="patientNameInput" required placeholder="e.g. Ramesh Iyer" />
+        </div>
+
+        <div class="form-group">
+          <label>Patient ID</label>
+          <input type="text" id="patientIdInput" placeholder="Auto-generated or hospital ref" />
+        </div>
+
+        <div class="form-group">
+          <label>Phone number</label>
+          <input type="text" id="patientPhoneInput" required placeholder="+91 98400 12345" />
+        </div>
+
+        <div class="form-group">
+          <label>Blood group</label>
+          <select id="patientBloodGroup">
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Date of admission</label>
+          <input type="date" id="patientAdmitDate" required />
+        </div>
+
+        <div class="form-group">
+          <label>Date of inspection</label>
+          <input type="date" id="patientInspectDate" />
+        </div>
+
+        <!-- UPLOAD DOCUMENT OPTION -->
+        <div class="form-group col-span-2">
+          <label>Upload Patient Records / Scan Documents (Optional)</label>
+          <div class="upload-dropzone" id="docDropzone" onclick="document.getElementById('patientDocFile').click()">
+            <svg class="upload-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p class="main-text">Click to upload or drag & drop documents</p>
+            <p class="sub-text">EHR summary, CT scan slices, Urinalysis PDF or DICOM (Max 25MB)</p>
+            <input type="file" id="patientDocFile" style="display:none;" accept=".pdf,.png,.jpg,.jpeg,.dcm,.dicom" onchange="handleFileSelected(event)" />
+          </div>
+
+          <div class="uploaded-file-tag" id="uploadedFileTag">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <svg width="16" height="16" fill="var(--teal)" viewBox="0 0 16 16"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/></svg>
+              <span id="uploadedFileName">medical_report.pdf</span>
+              <span style="color: rgba(16,27,22,0.45); font-size: 11px;" id="uploadedFileSize">(1.2 MB)</span>
+            </div>
+            <span style="cursor: pointer; font-weight: bold; color: #B3261E;" onclick="removeUploadedFile(event)">✕</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" onclick="closeAddPatientModal()">Cancel</button>
+        <button type="submit" class="btn-primary">Add patient</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- TOAST ALERT -->
+<div class="scan-dialog" id="toastMessage">
+  <span id="toastText">Scan initiated</span>
+</div>
+
+<script>
+  let patientCounter = 2205;
+  let attachedTempFile = null;
+
+  function switchNav(route, el) {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+    if (route === 'risk') {
+      showToast('Navigating to Clinical Risk prediction module (Left vertical sidebar remains in place)...');
+    } else if (route === 'stone') {
+      showToast('Navigating to CT Stone detection module (Left vertical sidebar remains in place)...');
+    } else {
+      showToast('Patient overview active.');
+    }
+  }
+
+  function changeHospital(name) {
+    showToast(`Switched hospital view to: ${name}`);
+  }
+
+  function handleLogout() {
+    showToast('Logging out of StoneSense Hospital Console...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
+  }
+
+  function openAddPatientModal() {
+    document.getElementById('addPatientModal').classList.add('open');
+    document.getElementById('patientIdInput').value = `PT-${patientCounter}`;
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('patientAdmitDate').value = today;
+  }
+
+  function closeAddPatientModal() {
+    document.getElementById('addPatientModal').classList.remove('open');
+    document.getElementById('newPatientForm').reset();
+    document.getElementById('uploadedFileTag').classList.remove('active');
+    attachedTempFile = null;
+  }
+
+  function closeModalOnBackdrop(e) {
+    closeAddPatientModal();
+  }
+
+  function handleFileSelected(e) {
+    const file = e.target.files[0];
+    if (file) {
+      attachedTempFile = file;
+      document.getElementById('uploadedFileName').textContent = file.name;
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      document.getElementById('uploadedFileSize').textContent = `(${sizeMb} MB)`;
+      document.getElementById('uploadedFileTag').classList.add('active');
+    }
+  }
+
+  function removeUploadedFile(e) {
+    e.stopPropagation();
+    document.getElementById('patientDocFile').value = '';
+    document.getElementById('uploadedFileTag').classList.remove('active');
+    attachedTempFile = null;
+  }
+
+  function handlePatientSubmit(e) {
+    e.preventDefault();
+    const name = document.getElementById('patientNameInput').value;
+    const pid = document.getElementById('patientIdInput').value || `PT-${patientCounter++}`;
+    const phone = document.getElementById('patientPhoneInput').value;
+    const blood = document.getElementById('patientBloodGroup').value;
+    const admit = document.getElementById('patientAdmitDate').value;
+    const inspect = document.getElementById('patientInspectDate').value;
+
+    const formattedAdmit = formatDateString(admit);
+    const formattedInspect = inspect ? formatDateString(inspect) : '—';
+
+    const docName = attachedTempFile ? attachedTempFile.name : `${pid}_EHR_Summary.pdf`;
+
+    const tableBody = document.getElementById('patientTableBody');
+    const newRow = document.createElement('tr');
+    newRow.setAttribute('data-patient-id', pid);
+    newRow.innerHTML = `
+      <td>
+        <div class="patient-meta">
+          <div class="name">${name}</div>
+          <div class="id">${pid}</div>
+        </div>
+      </td>
+      <td class="phone-text">${phone}</td>
+      <td><span class="badge-blood">${blood}</span></td>
+      <td class="date-text">${formattedAdmit}</td>
+      <td class="date-text">${formattedInspect}</td>
+      <td><button class="scan-btn" onclick="triggerScan('${pid}', '${name}', 'risk')">Scan now</button></td>
+      <td><button class="scan-btn" onclick="triggerScan('${pid}', '${name}', 'imaging')">Scan now</button></td>
+      <td>
+        <button class="btn-download-doc" onclick="downloadFile('${docName}', '${name} Submitted Records')">
+          📄 EHR (1.1MB)
+        </button>
+      </td>
+      <td><span style="color: rgba(16,27,22,0.4); font-size: 11px;">Pending scan</span></td>
+      <td><span style="color: rgba(16,27,22,0.4); font-size: 11px;">Pending scan</span></td>
+      <td style="text-align: right;"><span class="action-dots" onclick="openPatientActions('${pid}', '${name}')">⋯</span></td>
+    `;
+    tableBody.insertBefore(newRow, tableBody.firstChild);
+
+    patientCounter++;
+    closeAddPatientModal();
+    showToast(`Patient ${name} (${pid}) added with downloadable records!`);
+  }
+
+  function formatDateString(isoStr) {
+    if (!isoStr) return '—';
+    const d = new Date(isoStr);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  function downloadFile(filename, label) {
+    showToast(`Downloading ${label} (${filename})...`);
+    const element = document.createElement('a');
+    const fileData = `StoneSense AI Clinical Report / Record\nFile: ${filename}\nGenerated: ${new Date().toISOString()}\nVerified Evidence Stream`;
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(fileData));
+    element.setAttribute('download', filename);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  }
+
+  function triggerScan(pid, name, type) {
+    if (type === 'risk') {
+      showToast(`Running XGBoost Biomarker Risk Analysis for ${name} (${pid})...`);
+      setTimeout(() => {
+        const row = document.querySelector(`tr[data-patient-id="${pid}"]`);
+        if (row) {
+          const cells = row.querySelectorAll('td');
+          cells[5].innerHTML = `<span class="result-chip chip-teal"><span class="dot dot-teal"></span> Low · 14%</span>`;
+          cells[4].textContent = 'Today';
+          cells[8].innerHTML = `<button class="btn-download-ml" onclick="downloadFile('${pid}_ML_Risk_Report.pdf', '${name} ML Risk Report')">📥 ML Report</button>`;
+        }
+        showToast(`ML Risk computed: Low (14%) for ${name}. ML Report is now downloadable!`);
+      }, 1000);
+    } else {
+      showToast(`Running ResNet18 CT Imaging Scan for ${name} (${pid})...`);
+      setTimeout(() => {
+        const row = document.querySelector(`tr[data-patient-id="${pid}"]`);
+        if (row) {
+          const cells = row.querySelectorAll('td');
+          cells[6].innerHTML = `<span class="result-chip chip-amber"><span class="dot dot-amber"></span> Stone · 92.5%</span>`;
+          cells[4].textContent = 'Today';
+          cells[9].innerHTML = `<button class="btn-download-dl" onclick="downloadFile('${pid}_DL_CT_Report.pdf', '${name} DL Imaging Report')">📥 DL Report</button>`;
+        }
+        showToast(`DL Imaging Scan computed: Stone Detected (92.5%) for ${name}. DL Report is now downloadable!`);
+      }, 1200);
+    }
+  }
+
+  function openPatientActions(pid, name) {
+    showToast(`Options for ${name} (${pid}): View EHR, Download Full Multi-modal Summary, or Edit details.`);
+  }
+
+  function filterPatients() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#patientTableBody tr');
+    let visible = 0;
+    rows.forEach(r => {
+      const text = r.textContent.toLowerCase();
+      if (text.includes(q)) {
+        r.style.display = '';
+        visible++;
+      } else {
+        r.style.display = 'none';
+      }
+    });
+    document.getElementById('paginationInfo').textContent = `Showing ${visible} of 48 patients`;
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toastMessage');
+    document.getElementById('toastText').textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => {
+      t.classList.remove('show');
+    }, 2800);
+  }
+</script>
+
+</body>
+</html>

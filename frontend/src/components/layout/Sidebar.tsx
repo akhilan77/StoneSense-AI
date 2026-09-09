@@ -1,4 +1,4 @@
-// Drop at: frontend/src/components/layout/Sidebar.tsx
+// frontend/src/components/layout/Sidebar.tsx
 import { NavLink } from "react-router-dom";
 
 interface SidebarProps {
@@ -17,6 +17,7 @@ const developerLinks = [
   { to: "/developer-dashboard/hospitals", label: "Hospital update logs" },
   { to: "/developer-dashboard/monitoring", label: "System monitoring" },
   { to: "/developer-dashboard/drift", label: "Drift analysis" },
+  { to: "/developer-dashboard/enrolled-hospitals", label: "Enrolled hospitals & access" },
 ];
 
 export default function Sidebar({ role }: SidebarProps) {
@@ -36,14 +37,14 @@ export default function Sidebar({ role }: SidebarProps) {
             <NavLink
               key={link.to}
               to={link.to}
-              end
+              end={link.to === "/developer-dashboard" || link.to === "/hospital-dashboard"}
               className={({ isActive }) =>
                 `rounded-md px-3 py-2 text-sm transition-colors ${
                   isActive
                     ? `${
                         role === "hospital"
-                          ? "active role-hospital bg-[#1F6F5C]/25 text-white font-medium"
-                          : "active role-developer bg-[#3B3F8C]/30 text-white font-medium"
+                          ? "active role-hospital bg-[#1F6F5C]/28 text-white font-medium border border-[#1F6F5C]/40"
+                          : "active role-developer bg-[#3B3F8C]/35 text-white font-medium border border-[#3B3F8C]/50"
                       }`
                     : "text-[#F3F6F1]/70 hover:bg-white/10 hover:text-white"
                 }`
