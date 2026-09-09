@@ -5,6 +5,7 @@ import type { RiskPrediction } from '../types/riskPrediction';
 import { ErrorMessage } from './ErrorMessage';
 import { LoadingSpinner } from './LoadingSpinner';
 import { PredictionCard } from './PredictionCard';
+import { useHospital } from '../context/HospitalContext';
 
 const initialPatient: Patient = {
   age: 42,
@@ -25,9 +26,10 @@ const initialPatient: Patient = {
 };
 
 const fieldClassName =
-  'mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none transition focus:border-cyan-400';
+  'mt-1 w-full rounded-md border border-stonesense-line bg-white px-3 py-1.5 text-sm text-stonesense-ink outline-none transition focus:border-stonesense-teal';
 
 export function PatientForm() {
+  const { hospitalId } = useHospital();
   const [patient, setPatient] = useState<Patient>(initialPatient);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +57,11 @@ export function PatientForm() {
     setError(null);
 
     try {
-      const response = await predictRisk(patient);
+      const payload = {
+        ...patient,
+        hospital_id: hospitalId ?? 1,
+      };
+      const response = await predictRisk(payload);
       setPrediction(response);
     } catch (submitError) {
       setError(
@@ -70,26 +76,26 @@ export function PatientForm() {
     <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <form
         onSubmit={handleSubmit}
-        className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl shadow-slate-950/40"
+        className="rounded-lg border border-stonesense-line bg-white p-6 shadow-sm"
       >
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-white">Clinical Input</h2>
-            <p className="text-sm text-slate-400">
+            <h2 className="font-serif text-lg text-stonesense-ink">Clinical Input</h2>
+            <p className="text-sm text-stonesense-ink/60 mt-0.5">
               Complete the biomarker profile to request a risk assessment.
             </p>
           </div>
           <button
             type="submit"
             disabled={isLoading}
-            className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            className="rounded-md bg-stonesense-teal px-4 py-2 text-sm font-medium text-white transition hover:bg-stonesense-teal/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isLoading ? 'Submitting...' : 'Submit'}
+            {isLoading ? 'Submitting...' : 'Run assessment'}
           </button>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Age
             <input
               type="number"
@@ -98,7 +104,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('age', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Gender
             <select
               className={fieldClassName}
@@ -110,7 +116,7 @@ export function PatientForm() {
               <option value="other">Other</option>
             </select>
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             BMI
             <input
               type="number"
@@ -120,7 +126,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('bmi', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Blood Pressure
             <input
               type="number"
@@ -130,7 +136,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('blood_pressure', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Diabetes
             <select
               className={fieldClassName}
@@ -141,7 +147,7 @@ export function PatientForm() {
               <option value="true">Yes</option>
             </select>
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Family History
             <select
               className={fieldClassName}
@@ -152,7 +158,7 @@ export function PatientForm() {
               <option value="true">Yes</option>
             </select>
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Water Intake
             <input
               type="number"
@@ -162,7 +168,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('water_intake', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Urine pH
             <input
               type="number"
@@ -172,7 +178,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('urine_ph', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Urine Specific Gravity
             <input
               type="number"
@@ -184,7 +190,7 @@ export function PatientForm() {
               }
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Calcium
             <input
               type="number"
@@ -194,7 +200,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('calcium', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Uric Acid
             <input
               type="number"
@@ -204,7 +210,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('uric_acid', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Creatinine
             <input
               type="number"
@@ -214,7 +220,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('creatinine', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Osmolality
             <input
               type="number"
@@ -224,7 +230,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('osmolality', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Conductivity
             <input
               type="number"
@@ -234,7 +240,7 @@ export function PatientForm() {
               onChange={(event) => handleChange('conductivity', Number(event.target.value))}
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-xs text-stonesense-ink/60">
             Urea
             <input
               type="number"
@@ -262,47 +268,47 @@ export function PatientForm() {
         {prediction ? (
           <div className="space-y-4">
             <PredictionCard title="Clinical Risk Assessment" data={predictionData} />
-            <section className="rounded-3xl border border-emerald-400/30 bg-slate-900/70 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">
+            <section className="rounded-lg border border-stonesense-line bg-white p-6 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-stonesense-teal">
                 Clinical Evidence
               </p>
-              <h2 className="mt-2 text-xl font-semibold text-white">Trustworthy Assessment</h2>
-              <h3 className="mt-4 text-sm font-semibold text-white">Key contributing factors</h3>
-              <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-slate-300">
+              <h2 className="mt-1 font-serif text-lg text-stonesense-ink">Trustworthy Assessment</h2>
+              <h3 className="mt-3 font-serif text-base text-stonesense-ink">Key contributing factors</h3>
+              <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-stonesense-ink/80">
                 {prediction.shap?.top_features.slice(0, 4).map((feature) => (
                   <li key={feature}>
                     {feature}
-                    <span className="ml-2 text-slate-400">
+                    <span className="ml-2 text-stonesense-ink/50">
                       {prediction.shap?.feature_directions[feature]} the model output
                     </span>
                   </li>
                 ))}
               </ol>
-              <p className="mt-4 text-sm text-slate-400">
+              <p className="mt-4 text-sm text-stonesense-ink/60">
                 {prediction.shap?.summary ?? 'SHAP explanations are unavailable for this response.'}
               </p>
-              <div className="mt-5 grid gap-3 border-t border-slate-800 pt-4 sm:grid-cols-2">
+              <div className="mt-5 grid gap-3 border-t border-stonesense-line pt-4 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs text-slate-500">Model</p>
-                  <p className="font-semibold text-white">XGBoost</p>
+                  <p className="text-xs text-stonesense-ink/50">Model</p>
+                  <p className="font-semibold text-stonesense-ink">XGBoost</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Explainability</p>
-                  <p className="font-semibold text-white">SHAP</p>
+                  <p className="text-xs text-stonesense-ink/50">Explainability</p>
+                  <p className="font-semibold text-stonesense-ink">SHAP</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Input</p>
-                  <p className="font-semibold text-white">Clinical / Tabular Data</p>
+                  <p className="text-xs text-stonesense-ink/50">Input</p>
+                  <p className="font-semibold text-stonesense-ink">Clinical / Tabular Data</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Assessment type</p>
-                  <p className="font-semibold text-white">Clinical Risk Assessment</p>
+                  <p className="text-xs text-stonesense-ink/50">Assessment type</p>
+                  <p className="font-semibold text-stonesense-ink">Clinical Risk Assessment</p>
                 </div>
               </div>
             </section>
           </div>
         ) : (
-          <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400">
+          <div className="rounded-lg border border-dashed border-stonesense-line bg-white p-6 text-center text-sm text-stonesense-ink/50">
             Submit a patient profile to receive a risk prediction response.
           </div>
         )}

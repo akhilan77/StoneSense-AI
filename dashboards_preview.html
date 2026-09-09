@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>StoneSense-AI — Dashboard Preview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#101B16;
+    --paper:#F3F6F1;
+    --teal:#1F6F5C;
+    --amber:#C97A2B;
+    --indigo:#3B3F8C;
+    --line:#DDE3DC;
+    --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Inter,ui-sans-serif,system-ui;color:var(--ink);background:var(--paper);}
+  h1,h2,h3{font-family:Fraunces,ui-serif,Georgia,serif;font-weight:500;margin:0;}
+  .app{display:flex;height:100vh;overflow:hidden;}
+  .sidebar{width:230px;background:var(--ink);color:rgba(243,246,241,0.9);display:flex;flex-direction:column;justify-content:space-between;flex-shrink:0;}
+  .sidebar-top{padding:22px 18px 14px;}
+  .brand{font-size:18px;}
+  .brand-sub{font-size:12px;color:rgba(243,246,241,0.5);margin-top:2px;}
+  .nav{display:flex;flex-direction:column;gap:2px;padding:6px 12px;}
+  .nav a{display:block;padding:9px 12px;border-radius:6px;font-size:13.5px;color:rgba(243,246,241,0.72);text-decoration:none;cursor:pointer;}
+  .nav a.active.role-hospital{background:rgba(31,111,92,0.22);color:#fff;font-weight:500;}
+  .nav a.active.role-developer{background:rgba(59,63,140,0.28);color:#fff;font-weight:500;}
+  .nav a:hover{background:rgba(255,255,255,0.06);color:#fff;}
+  .sidebar-foot{padding:14px 18px;font-size:10.5px;color:rgba(243,246,241,0.35);border-top:1px solid rgba(255,255,255,0.1);}
+  .main{flex:1;overflow-y:auto;}
+  header.topbar{display:flex;align-items:center;justify-content:space-between;padding:20px 32px;border-bottom:1px solid var(--line);}
+  header.topbar h1{font-size:24px;}
+  header.topbar p{font-size:13px;color:rgba(16,27,22,0.6);margin-top:3px;}
+  .topbar-controls{display:flex;align-items:center;gap:10px;}
+  select, .toggle-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 12px;font-size:13px;color:rgba(16,27,22,0.75);cursor:pointer;font-family:inherit;}
+  main.content{padding:24px 32px;}
+  .hidden{display:none !important;}
+
+  /* Hospital dashboard */
+  .steps{display:flex;align-items:center;gap:8px;margin-bottom:26px;}
+  .step-btn{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:7px 16px;font-size:13.5px;color:rgba(16,27,22,0.6);cursor:pointer;font-family:inherit;}
+  .step-btn .num{font-size:11px;opacity:0.7;}
+  .step-btn.active{border-color:var(--teal);background:var(--teal);color:#fff;}
+  .step-sep{height:1px;width:22px;background:var(--line);}
+  .grid3{display:grid;grid-template-columns:2fr 1fr;gap:22px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:22px;}
+  .card h2, .card h3{font-size:17px;margin-bottom:6px;}
+  .card p.hint{font-size:13px;color:rgba(16,27,22,0.55);margin:0 0 16px;}
+  .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field label{display:block;font-size:12.5px;color:rgba(16,27,22,0.55);margin-bottom:5px;}
+  .field input{width:100%;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:13.5px;}
+  .dropzone{margin-top:16px;border:1.5px dashed var(--line);border-radius:8px;padding:26px;text-align:center;font-size:13px;color:rgba(16,27,22,0.45);}
+  .btn-primary{margin-top:16px;background:var(--teal);color:#fff;border:none;border-radius:6px;padding:10px 18px;font-size:13.5px;cursor:pointer;font-family:inherit;}
+  .btn-outline{margin-top:14px;background:transparent;border:1px solid var(--line);border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;font-family:inherit;}
+  .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .result-big{font-size:30px;font-weight:600;margin:6px 0;}
+  .result-big.teal{color:var(--teal);}
+  .result-big.amber{color:var(--amber);}
+  .result-sub{font-size:13px;color:rgba(16,27,22,0.55);}
+  .explain-box{height:170px;background:var(--paper);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;color:rgba(16,27,22,0.35);}
+  .assess-box{border:1px solid var(--line);border-radius:8px;padding:16px;font-size:13.5px;}
+  .assess-box .muted{color:rgba(16,27,22,0.55);}
+  .case-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
+  .case-list li{border-bottom:1px solid var(--line);padding-bottom:10px;font-size:13.5px;}
+  .case-list .ref{font-weight:500;}
+  .case-list .meta{color:rgba(16,27,22,0.55);font-size:12.5px;}
+
+  /* Developer dashboard */
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  .stat-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;}
+  .stat-card .label{font-size:11.5px;color:rgba(16,27,22,0.5);}
+  .stat-card .value{font-size:23px;font-weight:600;color:var(--indigo);margin-top:4px;}
+  .devgrid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;font-weight:400;color:rgba(16,27,22,0.5);border-bottom:1px solid var(--line);padding-bottom:8px;}
+  td{padding:9px 0;border-bottom:1px solid rgba(221,227,220,0.6);}
+  .status-deployed{color:var(--teal);}
+  .status-idle{color:rgba(16,27,22,0.35);}
+  .deploy-link{color:var(--indigo);font-size:12px;text-decoration:underline;cursor:pointer;background:none;border:none;font-family:inherit;}
+  .log-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;max-height:230px;overflow-y:auto;font-size:13.5px;}
+  .log-row{display:flex;justify-content:space-between;border-bottom:1px solid rgba(221,227,220,0.6);padding-bottom:8px;}
+  .event-row{display:flex;align-items:flex-start;gap:8px;border-bottom:1px solid rgba(221,227,220,0.6);padding-bottom:8px;}
+  .dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+  .dot.info{background:var(--teal);}
+  .dot.warning{background:var(--amber);}
+  .dot.error{background:#dc2626;}
+  .drift-row{display:flex;justify-content:space-between;border-bottom:1px solid rgba(221,227,220,0.6);padding:9px 0;font-size:13.5px;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-top">
+        <div class="brand">StoneSense</div>
+        <div class="brand-sub" id="sidebar-sub">Hospital console</div>
+      </div>
+      <nav class="nav" id="nav-hospital">
+        <a class="active role-hospital">Overview</a>
+        <a class="role-hospital">Risk prediction</a>
+        <a class="role-hospital">Stone detection</a>
+      </nav>
+      <nav class="nav hidden" id="nav-developer">
+        <a class="active role-developer">Model performance</a>
+        <a class="role-developer">Versions & deployment</a>
+        <a class="role-developer">Hospital update logs</a>
+        <a class="role-developer">System monitoring</a>
+        <a class="role-developer">Drift analysis</a>
+      </nav>
+    </div>
+    <div class="sidebar-foot">Evidence-based support only — not a clinical diagnosis.</div>
+  </aside>
+
+  <div class="main">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div>
+        <h1 id="page-title">Patient workflow</h1>
+        <p id="page-subtitle">Independent clinical and imaging evidence, reviewed together — not a diagnosis.</p>
+      </div>
+      <div class="topbar-controls">
+        <select id="hospital-select">
+          <option>Apollo Renal Care</option>
+          <option>Fortis Nephrology Wing</option>
+          <option>AIIMS Urology Dept.</option>
+        </select>
+        <button class="toggle-btn" id="role-toggle" onclick="toggleRole()">Switch to developer view</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- HOSPITAL DASHBOARD -->
+      <div id="hospital-view">
+        <div class="steps">
+          <button class="step-btn active" data-step="input"><span class="num">1</span>Patient input</button>
+          <span class="step-sep"></span>
+          <button class="step-btn" data-step="results"><span class="num">2</span>ML & DL results</button>
+          <span class="step-sep"></span>
+          <button class="step-btn" data-step="explain"><span class="num">3</span>Explainability</button>
+          <span class="step-sep"></span>
+          <button class="step-btn" data-step="assessment"><span class="num">4</span>Trustworthy assessment</button>
+        </div>
+
+        <div class="grid3">
+          <section class="card" style="min-height:420px;">
+            <div id="step-input">
+              <h2>Patient input</h2>
+              <p class="hint">Urine biomarkers and CT scan slice for this patient.</p>
+              <div class="field-grid">
+                <div class="field"><label>Specific gravity</label><input placeholder="1.020"/></div>
+                <div class="field"><label>pH</label><input placeholder="5.8"/></div>
+                <div class="field"><label>Osmolality</label><input placeholder="620"/></div>
+                <div class="field"><label>Conductivity</label><input placeholder="24.1"/></div>
+                <div class="field"><label>Urea</label><input placeholder="380"/></div>
+                <div class="field"><label>Calcium</label><input placeholder="4.5"/></div>
+              </div>
+              <div class="dropzone">Drop a CT scan slice here (DICOM / PNG / JPG)</div>
+              <button class="btn-primary">Run assessment</button>
+            </div>
+
+            <div id="step-results" class="hidden">
+              <div class="result-grid">
+                <div>
+                  <h3>ML result — risk score</h3>
+                  <p class="result-big teal">Moderate</p>
+                  <p class="result-sub">Top risk factors: low pH, elevated calcium.</p>
+                </div>
+                <div>
+                  <h3>DL result — stone detection</h3>
+                  <p class="result-big amber">Stone detected</p>
+                  <p class="result-sub">Confidence 94.2% · Location: left kidney, lower pole</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="step-explain" class="hidden">
+              <div class="result-grid">
+                <div>
+                  <h3>SHAP — biomarker contribution</h3>
+                  <div class="explain-box">SHAP waterfall chart</div>
+                </div>
+                <div>
+                  <h3>Grad-CAM++ — CT heatmap</h3>
+                  <div class="explain-box">CT slice with saliency overlay</div>
+                </div>
+              </div>
+            </div>
+
+            <div id="step-assessment" class="hidden">
+              <h3>Trustworthy assessment</h3>
+              <div class="assess-box">
+                <p><span class="muted">Clinical model:</span> Moderate risk</p>
+                <p><span class="muted">Imaging model:</span> Stone detected</p>
+                <p style="margin-top:8px;color:rgba(16,27,22,0.7);">Both evidence streams agree a stone is likely present. This is a transparent rule-based comparison of two independent models — not a fused prediction.</p>
+              </div>
+              <button class="btn-outline">Download report</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Recent cases</h2>
+            <ul class="case-list">
+              <li><div class="ref">PT-2201</div><div class="meta">resnet18_ct · Stone · 94.2%</div></li>
+              <li><div class="ref">PT-2198</div><div class="meta">xgboost_risk · Low · 88.1%</div></li>
+              <li><div class="ref">PT-2190</div><div class="meta">resnet18_ct · Normal · 97.4%</div></li>
+              <li><div class="ref">PT-2183</div><div class="meta">xgboost_risk · High · 91.0%</div></li>
+            </ul>
+          </section>
+        </div>
+      </div>
+
+      <!-- DEVELOPER DASHBOARD -->
+      <div id="developer-view" class="hidden">
+        <div class="stat-row">
+          <div class="stat-card"><div class="label">Predictions (24h)</div><div class="value">312</div></div>
+          <div class="stat-card"><div class="label">Errors (24h)</div><div class="value">2</div></div>
+          <div class="stat-card"><div class="label">Avg latency</div><div class="value">64 ms</div></div>
+          <div class="stat-card"><div class="label">Uptime</div><div class="value">99.4%</div></div>
+        </div>
+
+        <div class="devgrid">
+          <section class="card">
+            <h2 style="font-size:16px;">Model performance & deployment</h2>
+            <table>
+              <thead><tr><th>Model</th><th>Version</th><th>Accuracy</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>xgboost_risk</td><td>v1.1.0</td><td>91.7%</td><td class="status-deployed">Deployed</td><td></td></tr>
+                <tr><td>xgboost_risk</td><td>v1.0.0</td><td>89.1%</td><td class="status-idle">Idle</td><td><button class="deploy-link">Deploy</button></td></tr>
+                <tr><td>resnet18_ct</td><td>v2.1.0</td><td>98.5%</td><td class="status-deployed">Deployed</td><td></td></tr>
+                <tr><td>resnet18_ct</td><td>v2.0.0</td><td>97.1%</td><td class="status-idle">Idle</td><td><button class="deploy-link">Deploy</button></td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="card">
+            <h2 style="font-size:16px;">Federated update history</h2>
+            <ul class="log-list">
+              <li class="log-row"><span>Apollo Renal Care</span><span style="color:rgba(16,27,22,0.5);">v2.1.0</span><span class="status-deployed">received</span></li>
+              <li class="log-row"><span>Fortis Nephrology Wing</span><span style="color:rgba(16,27,22,0.5);">v2.1.0</span><span class="status-deployed">received</span></li>
+              <li class="log-row"><span>AIIMS Urology Dept.</span><span style="color:rgba(16,27,22,0.5);">v1.1.0</span><span style="color:var(--amber);">pending</span></li>
+              <li class="log-row"><span>Apollo Renal Care</span><span style="color:rgba(16,27,22,0.5);">v1.1.0</span><span class="status-deployed">received</span></li>
+            </ul>
+          </section>
+
+          <section class="card">
+            <h2 style="font-size:16px;">System monitoring — recent events</h2>
+            <ul class="log-list">
+              <li class="event-row"><span class="dot info"></span><span>Inference request completed <span style="color:rgba(16,27,22,0.4);">— Apollo Renal Care</span></span></li>
+              <li class="event-row"><span class="dot warning"></span><span>CT image below expected resolution — upscaled <span style="color:rgba(16,27,22,0.4);">— Fortis Nephrology Wing</span></span></li>
+              <li class="event-row"><span class="dot error"></span><span>Prediction latency exceeded 150ms threshold <span style="color:rgba(16,27,22,0.4);">— system</span></span></li>
+              <li class="event-row"><span class="dot info"></span><span>Model artifact reload triggered <span style="color:rgba(16,27,22,0.4);">— system</span></span></li>
+            </ul>
+          </section>
+
+          <section class="card">
+            <h2 style="font-size:16px;">Data / model drift</h2>
+            <div class="drift-row"><span>xgboost_risk</span><span style="color:rgba(16,27,22,0.5);">PSI</span><span class="status-deployed">0.041</span></div>
+            <div class="drift-row"><span>resnet18_ct</span><span style="color:rgba(16,27,22,0.5);">KS-statistic</span><span style="color:#dc2626;">0.176</span></div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  // Step switching (hospital dashboard)
+  document.querySelectorAll('.step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      ['input','results','explain','assessment'].forEach(s => {
+        document.getElementById('step-' + s).classList.toggle('hidden', s !== btn.dataset.step);
+      });
+    });
+  });
+
+  // Role toggle (hospital <-> developer view)
+  let role = 'hospital';
+  function toggleRole(){
+    role = role === 'hospital' ? 'developer' : 'hospital';
+    const isHospital = role === 'hospital';
+    document.getElementById('hospital-view').classList.toggle('hidden', !isHospital);
+    document.getElementById('developer-view').classList.toggle('hidden', isHospital);
+    document.getElementById('nav-hospital').classList.toggle('hidden', !isHospital);
+    document.getElementById('nav-developer').classList.toggle('hidden', isHospital);
+    document.getElementById('sidebar-sub').textContent = isHospital ? 'Hospital console' : 'Developer console';
+    document.getElementById('hospital-select').classList.toggle('hidden', !isHospital);
+    document.getElementById('role-toggle').textContent = isHospital ? 'Switch to developer view' : 'Switch to hospital view';
+    document.getElementById('page-title').textContent = isHospital ? 'Patient workflow' : 'Developer console';
+    document.getElementById('page-subtitle').textContent = isHospital
+      ? 'Independent clinical and imaging evidence, reviewed together — not a diagnosis.'
+      : 'Aggregate model & system health across all hospitals — no patient-level data.';
+  }
+</script>
+</body>
+</html>

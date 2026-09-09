@@ -3,7 +3,9 @@ import { NavLink } from 'react-router-dom';
 import { health } from '../services/api';
 
 const navItems = [
-  { to: '/', label: 'Home' },
+  { to: '/login', label: 'Login' },
+  { to: '/hospital-dashboard', label: 'Hospital Console' },
+  { to: '/developer-dashboard', label: 'Developer Console' },
   { to: '/risk-prediction', label: 'Risk Prediction' },
   { to: '/stone-detection', label: 'Stone Detection' },
 ];
@@ -18,11 +20,11 @@ export function Navbar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-stonesense-line bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div>
-          <div className="text-lg font-semibold text-white">StoneSense AI</div>
-          <div className="text-sm text-slate-400">
+          <div className="font-serif text-xl font-semibold text-stonesense-ink">StoneSense AI</div>
+          <div className="text-sm text-stonesense-ink/60">
             Explainable kidney stone detection and risk prediction
           </div>
         </div>
@@ -33,10 +35,10 @@ export function Navbar() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `rounded-full px-3 py-2 text-sm transition ${
+                `rounded-md px-3 py-1.5 text-sm transition ${
                   isActive
-                    ? 'bg-cyan-400 text-slate-950'
-                    : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
+                    ? 'bg-stonesense-teal text-white font-medium'
+                    : 'bg-stonesense-ink/5 text-stonesense-ink/80 hover:bg-stonesense-ink/10'
                 }`
               }
             >
@@ -44,10 +46,10 @@ export function Navbar() {
             </NavLink>
           ))}
           <span
-            className={`rounded-full px-3 py-2 text-sm font-medium ${
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
               backendStatus === 'online'
-                ? 'bg-emerald-500/20 text-emerald-300'
-                : 'bg-rose-500/20 text-rose-300'
+                ? 'bg-stonesense-teal/15 text-stonesense-teal'
+                : 'bg-rose-500/15 text-rose-700'
             }`}
           >
             {backendStatus === 'online' ? 'Backend Online' : 'Backend Offline'}

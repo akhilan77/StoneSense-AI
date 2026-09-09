@@ -8,6 +8,9 @@ from app.api.v1.routes.health_router import router as health_router
 from app.api.v1.routes.predict_router import router as predict_router
 from app.api.v1.routes.root_router import router as root_router
 from app.api.v1.routes.model_router import router as model_router
+from app.api.v1.routes.hospital import router as hospital_router
+from app.api.v1.routes.developer import router as developer_router
+from app.db.database import init_db
 from app.config.settings import settings
 from app.core.startup import load_models_on_startup
 
@@ -16,6 +19,7 @@ from app.core.startup import load_models_on_startup
 async def lifespan(app: FastAPI):
     # Load model singletons once
     load_models_on_startup()
+    init_db()
     yield
 
 
@@ -53,6 +57,8 @@ def create_app() -> FastAPI:
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(predict_router, prefix="/api/v1")
     application.include_router(model_router, prefix="/api/v1")
+    application.include_router(hospital_router, prefix="/api/v1/hospital", tags=["hospital"])
+    application.include_router(developer_router, prefix="/api/v1/developer", tags=["developer"])
     static_dir = Path(__file__).resolve().parent / "static"
     static_dir.mkdir(parents=True, exist_ok=True)
     application.mount("/static", StaticFiles(directory=static_dir), name="static")

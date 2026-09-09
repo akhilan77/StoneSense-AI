@@ -28,3 +28,5 @@ class PatientInformation(BaseModel):
     osmolality: float = Field(default=0.0, ge=0.0, description="Urine osmolality used by the tabular model.")
     conductivity: float = Field(default=0.0, ge=0.0, description="Urine conductivity used by the tabular model.")
     urea: float = Field(default=0.0, ge=0.0, description="Urine urea used by the tabular model.")
+    hospital_id: int = Field(default=1, description="Associated hospital ID for data scoping.")
+

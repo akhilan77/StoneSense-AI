@@ -12,12 +12,12 @@ export function PredictionCard({ title, data }: PredictionCardProps) {
   const numericVal = confidenceItem ? parseFloat(String(confidenceItem.value).replace('%', '')) : null;
 
   return (
-    <section className="group rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-slate-950/40 transition-all duration-300 hover:border-cyan-500/50 hover:bg-slate-900/80">
+    <section className="rounded-lg border border-stonesense-line bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-white tracking-wide">{title}</h3>
+        <h3 className="font-serif text-lg text-stonesense-ink">{title}</h3>
         {numericVal !== null ? (
-          <span className={`rounded-full px-3 py-1 text-xs font-bold tracking-wider ${
-            numericVal > 75 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            numericVal > 75 ? 'bg-stonesense-teal/15 text-stonesense-teal' : 'bg-stonesense-amber/15 text-stonesense-amber'
           }`}>
             {numericVal}% Match
           </span>
@@ -26,9 +26,9 @@ export function PredictionCard({ title, data }: PredictionCardProps) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         {data.map((item) => (
-          <div key={item.label} className="rounded-2xl bg-slate-950/65 border border-slate-900 p-4 transition-colors hover:border-slate-800/80">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">{item.label}</div>
-            <div className="mt-1.5 text-base font-semibold text-white">
+          <div key={item.label} className="rounded-md border border-stonesense-line bg-stonesense-paper p-3.5">
+            <div className="text-xs text-stonesense-ink/50">{item.label}</div>
+            <div className="mt-1 text-base font-semibold text-stonesense-ink">
               {typeof item.value === 'boolean' ? (item.value ? 'Yes' : 'No') : item.value}
             </div>
           </div>
@@ -36,10 +36,10 @@ export function PredictionCard({ title, data }: PredictionCardProps) {
       </div>
 
       {numericVal !== null ? (
-        <div className="mt-5 w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-stonesense-line">
           <div 
             className={`h-full rounded-full transition-all duration-500 ${
-              numericVal > 75 ? 'bg-gradient-to-r from-cyan-400 to-emerald-400' : 'bg-gradient-to-r from-amber-400 to-orange-400'
+              numericVal > 75 ? 'bg-stonesense-teal' : 'bg-stonesense-amber'
             }`}
             style={{ width: `${numericVal}%` }}
           />
