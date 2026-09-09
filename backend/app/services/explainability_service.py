@@ -24,8 +24,10 @@ sys.path.append(str(PROJECT_ROOT / "ml" / "explainability"))
 from model import build_resnet18_classifier as build_resnet18, CLASS_MAPPING as DL_CLASS_MAPPING
 from transforms import get_val_test_transforms
 from pytorch_grad_cam import GradCAM
-from pytorch_grad_cam.utils.image import show_cam_on_image
-import shap
+try:
+    import shap
+except ImportError:
+    shap = None
 import pandas as pd
 
 logger = logging.getLogger("ExplainabilityService")

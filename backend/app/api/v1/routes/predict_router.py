@@ -79,17 +79,30 @@ async def predict_image(
     output_dir = Path(__file__).resolve().parents[4] / "static" / "gradcam"
     overlay = generate_gradcam_for_bytes(content, str(output_dir / f"{uuid4().hex}_overlay.png"))
 
+    active_ver = getattr(model_loader, "active_dl_version_tag", "resnet18_ct_v2_1")
+
     try:
+        from app.db.models import InferenceLog
         prediction = Prediction(
             hospital_id=hospital_id,
             prediction_type="image",
-            model_name="resnet18_ct_v2_1",
+            model_name=active_ver,
             result_label=str(res["class"]),
             confidence=res["confidence"],
             latency_ms=elapsed * 1000,
             explainability_ref=f"/static/gradcam/{Path(overlay['overlay_path']).name}",
         )
+        inf_log = InferenceLog(
+            hospital_id=hospital_id,
+            prediction_type="image",
+            model_name="resnet18_ct",
+            version_tag=active_ver,
+            result_label=str(res["class"]),
+            confidence=res["confidence"],
+            latency_ms=elapsed * 1000,
+        )
         db.add(prediction)
+        db.add(inf_log)
         db.commit()
     except Exception:
         db.rollback()

@@ -401,3 +401,13 @@ export const fetchAllEnrolledHospitals = async (): Promise<Hospital[]> => {
     return fallbackHospitalsList;
   }
 };
+
+export {
+  fetchFederatedOverview,
+  fetchRoundHistory,
+  fetchHospitalParticipation,
+  fetchHospitalDatasetStatus,
+  validateHospitalDataset,
+  fetchHospitalFederatedStatus,
+  triggerLocalTraining
+} from "./federatedApi";

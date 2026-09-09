@@ -36,3 +36,6 @@ pytest-asyncio>=0.23.0
 # Database / Persistence
 sqlalchemy>=2.0.0
 
+# Federated Learning
+flwr>=1.15.0
+
