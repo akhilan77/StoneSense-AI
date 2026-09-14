@@ -12,12 +12,11 @@ const hospitalLinks = [
 ];
 
 const developerLinks = [
-  { to: "/developer-dashboard", label: "Model performance" },
-  { to: "/developer-dashboard/versions", label: "Versions & deployment" },
-  { to: "/developer-dashboard/hospitals", label: "Hospital update logs" },
-  { to: "/developer-dashboard/monitoring", label: "System monitoring" },
-  { to: "/developer-dashboard/drift", label: "Drift analysis" },
-  { to: "/developer-dashboard/enrolled-hospitals", label: "Enrolled hospitals & access" },
+  { to: "/developer-dashboard", label: "Overview" },
+  { to: "/developer-dashboard/federated", label: "Federated Learning" },
+  { to: "/developer-dashboard/versions", label: "Model Versions" },
+  { to: "/developer-dashboard/access", label: "Hospitals & Access" },
+  { to: "/developer-dashboard/health", label: "System Health" },
 ];
 
 export default function Sidebar({ role }: SidebarProps) {

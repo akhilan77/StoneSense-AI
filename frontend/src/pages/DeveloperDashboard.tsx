@@ -35,7 +35,7 @@ import {
   FederatedEventMessage,
 } from "../types/federated";
 
-type DevTab = "overview" | "federated" | "versions" | "hospitals" | "monitoring" | "drift" | "access";
+type DevTab = "overview" | "federated" | "versions" | "access" | "health";
 
 interface DeveloperDashboardProps {
   initialTab?: DevTab;
@@ -51,10 +51,8 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     const path = location.pathname;
     if (path.includes("/federated")) return "federated";
     if (path.includes("/versions")) return "versions";
-    if (path.includes("/hospitals")) return "hospitals";
-    if (path.includes("/monitoring")) return "monitoring";
-    if (path.includes("/drift")) return "drift";
-    if (path.includes("/enrolled-hospitals") || path.includes("/access")) return "access";
+    if (path.includes("/access") || path.includes("/enrolled-hospitals") || path.includes("/hospitals")) return "access";
+    if (path.includes("/health") || path.includes("/monitoring") || path.includes("/drift")) return "health";
     return "overview";
   };
 
@@ -193,10 +191,8 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     if (tab === "overview") navigate("/developer-dashboard");
     else if (tab === "federated") navigate("/developer-dashboard/federated");
     else if (tab === "versions") navigate("/developer-dashboard/versions");
-    else if (tab === "hospitals") navigate("/developer-dashboard/hospitals");
-    else if (tab === "monitoring") navigate("/developer-dashboard/monitoring");
-    else if (tab === "drift") navigate("/developer-dashboard/drift");
-    else if (tab === "access") navigate("/developer-dashboard/enrolled-hospitals");
+    else if (tab === "access") navigate("/developer-dashboard/access");
+    else if (tab === "health") navigate("/developer-dashboard/health");
   };
 
   const handleDeployVersion = async (v: ModelPerformance) => {
@@ -298,35 +294,8 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
         </div>
       )}
 
-      {/* Tab Navigation Navigation Pills */}
-      <div className="flex items-center justify-between border-b border-[#DDE3DC] pb-4 mb-6">
-        <nav className="flex items-center gap-2 overflow-x-auto">
-          {[
-            { key: "overview", label: "Overview & Performance" },
-            { key: "federated", label: "Federated Learning Hub" },
-            { key: "versions", label: "Versions & Deployment" },
-            { key: "hospitals", label: "Hospital Update Logs" },
-            { key: "monitoring", label: "System Monitoring" },
-            { key: "drift", label: "Drift Analysis" },
-            { key: "access", label: "Enrolled Hospitals & Access" },
-          ].map((tab) => {
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => handleTabChange(tab.key as DevTab)}
-                className={`rounded-lg px-3.5 py-2 text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? "bg-[#3B3F8C] text-white shadow-xs"
-                    : "bg-white border border-[#DDE3DC] text-[#101B16]/70 hover:bg-[#F3F6F1] hover:text-[#101B16]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
-
+      {/* Top Action Bar (Horizontal Nav Removed to fix overflow) */}
+      <div className="flex items-center justify-end border-b border-[#DDE3DC] pb-4 mb-6">
         <button
           onClick={loadAllData}
           className="flex items-center gap-1.5 rounded-md border border-[#DDE3DC] bg-white px-3 py-1.5 text-xs text-[#101B16]/70 hover:bg-black/5 cursor-pointer shadow-xs"
@@ -1005,10 +974,10 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: HOSPITAL UPDATE LOGS */}
+      {/* TAB 3: HOSPITAL UPDATE LOGS (Merged into Federated) */}
       {/* ========================================================================= */}
-      {activeTab === "hospitals" && (
-        <div className="space-y-6">
+      {activeTab === "federated" && (
+        <div className="space-y-6 mt-6 border-t border-[#DDE3DC] pt-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-serif text-lg font-medium text-[#101B16]">Hospital Update & Federated Sync Logs</h2>
@@ -1096,9 +1065,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: SYSTEM MONITORING */}
+      {/* SYSTEM HEALTH (Monitoring + Drift) */}
       {/* ========================================================================= */}
-      {activeTab === "monitoring" && (
+      {activeTab === "health" && (
         <div className="space-y-6">
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-4 gap-4">
@@ -1210,10 +1179,10 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 5: DRIFT ANALYSIS */}
+      {/* DRIFT ANALYSIS (Merged into System Health) */}
       {/* ========================================================================= */}
-      {activeTab === "drift" && (
-        <div className="space-y-6">
+      {activeTab === "health" && (
+        <div className="space-y-6 mt-6 border-t border-[#DDE3DC] pt-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-serif text-lg font-medium text-[#101B16]">Biomarker & Image Distribution Drift Analysis</h2>

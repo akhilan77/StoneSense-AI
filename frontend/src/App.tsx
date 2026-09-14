@@ -24,12 +24,10 @@ export function App() {
 
       {/* Developer Console Routes (All use persistent left vertical sidebar) */}
       <Route path="/developer-dashboard" element={<DeveloperDashboard initialTab="overview" />} />
+      <Route path="/developer-dashboard/federated" element={<DeveloperDashboard initialTab="federated" />} />
       <Route path="/developer-dashboard/versions" element={<DeveloperDashboard initialTab="versions" />} />
-      <Route path="/developer-dashboard/hospitals" element={<DeveloperDashboard initialTab="hospitals" />} />
-      <Route path="/developer-dashboard/monitoring" element={<DeveloperDashboard initialTab="monitoring" />} />
-      <Route path="/developer-dashboard/drift" element={<DeveloperDashboard initialTab="drift" />} />
-      <Route path="/developer-dashboard/enrolled-hospitals" element={<DeveloperDashboard initialTab="access" />} />
       <Route path="/developer-dashboard/access" element={<DeveloperDashboard initialTab="access" />} />
+      <Route path="/developer-dashboard/health" element={<DeveloperDashboard initialTab="health" />} />
 
       {/* Public Home / Marketing Layout */}
       <Route
