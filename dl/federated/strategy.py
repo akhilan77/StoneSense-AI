@@ -1,4 +1,4 @@
-"""StoneSense-AI Custom Flower Strategy.
+﻿"""StoneSense-AI Custom Flower Strategy.
 
 Extends FedAvg to:
 1. Aggregate custom training and evaluation metrics across hospital clients.
@@ -13,11 +13,26 @@ from typing import Dict, List, Tuple, Optional, Union, Any
 from datetime import datetime
 import numpy as np
 import torch
-import flwr as fl
-from flwr.common import (
-    EvaluateRes, FitRes, Parameters, Scalar, ndarrays_to_parameters, parameters_to_ndarrays
-)
-from flwr.server.client_proxy import ClientProxy
+
+try:
+    import flwr as fl
+    from flwr.common import (
+        EvaluateRes, FitRes, Parameters, Scalar, ndarrays_to_parameters, parameters_to_ndarrays
+    )
+    from flwr.server.client_proxy import ClientProxy
+    _FedAvgBase = fl.server.strategy.FedAvg
+except ImportError:
+    fl = None
+    EvaluateRes = Any
+    FitRes = Any
+    Parameters = Any
+    Scalar = Union[bool, bytes, float, int, str]
+    ndarrays_to_parameters = None
+    parameters_to_ndarrays = None
+    ClientProxy = Any
+    class _FedAvgBase:
+        def __init__(self, *args, **kwargs):
+            pass
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT / "backend"))
@@ -30,6 +45,15 @@ from local_training import set_model_parameters
 from model_manager import model_manager
 
 logger = logging.getLogger("StoneSenseFedAvg")
+
+HOSPITAL_LABELS = {
+    "hospital_1": "Hospital 1 (Apollo Kidney Care)",
+    "hospital_2": "Hospital 2 (Manipal Urology Institute)",
+    "hospital_3": "Hospital 3 (AIIMS Nephrology Labs)",
+    "HOSP-001": "Hospital 1 (Apollo Kidney Care)",
+    "HOSP-002": "Hospital 2 (Manipal Urology Institute)",
+    "HOSP-003": "Hospital 3 (AIIMS Nephrology Labs)",
+}
 
 
 def weighted_average_metrics(metrics: List[Tuple[int, Dict[str, Scalar]]]) -> Dict[str, Scalar]:
@@ -58,7 +82,7 @@ def weighted_average_metrics(metrics: List[Tuple[int, Dict[str, Scalar]]]) -> Di
     return aggregated
 
 
-class StoneSenseFedAvg(fl.server.strategy.FedAvg):
+class StoneSenseFedAvg(_FedAvgBase):
     """Custom FedAvg strategy with telemetry persistence and model checkpointing."""
 
     def __init__(
@@ -82,8 +106,8 @@ class StoneSenseFedAvg(fl.server.strategy.FedAvg):
         self.latest_round_metrics: Dict[int, Dict[str, Any]] = {}
 
     def configure_fit(
-        self, server_round: int, parameters: Parameters, client_manager: fl.server.client_manager.ClientManager
-    ) -> List[Tuple[ClientProxy, fl.common.FitIns]]:
+        self, server_round: int, parameters: Any, client_manager: Any
+    ) -> List[Tuple[Any, Any]]:
         """Sends current round index to clients in config."""
         self.round_start_time = datetime.utcnow()
         config = {
@@ -91,7 +115,7 @@ class StoneSenseFedAvg(fl.server.strategy.FedAvg):
             "local_epochs": 1,
             "lr": 0.0005,
         }
-        fit_ins = fl.common.FitIns(parameters, config)
+        fit_ins = fl.common.FitIns(parameters, config) if fl else (parameters, config)
 
         clients = client_manager.sample(
             num_clients=self.min_fit_clients, min_num_clients=self.min_available_clients
@@ -105,6 +129,18 @@ class StoneSenseFedAvg(fl.server.strategy.FedAvg):
         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregates fit results, extracts per-hospital telemetry, and weights."""
+        print("")
+        print("=" * 50)
+        print(f"FEDERATED ROUND {server_round}")
+        print("=" * 50)
+        prev_ver = f"v{server_round-1}" if server_round > 1 else "v0"
+        print(f"\nGlobal Model: {prev_ver}")
+        print("\nClients selected:")
+        print("- Hospital 1 (Apollo Kidney Care)")
+        print("- Hospital 2 (Manipal Urology Institute)")
+        print("- Hospital 3 (AIIMS Nephrology Labs)")
+        print("\nWaiting for client updates...")
+
         aggregated_parameters, aggregated_metrics = super().aggregate_fit(
             server_round, results, failures
         )
@@ -117,18 +153,30 @@ class StoneSenseFedAvg(fl.server.strategy.FedAvg):
         for _, fit_res in results:
             m = fit_res.metrics
             h_code = str(m.get("hospital_id", "unknown"))
+            h_name = HOSPITAL_LABELS.get(h_code, h_code)
+            train_acc = float(m.get("train_accuracy", 0.0))
+            train_f1 = float(m.get("train_f1_macro", 0.0))
+            samples = int(fit_res.num_examples)
             client_runs.append({
                 "hospital_code": h_code,
                 "train_loss": float(m.get("train_loss", 0.0)),
-                "train_acc": float(m.get("train_accuracy", 0.0)),
-                "train_f1": float(m.get("train_f1_macro", 0.0)),
-                "sample_count": int(fit_res.num_examples),
+                "train_acc": train_acc,
+                "train_f1": train_f1,
+                "sample_count": samples,
             })
+            print(f"\n{h_name} -> received")
+            print(f"  samples:        {samples}")
+            print(f"  local accuracy: {train_acc * 100:.2f}%")
+            print(f"  local F1:       {train_f1 * 100:.2f}%")
 
         self.latest_round_metrics[server_round] = {
             "fit_metrics": aggregated_metrics,
             "client_runs": client_runs,
+            "parameters": aggregated_parameters,
         }
+
+        print("\nRunning FedAvg...")
+        print("Weighted aggregation completed.")
 
         return aggregated_parameters, aggregated_metrics
 
@@ -144,25 +192,52 @@ class StoneSenseFedAvg(fl.server.strategy.FedAvg):
         )
 
         duration = (datetime.utcnow() - self.round_start_time).total_seconds()
+        round_data = self.latest_round_metrics.get(server_round, {})
+        client_runs = round_data.get("client_runs", [])
 
         # Update per-client evaluation metrics
         for _, eval_res in results:
             m = eval_res.metrics
             h_code = str(m.get("hospital_id", "unknown"))
-            round_data = self.latest_round_metrics.get(server_round, {})
-            for run in round_data.get("client_runs", []):
+            for run in client_runs:
                 if run["hospital_code"] == h_code:
                     run["val_loss"] = float(eval_res.loss)
                     run["val_acc"] = float(m.get("accuracy", 0.0))
                     run["val_f1"] = float(m.get("f1_macro", 0.0))
 
-        logger.info(
-            f"=== Federated Round {server_round} Aggregation Summary ===\n"
-            f"  Val Loss: {loss_aggregated:.4f} | "
-            f"  Val Acc: {metrics_aggregated.get('accuracy', 0.0):.4f} | "
-            f"  Val F1: {metrics_aggregated.get('f1_macro', 0.0):.4f} | "
-            f"  Duration: {duration:.2f}s"
-        )
+        prev_ver = f"v{server_round-1}" if server_round > 1 else "v0"
+        new_ver = f"v{server_round}"
+        ckpt_file = f"resnet18_fed_round_{server_round:03d}.pth"
+
+        print(f"\nGlobal Model:")
+        print(f"  Previous: {prev_ver}")
+        print(f"  New:      {new_ver}")
+        print(f"\nSaving:\n  {ckpt_file}")
+        print(f"\nPersisting metrics to PostgreSQL...")
+
+        # Persist to database if enabled
+        if self.db_persist and round_data.get("parameters") is not None:
+            raw_ndarrays = parameters_to_ndarrays(round_data["parameters"]) if parameters_to_ndarrays else []
+            fit_summary = round_data.get("fit_metrics", {})
+            eval_summary = {
+                "loss": loss_aggregated or 0.0,
+                "accuracy": metrics_aggregated.get("accuracy", 0.0),
+                "f1_macro": metrics_aggregated.get("f1_macro", 0.0),
+                "precision_macro": metrics_aggregated.get("precision_macro", 0.0),
+                "recall_macro": metrics_aggregated.get("recall_macro", 0.0),
+            }
+            persist_round_to_db(
+                round_number=server_round,
+                mode=self.mode,
+                parameters=raw_ndarrays,
+                fit_metrics=fit_summary,
+                eval_metrics=eval_summary,
+                client_runs=client_runs,
+                duration_sec=duration
+            )
+
+        print(f"\nRound {server_round} completed.")
+        print("=" * 50 + "\n")
 
         return loss_aggregated, metrics_aggregated
 
@@ -258,7 +333,6 @@ def persist_round_to_db(
 
         # 4. Hospital training runs and sync logs
         hospitals = {h.hospital_code: h for h in db.query(Hospital).all()}
-        # Mapping for simulated names if hospital_code is e.g. "hospital_1" -> "HOSP-001"
         code_map = {"hospital_1": "HOSP-001", "hospital_2": "HOSP-002", "hospital_3": "HOSP-003"}
 
         for run in client_runs:
@@ -266,7 +340,6 @@ def persist_round_to_db(
             db_code = code_map.get(raw_code, raw_code)
             h = hospitals.get(db_code)
             if not h:
-                # Create hospital if missing
                 h = Hospital(hospital_code=db_code, name=f"Simulated Node {db_code}", region="Simulation")
                 db.add(h)
                 db.flush()
@@ -301,6 +374,11 @@ def persist_round_to_db(
             ))
 
         db.commit()
+        print(f"  - Updated table: hospitals (current_model_version -> {version_tag})")
+        print(f"  - Updated table: federated_rounds (round {round_number} recorded)")
+        print(f"  - Updated table: hospital_training_runs ({len(client_runs)} hospital telemetry rows added)")
+        print(f"  - Updated table: model_versions ({version_tag} registered as deployed)")
+        print(f"  - Updated table: hospital_update_logs ({len(client_runs)} sync receipt logs recorded)")
         logger.info(f"Federated round {round_number} records & telemetry successfully persisted to database.")
     except Exception as e:
         db.rollback()

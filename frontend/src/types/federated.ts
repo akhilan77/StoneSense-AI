@@ -99,3 +99,68 @@ export interface FederatedStatus {
   local_accuracy?: number;
   local_f1?: number;
 }
+
+export interface ClientLiveStatus {
+  hospital_id: string;
+  hospital_name?: string;
+  status: "waiting" | "received" | "training" | "completed" | "failed" | string;
+  samples?: number;
+  accuracy?: number;
+  f1?: number;
+  loss?: number;
+  duration_sec?: number;
+}
+
+export interface RoundLiveStatus {
+  round: number;
+  status: "READY" | "ROUND_STARTED" | "GLOBAL_MODEL_DISTRIBUTING" | "LOCAL_TRAINING" | "FEDAVG_STARTED" | "FEDAVG_COMPLETED" | "GLOBAL_MODEL_SAVED" | "COMPLETED" | "FAILED" | string;
+  previous_model_version?: string;
+  global_model_version: string;
+  participating_hospitals: number;
+  completed_hospitals: number;
+  clients: ClientLiveStatus[];
+  current_step?: string;
+  error_message?: string;
+  metrics?: {
+    accuracy?: number;
+    f1?: number;
+    loss?: number;
+    precision?: number;
+    recall?: number;
+  };
+}
+
+export interface HospitalLiveStatus {
+  hospital_id: string;
+  round: number;
+  status: string;
+  global_model_version: string;
+  local_training?: {
+    status: string;
+    samples: number;
+    accuracy?: number;
+    f1?: number;
+    loss?: number;
+    duration_sec?: number;
+  };
+}
+
+export interface FederatedEventMessage {
+  event: string;
+  round: number;
+  hospital_id?: string;
+  model_version?: string;
+  previous_model_version?: string;
+  status?: string;
+  current_step?: string;
+  data?: Record<string, any>;
+  timestamp?: string;
+}
+
+export interface StartRoundResponse {
+  round: number;
+  status: string;
+  global_model_version: string;
+  message?: string;
+}
+

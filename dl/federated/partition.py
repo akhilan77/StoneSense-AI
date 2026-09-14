@@ -97,14 +97,15 @@ def partition_dataset(
 
                     dst_dir = hospital_dirs[h_id] / split / cls_name
                     for img in client_images:
-                        shutil.copy2(img, dst_dir / img.name)
+                        dst_file = dst_dir / img.name
+                        try:
+                            os.link(img, dst_file)
+                        except Exception:
+                            shutil.copy2(img, dst_file)
 
                     distribution_summary[h_id][split][cls_name] = len(client_images)
             else:
                 # Non-IID Mode for train set: Skewed distributions
-                # Hospital 1: Heavy Cyst (60%) & Normal (40%)
-                # Hospital 2: Heavy Stone (70%) & Normal (30%)
-                # Hospital 3: Heavy Tumor (70%) & Cyst (30%)
                 if cls_name == "Cyst":
                     ratios = [0.60, 0.10, 0.30]
                 elif cls_name == "Stone":
@@ -129,7 +130,11 @@ def partition_dataset(
 
                     dst_dir = hospital_dirs[h_id] / split / cls_name
                     for img in client_images:
-                        shutil.copy2(img, dst_dir / img.name)
+                        dst_file = dst_dir / img.name
+                        try:
+                            os.link(img, dst_file)
+                        except Exception:
+                            shutil.copy2(img, dst_file)
 
                     distribution_summary[h_id][split][cls_name] = len(client_images)
 

@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -13,6 +13,7 @@ from app.api.v1.routes.developer import router as developer_router
 from app.db.database import init_db
 from app.config.settings import settings
 from app.core.startup import load_models_on_startup
+from app.services.ws_manager import ws_manager
 
 
 @asynccontextmanager
@@ -58,12 +59,28 @@ def create_app() -> FastAPI:
     application.include_router(predict_router, prefix="/api/v1")
     application.include_router(model_router, prefix="/api/v1")
     application.include_router(hospital_router, prefix="/api/v1/hospital", tags=["hospital"])
+    application.include_router(hospital_router, prefix="/api/v1/hospitals", tags=["hospitals"])
     application.include_router(developer_router, prefix="/api/v1/developer", tags=["developer"])
+
+    @application.websocket("/api/v1/ws/federated")
+    @application.websocket("/api/v1/developer/federated/ws")
+    @application.websocket("/api/v1/federated/ws")
+    async def federated_websocket(websocket: WebSocket):
+        await ws_manager.connect(websocket)
+        try:
+            while True:
+                data = await websocket.receive_text()
+                if data == "ping":
+                    await websocket.send_text('{"event": "pong"}')
+        except (WebSocketDisconnect, Exception):
+            await ws_manager.disconnect(websocket)
+
     static_dir = Path(__file__).resolve().parent / "static"
     static_dir.mkdir(parents=True, exist_ok=True)
     application.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     return application
+
 
 
 app = create_app()

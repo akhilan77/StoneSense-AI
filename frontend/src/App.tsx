@@ -6,14 +6,16 @@ import { RiskPredictionPage } from './pages/RiskPredictionPage';
 import { StoneDetectionPage } from './pages/StoneDetectionPage';
 import HospitalDashboard from './pages/HospitalDashboard';
 import DeveloperDashboard from './pages/DeveloperDashboard';
-import Login from './pages/Login';
+import { LandingPage } from './pages/LandingPage';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 
 export function App() {
   return (
     <Routes>
-      {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<Login />} />
+      {/* Root landing page */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/login" element={<Navigate to="/" replace />} />
 
       {/* Hospital Console Routes (All use persistent left vertical sidebar) */}
       <Route path="/hospital-dashboard" element={<HospitalDashboard />} />
@@ -41,7 +43,7 @@ export function App() {
 
       {/* Fallback */}
       <Route path="/404" element={<NotFoundPage />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

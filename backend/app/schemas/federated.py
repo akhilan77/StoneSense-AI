@@ -105,3 +105,61 @@ class FederatedStatusOut(BaseModel):
     last_round_participated: Optional[int] = None
     local_accuracy: Optional[float] = None
     local_f1: Optional[float] = None
+
+
+class StartRoundRequest(BaseModel):
+    num_rounds: int = 1
+    local_epochs: int = 1
+    batch_size: int = 32
+    lr: float = 0.0005
+    mode: str = "iid"
+
+
+class StartRoundResponse(BaseModel):
+    round: int
+    status: str
+    global_model_version: str
+    message: Optional[str] = None
+
+
+class ClientLiveStatus(BaseModel):
+    hospital_id: str
+    hospital_name: Optional[str] = None
+    status: str  # "waiting" | "received" | "training" | "completed" | "failed"
+    samples: Optional[int] = None
+    accuracy: Optional[float] = None
+    f1: Optional[float] = None
+    loss: Optional[float] = None
+    duration_sec: Optional[float] = None
+
+
+class RoundLiveStatusResponse(BaseModel):
+    round: int
+    status: str  # "READY" | "ROUND_STARTED" | "GLOBAL_MODEL_DISTRIBUTING" | "LOCAL_TRAINING" | "FEDAVG_STARTED" | "COMPLETED" | "FAILED"
+    previous_model_version: Optional[str] = None
+    global_model_version: str
+    participating_hospitals: int = 3
+    completed_hospitals: int = 0
+    clients: List[ClientLiveStatus] = []
+    current_step: Optional[str] = None
+    error_message: Optional[str] = None
+    metrics: Optional[Dict[str, Any]] = None
+
+
+class HospitalLiveStatusResponse(BaseModel):
+    hospital_id: str
+    round: int
+    status: str
+    global_model_version: str
+    local_training: Optional[Dict[str, Any]] = None
+
+
+class FederatedEventMessage(BaseModel):
+    event: str
+    round: int
+    hospital_id: Optional[str] = None
+    model_version: Optional[str] = None
+    status: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    timestamp: Optional[str] = None
+

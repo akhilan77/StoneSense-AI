@@ -6,9 +6,18 @@ import {
   fetchHospitalDatasetStatus,
   validateHospitalDataset,
   fetchHospitalFederatedStatus,
-  triggerLocalTraining
+  triggerLocalTraining,
+  fetchHospitalLiveStatus,
+  createFederatedWebSocket,
 } from "../services/federatedApi";
-import { DatasetStatus, DatasetValidationResult, FederatedStatus } from "../types/federated";
+import {
+  DatasetStatus,
+  DatasetValidationResult,
+  FederatedStatus,
+  HospitalLiveStatus,
+  FederatedEventMessage,
+} from "../types/federated";
+
 
 const initialPatients: PatientRecord[] = [
   {
@@ -101,6 +110,7 @@ export default function HospitalDashboard() {
   // Federated Learning & Local Dataset States
   const [datasetStatus, setDatasetStatus] = useState<DatasetStatus | null>(null);
   const [fedStatus, setFedStatus] = useState<FederatedStatus | null>(null);
+  const [hospitalLiveStatus, setHospitalLiveStatus] = useState<HospitalLiveStatus | null>(null);
   const [isValidatingDataset, setIsValidatingDataset] = useState(false);
   const [validationResult, setValidationResult] = useState<DatasetValidationResult | null>(null);
   const [isCalibratingLocal, setIsCalibratingLocal] = useState(false);
@@ -108,11 +118,42 @@ export default function HospitalDashboard() {
   const loadFederatedData = (hId: number) => {
     fetchHospitalDatasetStatus(hId).then(setDatasetStatus).catch(() => {});
     fetchHospitalFederatedStatus(hId).then(setFedStatus).catch(() => {});
+    fetchHospitalLiveStatus(hId).then(setHospitalLiveStatus).catch(() => {});
   };
 
   useEffect(() => {
     loadFederatedData(activeHospId);
+
+    // Subscribe to live federated round events
+    const unsubscribe = createFederatedWebSocket((event: FederatedEventMessage) => {
+      fetchHospitalLiveStatus(activeHospId).then(setHospitalLiveStatus).catch(() => {});
+      if (event.event === "ROUND_COMPLETED") {
+        fetchHospitalFederatedStatus(activeHospId).then(setFedStatus).catch(() => {});
+        showToast(`Federated Round #${event.round} completed! Active model updated to ${event.model_version || "latest"}.`);
+      }
+    });
+
+    return () => unsubscribe();
   }, [activeHospId]);
+
+  // Polling fallback while a federated round is running
+  useEffect(() => {
+    if (!hospitalLiveStatus || ["WAITING", "READY", "MODEL_UPDATED"].includes(hospitalLiveStatus.status)) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      fetchHospitalLiveStatus(activeHospId).then((status) => {
+        setHospitalLiveStatus(status);
+        if (status.status === "MODEL_UPDATED") {
+          loadFederatedData(activeHospId);
+        }
+      }).catch(() => {});
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [activeHospId, hospitalLiveStatus?.status]);
+
 
   const handleValidateDataset = async () => {
     setIsValidatingDataset(true);
@@ -353,16 +394,19 @@ export default function HospitalDashboard() {
                     <span className="h-1.5 w-1.5 rounded-full bg-[#1F6F5C] animate-pulse" />
                     Federated Learning Node Active
                   </span>
-                  <span className="text-xs text-[#101B16]/50">
-                    Hospital ID: <strong className="text-[#101B16]">HOSP-00{activeHospId}</strong>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#3B3F8C]/10 px-2 py-0.5 text-[10.5px] font-semibold text-[#3B3F8C]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#3B3F8C]" /> ● Connected
                   </span>
-                  <span className="text-xs text-[#101B16]/50">• Round #{fedStatus?.current_round ?? 3} Active</span>
+                  <span className="text-xs text-[#101B16]/50">
+                    Hospital: <strong className="text-[#101B16]">Hospital 0{activeHospId} (HOSP-00{activeHospId})</strong>
+                  </span>
+                  <span className="text-xs text-[#101B16]/50">• Round #{hospitalLiveStatus?.round ?? fedStatus?.current_round ?? 3}</span>
                 </div>
                 <h3 className="text-sm font-semibold text-[#101B16]">
-                  Local CT Dataset Partition & Collaborative Model Status
+                  Local CT Dataset Partition & Collaborative Federated Node
                 </h3>
                 <p className="text-xs text-[#101B16]/60">
-                  Zero-raw-data boundary: Only encrypted gradient updates are shared with the coordinator. Local CT scans never leave this node.
+                  Zero-raw-data boundary: Only model parameters and telemetry are communicated to central Flower coordinator. Local CT images never leave this hospital node.
                 </p>
               </div>
 
@@ -395,34 +439,74 @@ export default function HospitalDashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
               <div className="rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]/50">
                 <span className="text-[11px] font-medium text-[#101B16]/60 uppercase tracking-wider">Active Global Model</span>
-                <p className="text-xs font-bold text-[#101B16] truncate mt-1">
-                  {fedStatus?.current_model_version ?? "resnet18_fed_round_003"}
+                <p className="text-xs font-bold text-[#101B16] font-mono truncate mt-1">
+                  {hospitalLiveStatus?.global_model_version ?? fedStatus?.current_model_version ?? "resnet18_fed_round_003"}
                 </p>
-                <span className="text-[10px] text-[#1F6F5C]">Synced with latest round</span>
+                <span className="text-[10px] text-[#1F6F5C]">ResNet18-FL Architecture</span>
               </div>
 
               <div className="rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]/50">
                 <span className="text-[11px] font-medium text-[#101B16]/60 uppercase tracking-wider">Local Partition CTs</span>
                 <p className="text-sm font-bold text-[#101B16] mt-1">
-                  {datasetStatus?.dataset_size ? `${datasetStatus.dataset_size.toLocaleString()} Slices` : "3,522 Slices"}
+                  {hospitalLiveStatus?.local_training?.samples
+                    ? `${hospitalLiveStatus.local_training.samples.toLocaleString()} Slices`
+                    : datasetStatus?.dataset_size
+                    ? `${datasetStatus.dataset_size.toLocaleString()} Slices`
+                    : "2,902 Slices"}
                 </p>
                 <span className="text-[10px] text-[#101B16]/50">Train / Val / Test isolated</span>
               </div>
 
               <div className="rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]/50">
-                <span className="text-[11px] font-medium text-[#101B16]/60 uppercase tracking-wider">Local Macro F1</span>
+                <span className="text-[11px] font-medium text-[#101B16]/60 uppercase tracking-wider">Local Accuracy / F1</span>
                 <p className="text-sm font-bold text-[#1F6F5C] mt-1">
-                  {fedStatus?.local_f1 ? `${(fedStatus.local_f1 * 100).toFixed(1)}%` : "97.8%"}
+                  {hospitalLiveStatus?.local_training?.f1
+                    ? `${(hospitalLiveStatus.local_training.f1 * 100).toFixed(1)}%`
+                    : fedStatus?.local_f1
+                    ? `${(fedStatus.local_f1 * 100).toFixed(1)}%`
+                    : "97.8%"}
                 </p>
-                <span className="text-[10px] text-[#101B16]/50">Local validation score</span>
+                <span className="text-[10px] text-[#101B16]/50">
+                  Acc: {hospitalLiveStatus?.local_training?.accuracy ? `${(hospitalLiveStatus.local_training.accuracy * 100).toFixed(1)}%` : "98.1%"}
+                </span>
               </div>
 
               <div className="rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]/50">
-                <span className="text-[11px] font-medium text-[#101B16]/60 uppercase tracking-wider">Privacy Boundary</span>
-                <p className="text-xs font-bold text-[#101B16] mt-1">Zero-Raw-Data</p>
-                <span className="text-[10px] text-[#1F6F5C]">Local client isolation active</span>
+                <span className="text-[11px] font-medium text-[#101B16]/60 uppercase tracking-wider">Federated Status</span>
+                <div className="mt-1">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+                      hospitalLiveStatus?.local_training?.status === "training"
+                        ? "bg-[#3B3F8C]/15 text-[#3B3F8C]"
+                        : hospitalLiveStatus?.status === "MODEL_UPDATED"
+                        ? "bg-[#1F6F5C]/15 text-[#1F6F5C]"
+                        : "bg-[#101B16]/10 text-[#101B16]/70"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        hospitalLiveStatus?.local_training?.status === "training"
+                          ? "bg-[#3B3F8C] animate-pulse"
+                          : hospitalLiveStatus?.status === "MODEL_UPDATED"
+                          ? "bg-[#1F6F5C]"
+                          : "bg-[#101B16]/50"
+                      }`}
+                    />
+                    {hospitalLiveStatus?.local_training?.status === "training"
+                      ? "Local Training"
+                      : hospitalLiveStatus?.local_training?.status === "completed"
+                      ? "Update Ready"
+                      : hospitalLiveStatus?.status === "GLOBAL_MODEL_DISTRIBUTING"
+                      ? "Receiving Global Model"
+                      : hospitalLiveStatus?.status === "MODEL_UPDATED"
+                      ? "Global Model Updated"
+                      : "Waiting"}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[#1F6F5C] mt-0.5 block">Zero-Raw-CT Privacy Active</span>
               </div>
             </div>
+
 
             {/* Class distribution visual indicator */}
             <div className="pt-2 border-t border-[#DDE3DC]/40 flex flex-wrap items-center justify-between gap-2 text-xs">

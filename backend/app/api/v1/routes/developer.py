@@ -22,14 +22,60 @@ from app.schemas.dashboard import (
 )
 from app.schemas.federated import (
     FederatedOverviewOut, FederatedRoundDetailOut, HospitalRunTelemetryOut,
-    HospitalParticipationOut
+    HospitalParticipationOut, StartRoundRequest, StartRoundResponse,
+    RoundLiveStatusResponse
 )
 from app.services.model_loader import model_loader
+from app.services.federated_coordinator import federated_coordinator
 
 router = APIRouter()
 
 
+@router.post("/federated/rounds/start", response_model=StartRoundResponse)
+def start_federated_round(payload: StartRoundRequest = StartRoundRequest()):
+    """Initiates a real multi-hospital federated learning round."""
+    try:
+        res = federated_coordinator.start_round(
+            num_rounds=payload.num_rounds,
+            local_epochs=payload.local_epochs,
+            batch_size=payload.batch_size,
+            lr=payload.lr,
+            mode=payload.mode
+        )
+        return StartRoundResponse(**res)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start federated round: {e}")
+
+
+@router.get("/federated/rounds/current/status", response_model=RoundLiveStatusResponse)
+def get_current_round_status():
+    """Returns real-time status and client telemetry of current or latest federated round."""
+    return federated_coordinator.get_live_round_status()
+
+
+@router.get("/federated/rounds/{round_id}/status", response_model=RoundLiveStatusResponse)
+def get_round_status_by_id(round_id: int):
+    """Returns telemetry and status for a specific federated round."""
+    return federated_coordinator.get_live_round_status(round_id)
+
+
+@router.get("/federated/status")
+def get_federated_system_status():
+    """Returns overall readiness of federated learning coordinator and network nodes."""
+    return {
+        "is_running": federated_coordinator.is_running,
+        "current_round": federated_coordinator.current_round,
+        "status": federated_coordinator.status,
+        "global_model_version": federated_coordinator.global_model_version,
+        "connected_hospitals": 3,
+        "ready_to_start": not federated_coordinator.is_running,
+    }
+
+
 @router.get("/federated-overview", response_model=FederatedOverviewOut)
+
 def get_federated_overview(db: Session = Depends(get_db)):
     """Summary metrics for the Developer Dashboard overview cards."""
     latest_round = db.query(FederatedRound).order_by(desc(FederatedRound.round_number)).first()

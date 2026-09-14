@@ -26,9 +26,10 @@ from app.db.models import (
 from app.schemas.dashboard import HospitalOut, PatientHistoryItem
 from app.schemas.federated import (
     DatasetStatusOut, DatasetValidateResponse, FederatedStatusOut,
-    HospitalRunTelemetryOut, LocalTrainingTriggerResponse
+    HospitalRunTelemetryOut, LocalTrainingTriggerResponse, HospitalLiveStatusResponse
 )
 from app.services.model_loader import model_loader
+from app.services.federated_coordinator import federated_coordinator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 
@@ -150,6 +151,20 @@ def get_federated_status(hospital_id: int, db: Session = Depends(get_db)):
         local_accuracy=latest_run.val_acc if latest_run else None,
         local_f1=latest_run.val_f1 if latest_run else None
     )
+
+
+@router.get("/{hospital_id}/federated-live-status", response_model=HospitalLiveStatusResponse)
+def get_federated_live_status(hospital_id: str, db: Session = Depends(get_db)):
+    """Returns real-time round and local client execution status for a specific hospital node."""
+    # Support both numeric ID and hospital_code (e.g. 1 or HOSP-001)
+    if hospital_id.isdigit():
+        h = db.query(Hospital).filter(Hospital.id == int(hospital_id)).first()
+        h_code = h.hospital_code if h else f"HOSP-00{hospital_id}"
+    else:
+        h_code = hospital_id
+    
+    return federated_coordinator.get_hospital_live_status(h_code)
+
 
 
 def _get_hospital_partition_dir(hospital_code: str) -> Path:
