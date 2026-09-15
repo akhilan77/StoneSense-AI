@@ -29,7 +29,6 @@ export function LandingPage() {
           <div className="font-serif text-2xl font-medium tracking-tight">StoneSense-AI</div>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-stonesense-ink/70">
             <a href="#features" className="hover:text-stonesense-ink transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-stonesense-ink transition-colors">How it works</a>
             <a href="#about" className="hover:text-stonesense-ink transition-colors">About</a>
           </nav>
         </div>
@@ -126,64 +125,6 @@ export function LandingPage() {
             <p className="text-stonesense-ink/70 text-sm leading-relaxed">
               Monitor patient history and review AI-assisted reports over time to support clinical workflows.
             </p>
-          </div>
-        </section>
-
-        {/* Architecture Section */}
-        <section id="how-it-works" className="max-w-4xl mx-auto space-y-10 border-t border-stonesense-line pt-16">
-          <div className="text-center space-y-3">
-            <h2 className="font-serif text-3xl text-stonesense-ink">How It Works</h2>
-            <p className="text-stonesense-ink/70 max-w-2xl mx-auto">
-              A simplified look at our dual-model architecture, delivering both accurate predictions and visual transparency.
-            </p>
-          </div>
-          
-          <div className="bg-white p-8 rounded-2xl border border-stonesense-line shadow-sm overflow-hidden">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-              {/* Input */}
-              <div className="flex-1 space-y-4 text-center">
-                <div className="w-16 h-16 mx-auto bg-stonesense-paper rounded-xl border border-stonesense-line flex items-center justify-center">
-                  <svg className="w-8 h-8 text-stonesense-ink/60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                </div>
-                <div>
-                  <div className="font-semibold text-stonesense-ink text-sm">Clinical Inputs</div>
-                  <div className="text-xs text-stonesense-ink/60">Biomarkers & CT Scans</div>
-                </div>
-              </div>
-
-              {/* Arrow */}
-              <div className="hidden md:block text-stonesense-line">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-              </div>
-
-              {/* Models */}
-              <div className="flex-[2] grid grid-cols-2 gap-4">
-                <div className="bg-stonesense-paper p-4 rounded-xl border border-stonesense-line text-center space-y-2">
-                  <div className="text-xs font-semibold text-stonesense-teal tracking-wide uppercase">XGBoost</div>
-                  <div className="text-xs text-stonesense-ink/70">Risk Prediction</div>
-                </div>
-                <div className="bg-stonesense-paper p-4 rounded-xl border border-stonesense-line text-center space-y-2">
-                  <div className="text-xs font-semibold text-stonesense-indigo tracking-wide uppercase">ResNet18</div>
-                  <div className="text-xs text-stonesense-ink/70">Stone Detection</div>
-                </div>
-              </div>
-
-              {/* Arrow */}
-              <div className="hidden md:block text-stonesense-line">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-              </div>
-
-              {/* Explainability */}
-              <div className="flex-1 space-y-4 text-center">
-                <div className="w-16 h-16 mx-auto bg-stonesense-teal/10 rounded-xl border border-stonesense-teal/20 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-stonesense-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
-                <div>
-                  <div className="font-semibold text-stonesense-ink text-sm">Explainability</div>
-                  <div className="text-xs text-stonesense-ink/60">SHAP & Grad-CAM</div>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
