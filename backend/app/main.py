@@ -10,6 +10,7 @@ from app.api.v1.routes.root_router import router as root_router
 from app.api.v1.routes.model_router import router as model_router
 from app.api.v1.routes.hospital import router as hospital_router
 from app.api.v1.routes.developer import router as developer_router
+from app.api.v1.routes.patients import router as patients_router
 from app.db.database import init_db
 from app.config.settings import settings
 from app.core.startup import load_models_on_startup
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
     application.include_router(hospital_router, prefix="/api/v1/hospital", tags=["hospital"])
     application.include_router(hospital_router, prefix="/api/v1/hospitals", tags=["hospitals"])
     application.include_router(developer_router, prefix="/api/v1/developer", tags=["developer"])
+    application.include_router(patients_router, prefix="/api/v1")
 
     @application.websocket("/api/v1/ws/federated")
     @application.websocket("/api/v1/developer/federated/ws")

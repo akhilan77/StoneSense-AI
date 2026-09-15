@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
-import { predictRisk } from '../services/api';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchPatient, predictRisk } from '../services/api';
 import type { Patient } from '../types/patient';
 import type { RiskPrediction } from '../types/riskPrediction';
 import { ErrorMessage } from './ErrorMessage';
 import { LoadingSpinner } from './LoadingSpinner';
 import { PredictionCard } from './PredictionCard';
 import { useHospital } from '../context/HospitalContext';
+import type { PatientRecord } from '../types/dashboard';
 
 const initialPatient: Patient = {
   age: 42,
@@ -28,12 +29,27 @@ const initialPatient: Patient = {
 const fieldClassName =
   'mt-1 w-full rounded-md border border-stonesense-line bg-white px-3 py-1.5 text-sm text-stonesense-ink outline-none transition focus:border-stonesense-teal';
 
-export function PatientForm() {
+export function PatientForm({ patientId }: { patientId: number }) {
   const { hospitalId } = useHospital();
   const [patient, setPatient] = useState<Patient>(initialPatient);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<RiskPrediction | null>(null);
+  const [patientRecord, setPatientRecord] = useState<PatientRecord | null>(null);
+  const [isPatientLoading, setIsPatientLoading] = useState(true);
+
+  useEffect(() => {
+    setIsPatientLoading(true);
+    fetchPatient(patientId, hospitalId ?? 1)
+      .then((record) => {
+        setPatientRecord(record);
+        if (record.clinical_profile && Object.keys(record.clinical_profile).length > 0) {
+          setPatient((current) => ({ ...current, ...record.clinical_profile } as Patient));
+        }
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Unable to load patient.'))
+      .finally(() => setIsPatientLoading(false));
+  }, [patientId, hospitalId]);
 
   const predictionData = useMemo(
     () => [
@@ -60,6 +76,7 @@ export function PatientForm() {
       const payload = {
         ...patient,
         hospital_id: hospitalId ?? 1,
+        patient_id: patientId,
       };
       const response = await predictRisk(payload);
       setPrediction(response);
@@ -73,7 +90,19 @@ export function PatientForm() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+    <div>
+      {isPatientLoading ? (
+        <div className="mb-6 rounded-lg border border-dashed border-stonesense-line bg-white p-5 text-sm text-stonesense-ink/60">Loading patient...</div>
+      ) : patientRecord ? (
+        <section className="mb-6 rounded-lg border border-stonesense-line bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stonesense-teal">Patient</p>
+          <div className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
+            <div><p className="font-serif text-lg text-stonesense-ink">{patientRecord.name}</p><p className="text-stonesense-ink/60">{patientRecord.phone}</p></div>
+            <div className="grid grid-cols-2 gap-2 text-xs text-stonesense-ink/70"><p><strong>Patient ID:</strong> {patientRecord.patient_id}</p><p><strong>Blood Group:</strong> {patientRecord.blood_group}</p><p><strong>Date of Admission:</strong> {patientRecord.admitted_date}</p><p><strong>Last Inspected:</strong> {patientRecord.last_inspected_date ?? '—'}</p></div>
+          </div>
+        </section>
+      ) : null}
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <form
         onSubmit={handleSubmit}
         className="rounded-lg border border-stonesense-line bg-white p-6 shadow-sm"
@@ -312,6 +341,7 @@ export function PatientForm() {
             Submit a patient profile to receive a risk prediction response.
           </div>
         )}
+      </div>
       </div>
     </div>
   );

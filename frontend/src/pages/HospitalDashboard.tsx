@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AppLayout from "../components/layout/AppLayout";
 import { useHospital } from "../context/HospitalContext";
 import { PatientRecord } from "../types/dashboard";
+import { createPatient, fetchPatients } from "../services/api";
 import {
   fetchHospitalDatasetStatus,
   validateHospitalDataset,
@@ -19,75 +21,6 @@ import {
 } from "../types/federated";
 
 
-const initialPatients: PatientRecord[] = [
-  {
-    id: "PT-2201",
-    name: "Ramesh Iyer",
-    phone: "+91 98400 12345",
-    blood_group: "O+",
-    admitted_date: "04 Sep 2026",
-    last_inspected_date: "08 Sep 2026",
-    ml_risk: { status: "completed", level: "Moderate", score: 71 },
-    dl_imaging: { status: "completed", result: "Stone", confidence: 94.2 },
-    documents: [{ name: "PT-2201_EHR_Records.pdf", size: "1.4 MB", uploaded_at: "04 Sep 2026" }],
-  },
-  {
-    id: "PT-2202",
-    name: "Priya Nair",
-    phone: "+91 98450 66210",
-    blood_group: "A-",
-    admitted_date: "05 Sep 2026",
-    last_inspected_date: "05 Sep 2026",
-    ml_risk: { status: "completed", level: "Low", score: 12 },
-    dl_imaging: { status: "pending" },
-    documents: [{ name: "PT-2202_Urinalysis_Report.pdf", size: "0.8 MB", uploaded_at: "05 Sep 2026" }],
-  },
-  {
-    id: "PT-2203",
-    name: "Faizal Ahmed",
-    phone: "+91 90032 88871",
-    blood_group: "B+",
-    admitted_date: "06 Sep 2026",
-    last_inspected_date: null,
-    ml_risk: { status: "pending" },
-    dl_imaging: { status: "pending" },
-    documents: [{ name: "PT-2203_Prescription_History.pdf", size: "0.5 MB", uploaded_at: "06 Sep 2026" }],
-  },
-  {
-    id: "PT-2190",
-    name: "Lakshmi Menon",
-    phone: "+91 97400 55123",
-    blood_group: "AB+",
-    admitted_date: "29 Aug 2026",
-    last_inspected_date: "07 Sep 2026",
-    ml_risk: { status: "completed", level: "Low", score: 8 },
-    dl_imaging: { status: "completed", result: "Normal", confidence: 97.4 },
-    documents: [{ name: "PT-2190_Clinical_Summary.pdf", size: "2.1 MB", uploaded_at: "29 Aug 2026" }],
-  },
-  {
-    id: "PT-2183",
-    name: "Arvind Kumar",
-    phone: "+91 99400 77812",
-    blood_group: "O-",
-    admitted_date: "27 Aug 2026",
-    last_inspected_date: "02 Sep 2026",
-    ml_risk: { status: "completed", level: "High", score: 89 },
-    dl_imaging: { status: "pending" },
-    documents: [{ name: "PT-2183_CT_Scan_Series.dcm", size: "18.2 MB", uploaded_at: "27 Aug 2026" }],
-  },
-  {
-    id: "PT-2204",
-    name: "Divya Suresh",
-    phone: "+91 96000 34410",
-    blood_group: "B-",
-    admitted_date: "08 Sep 2026",
-    last_inspected_date: null,
-    ml_risk: { status: "pending" },
-    dl_imaging: { status: "pending" },
-    documents: [],
-  },
-];
-
 const steps = [
   { key: "input", label: "Patient input" },
   { key: "results", label: "ML & DL results" },
@@ -96,10 +29,13 @@ const steps = [
 ] as const;
 
 export default function HospitalDashboard() {
+  const navigate = useNavigate();
   const { hospitalId } = useHospital();
   const activeHospId = hospitalId ?? 1;
 
-  const [patients, setPatients] = useState<PatientRecord[]>(initialPatients);
+  const [patients, setPatients] = useState<PatientRecord[]>([]);
+  const [isPatientsLoading, setIsPatientsLoading] = useState(true);
+  const [patientError, setPatientError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPatientForWorkflow, setSelectedPatientForWorkflow] = useState<PatientRecord | null>(null);
@@ -114,6 +50,15 @@ export default function HospitalDashboard() {
   const [isValidatingDataset, setIsValidatingDataset] = useState(false);
   const [validationResult, setValidationResult] = useState<DatasetValidationResult | null>(null);
   const [isCalibratingLocal, setIsCalibratingLocal] = useState(false);
+
+  useEffect(() => {
+    setIsPatientsLoading(true);
+    setPatientError(null);
+    fetchPatients(activeHospId)
+      .then(setPatients)
+      .catch((loadError) => setPatientError(loadError instanceof Error ? loadError.message : "Unable to load patients."))
+      .finally(() => setIsPatientsLoading(false));
+  }, [activeHospId]);
 
   const loadFederatedData = (hId: number) => {
     fetchHospitalDatasetStatus(hId).then(setDatasetStatus).catch(() => {});
@@ -200,7 +145,6 @@ export default function HospitalDashboard() {
     admitDate: new Date().toISOString().split("T")[0],
     inspectDate: "",
   });
-  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string } | null>(null);
 
   // Form input states for Workflow view
   const [gravity, setGravity] = useState("1.020");
@@ -231,95 +175,47 @@ export default function HospitalDashboard() {
     const q = searchQuery.toLowerCase();
     return (
       p.name.toLowerCase().includes(q) ||
-      p.id.toLowerCase().includes(q) ||
+      p.patient_id.toLowerCase().includes(q) ||
       p.phone.toLowerCase().includes(q)
     );
   });
 
   const handleOpenAddModal = () => {
-    const nextId = `PT-${2200 + patients.length + 1}`;
     setFormData({
       name: "",
-      patientId: nextId,
+      patientId: "",
       phone: "+91 ",
       bloodGroup: "O+",
       admitDate: new Date().toISOString().split("T")[0],
       inspectDate: "",
     });
-    setUploadedFile(null);
     setIsModalOpen(true);
   };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-      setUploadedFile({ name: file.name, size: `${sizeMb} MB` });
-    }
-  };
-
-  const handleAddPatientSubmit = (e: React.FormEvent) => {
+  const handleAddPatientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name) return;
-
-    const newPatient: PatientRecord = {
-      id: formData.patientId || `PT-${2200 + patients.length + 1}`,
-      name: formData.name,
-      phone: formData.phone,
-      blood_group: formData.bloodGroup,
-      admitted_date: formData.admitDate || "Today",
-      last_inspected_date: formData.inspectDate ? formData.inspectDate : null,
-      ml_risk: { status: "pending" },
-      dl_imaging: { status: "pending" },
-      documents: uploadedFile
-        ? [
-            {
-              name: uploadedFile.name,
-              size: uploadedFile.size,
-              uploaded_at: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            },
-          ]
-        : [{ name: `${formData.patientId || "PT"}_EHR_Summary.pdf`, size: "1.1 MB", uploaded_at: "Today" }],
-    };
-
-    setPatients([newPatient, ...patients]);
-    setIsModalOpen(false);
-    showToast(`Patient ${newPatient.name} (${newPatient.id}) added successfully with records!`);
+    try {
+      const newPatient = await createPatient({
+        reference_code: formData.patientId,
+        name: formData.name,
+        phone: formData.phone,
+        blood_group: formData.bloodGroup,
+        admitted_date: formData.admitDate,
+        inspection_date: formData.inspectDate || undefined,
+        hospital_id: activeHospId,
+      });
+      setPatients((current) => [newPatient, ...current]);
+      setIsModalOpen(false);
+      showToast(`Patient ${newPatient.name} (${newPatient.patient_id}) added successfully.`);
+    } catch (submitError) {
+      setPatientError(submitError instanceof Error ? submitError.message : "Unable to add patient.");
+    }
   };
 
   const handleScanTrigger = (patient: PatientRecord, scanType: "risk" | "imaging") => {
     if (scanType === "risk") {
-      showToast(`Running XGBoost Clinical Risk scan for ${patient.name}...`);
-      setTimeout(() => {
-        setPatients((prev) =>
-          prev.map((p) =>
-            p.id === patient.id
-              ? {
-                  ...p,
-                  last_inspected_date: "Today",
-                  ml_risk: { status: "completed", level: "Low", score: 14 },
-                }
-              : p
-          )
-        );
-        showToast(`ML Risk computed: Low (14%) for ${patient.name}. ML Report is ready for download!`);
-      }, 1000);
+      navigate(`/risk-prediction/${patient.id}`);
     } else {
-      showToast(`Running ResNet18 CT Imaging scan for ${patient.name}...`);
-      setTimeout(() => {
-        setPatients((prev) =>
-          prev.map((p) =>
-            p.id === patient.id
-              ? {
-                  ...p,
-                  last_inspected_date: "Today",
-                  dl_imaging: { status: "completed", result: "Stone", confidence: 92.5 },
-                }
-              : p
-          )
-        );
-        showToast(`DL Imaging computed: Stone detected (92.5%) for ${patient.name}. DL Report is ready for download!`);
-      }, 1200);
+      navigate(`/stone-detection/${patient.id}`);
     }
   };
 
@@ -570,7 +466,7 @@ export default function HospitalDashboard() {
             </button>
           </div>
 
-          {/* Table Card with separate Submitted Document and separate ML/DL Report download columns */}
+          {/* Patient assessment table */}
           <div className="overflow-x-auto rounded-xl border border-[#DDE3DC] bg-white shadow-xs">
             <table className="w-full text-left text-xs min-w-[1000px]">
               <thead>
@@ -582,20 +478,22 @@ export default function HospitalDashboard() {
                   <th className="py-3.5 px-3 font-semibold">LAST INSPECTED</th>
                   <th className="py-3.5 px-3 font-semibold">ML RISK</th>
                   <th className="py-3.5 px-3 font-semibold">DL IMAGING</th>
-                  <th className="py-3.5 px-3.5 font-semibold">SUBMITTED DOC</th>
                   <th className="py-3.5 px-3 font-semibold">ML REPORT</th>
                   <th className="py-3.5 px-3 font-semibold">DL REPORT</th>
                   <th className="py-3.5 px-2 text-right"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DDE3DC]/70">
-                {filteredPatients.map((p) => {
-                  const firstDoc = p.documents?.[0];
+                {isPatientsLoading ? (
+                  <tr><td colSpan={10} className="p-6 text-center text-sm text-[#101B16]/50">Loading patients...</td></tr>
+                ) : patientError ? (
+                  <tr><td colSpan={10} className="p-6 text-center text-sm text-red-700">{patientError}</td></tr>
+                ) : filteredPatients.map((p) => {
                   return (
                     <tr key={p.id} className="hover:bg-[#1F6F5C]/[0.02] transition-colors">
                       <td className="py-3.5 px-3.5">
                         <div className="font-medium text-[#101B16] text-[13px]">{p.name}</div>
-                        <div className="text-[11px] text-[#101B16]/45">{p.id}</div>
+                        <div className="text-[11px] text-[#101B16]/45">{p.patient_id}</div>
                       </td>
                       <td className="py-3.5 px-3.5 text-[#101B16]/85 font-mono text-[11.5px]">{p.phone}</td>
                       <td className="py-3.5 px-3">
@@ -655,23 +553,6 @@ export default function HospitalDashboard() {
                           >
                             Scan now
                           </button>
-                        )}
-                      </td>
-
-                      {/* SUBMITTED DOCUMENT DOWNLOAD COLUMN */}
-                      <td className="py-3.5 px-3.5">
-                        {firstDoc ? (
-                          <button
-                            onClick={() => downloadFileSimulation(firstDoc.name, `${p.name} Submitted Medical Document`)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-[#DDE3DC] bg-[#F3F6F1] px-2.5 py-1 text-[11px] font-medium text-[#101B16] hover:border-[#1F6F5C]/50 hover:bg-[#E5EDE3] transition-colors cursor-pointer whitespace-nowrap"
-                            title="Download patient records"
-                          >
-                            <span>📄</span>
-                            <span className="truncate max-w-[90px]">{firstDoc.name}</span>
-                            <span className="text-[10px] text-[#101B16]/50">({firstDoc.size})</span>
-                          </button>
-                        ) : (
-                          <span className="text-[11px] text-[#101B16]/35">— No file</span>
                         )}
                       </td>
 
@@ -971,22 +852,6 @@ export default function HospitalDashboard() {
                     <span className="text-[#101B16]/50 block text-[11px]">Admission Date</span>
                     <span className="text-[#101B16]">{selectedPatientForWorkflow.admitted_date}</span>
                   </div>
-                  {selectedPatientForWorkflow.documents && selectedPatientForWorkflow.documents.length > 0 && (
-                    <div>
-                      <span className="text-[#101B16]/50 block text-[11px] mb-1">Attached Documents</span>
-                      {selectedPatientForWorkflow.documents.map((doc, idx) => (
-                        <div key={idx} className="rounded bg-[#F3F6F1] p-2 text-[11px] flex justify-between items-center mb-1">
-                          <span className="truncate max-w-[150px]">{doc.name}</span>
-                          <button
-                            onClick={() => downloadFileSimulation(doc.name, doc.name)}
-                            className="text-[#1F6F5C] font-semibold hover:underline"
-                          >
-                            Download
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ) : (
                 <p className="text-xs text-[#101B16]/40">No patient selected.</p>
@@ -1018,7 +883,7 @@ export default function HospitalDashboard() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Ramesh Iyer"
+                    placeholder="Enter full name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none focus:border-[#1F6F5C]"
@@ -1029,6 +894,7 @@ export default function HospitalDashboard() {
                   <label className="block text-[#101B16]/70 font-medium mb-1">Patient ID</label>
                   <input
                     type="text"
+                    required
                     placeholder="Auto-generated or hospital ref"
                     value={formData.patientId}
                     onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
@@ -1086,47 +952,6 @@ export default function HospitalDashboard() {
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none focus:border-[#1F6F5C]"
                   />
                 </div>
-              </div>
-
-              {/* DOCUMENT UPLOAD OPTION */}
-              <div className="pt-2 border-t border-[#DDE3DC]">
-                <label className="block text-[#101B16]/70 font-medium mb-1.5">
-                  Upload Patient Documents / Medical Records (Optional)
-                </label>
-                <label className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-[#DDE3DC] bg-[#F9FAF8] p-4 text-center cursor-pointer hover:border-[#1F6F5C]/60 hover:bg-[#1F6F5C]/[0.03] transition-colors">
-                  <svg className="h-6 w-6 text-[#1F6F5C] mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <span className="text-[12px] font-medium text-[#101B16]">
-                    Click to attach PDF report, EHR, or CT DICOM scan
-                  </span>
-                  <span className="text-[10.5px] text-[#101B16]/45 mt-0.5">
-                    Supports .pdf, .dcm, .jpg, .png (Max 25MB)
-                  </span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.png,.jpg,.jpeg,.dcm,.dicom"
-                    onChange={handleFileUpload}
-                  />
-                </label>
-
-                {uploadedFile && (
-                  <div className="mt-2 flex items-center justify-between rounded-md bg-[#EDF3ED] border border-[#D2E0D1] px-3 py-1.5 text-xs text-[#101B16]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#1F6F5C]">📎</span>
-                      <span className="font-medium truncate max-w-[280px]">{uploadedFile.name}</span>
-                      <span className="text-[11px] text-[#101B16]/50">({uploadedFile.size})</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setUploadedFile(null)}
-                      className="text-[#B3261E] font-bold hover:opacity-80 p-0.5"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Actions */}

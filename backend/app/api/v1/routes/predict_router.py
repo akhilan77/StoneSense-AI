@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 
 from app.db.database import get_db
-from app.db.models import Prediction
+from app.db.models import Patient, Prediction
 from app.schemas.patient import PatientInformation
 from app.schemas.responses import (
     RiskPredictionResponse,
@@ -29,6 +29,15 @@ async def predict_risk(
     if model_loader.ml_model is None:
         raise HTTPException(status_code=503, detail="Risk prediction model not loaded.")
 
+    patient = None
+    if payload.patient_id is not None:
+        patient = db.query(Patient).filter(
+            Patient.id == payload.patient_id,
+            Patient.hospital_id == payload.hospital_id,
+        ).first()
+        if patient is None:
+            raise HTTPException(status_code=404, detail="Patient not found for this hospital.")
+
     start_time = time.time()
     res = PredictionService.predict_risk(payload.model_dump())
     elapsed = time.time() - start_time
@@ -37,6 +46,7 @@ async def predict_risk(
     try:
         prediction = Prediction(
             hospital_id=payload.hospital_id,
+            patient_id=patient.id if patient else None,
             prediction_type="risk",
             model_name="xgboost_risk_v1_1",
             result_label=str(res["risk"]),
@@ -44,6 +54,10 @@ async def predict_risk(
             latency_ms=elapsed * 1000,
         )
         db.add(prediction)
+        if patient:
+            profile = dict(patient.urine_features or {})
+            profile["clinical"] = payload.model_dump(exclude={"hospital_id", "patient_id"})
+            patient.urine_features = profile
         db.commit()
     except Exception:
         db.rollback()
@@ -62,11 +76,21 @@ async def predict_risk(
 async def predict_image(
     image: UploadFile = File(...),
     hospital_id: int = Form(1),
+    patient_id: int | None = Form(None),
     db: Session = Depends(get_db),
 ) -> StoneDetectionResponse:
     """Classifies CT scan slice using trained ResNet18 model singleton."""
     if model_loader.dl_model is None:
         raise HTTPException(status_code=503, detail="ResNet18 CT classification model not loaded.")
+
+    patient = None
+    if patient_id is not None:
+        patient = db.query(Patient).filter(
+            Patient.id == patient_id,
+            Patient.hospital_id == hospital_id,
+        ).first()
+        if patient is None:
+            raise HTTPException(status_code=404, detail="Patient not found for this hospital.")
 
     start_time = time.time()
     try:
@@ -85,6 +109,7 @@ async def predict_image(
         from app.db.models import InferenceLog
         prediction = Prediction(
             hospital_id=hospital_id,
+            patient_id=patient.id if patient else None,
             prediction_type="image",
             model_name=active_ver,
             result_label=str(res["class"]),

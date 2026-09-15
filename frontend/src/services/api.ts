@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { PatientRecord } from '../types/dashboard';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 export { API_BASE_URL };
@@ -74,6 +75,31 @@ export async function health(): Promise<HealthResponse> {
 
 export async function predictRisk(payload: unknown): Promise<RiskPrediction> {
   const response = await api.post<RiskPrediction>('/api/v1/predict/risk', payload);
+  return response.data;
+}
+
+export async function fetchPatients(hospitalId: number): Promise<PatientRecord[]> {
+  const response = await api.get<PatientRecord[]>('/api/v1/patients', { params: { hospital_id: hospitalId } });
+  return response.data;
+}
+
+export async function fetchPatient(patientId: number, hospitalId: number): Promise<PatientRecord> {
+  const response = await api.get<PatientRecord>(`/api/v1/patients/${patientId}`, {
+    params: { hospital_id: hospitalId },
+  });
+  return response.data;
+}
+
+export async function createPatient(payload: {
+  reference_code: string;
+  name: string;
+  phone: string;
+  blood_group: string;
+  admitted_date: string;
+  inspection_date?: string;
+  hospital_id: number;
+}): Promise<PatientRecord> {
+  const response = await api.post<PatientRecord>('/api/v1/patients', payload);
   return response.data;
 }
 

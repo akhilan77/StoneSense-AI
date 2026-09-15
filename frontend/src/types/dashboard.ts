@@ -14,7 +14,8 @@ export interface Hospital {
 }
 
 export interface PatientRecord {
-  id: string;
+  id: number;
+  patient_id: string;
   name: string;
   phone: string;
   blood_group: string;
@@ -30,11 +31,7 @@ export interface PatientRecord {
     result?: "Stone" | "Normal";
     confidence?: number;
   };
-  documents?: {
-    name: string;
-    size: string;
-    uploaded_at: string;
-  }[];
+  clinical_profile?: Record<string, unknown>;
 }
 
 export interface PatientHistoryItem {

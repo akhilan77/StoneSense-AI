@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -29,4 +29,28 @@ class PatientInformation(BaseModel):
     conductivity: float = Field(default=0.0, ge=0.0, description="Urine conductivity used by the tabular model.")
     urea: float = Field(default=0.0, ge=0.0, description="Urine urea used by the tabular model.")
     hospital_id: int = Field(default=1, description="Associated hospital ID for data scoping.")
+    patient_id: Optional[int] = Field(default=None, description="Database patient ID to associate with the assessment.")
+
+
+class PatientCreate(BaseModel):
+    reference_code: str = Field(..., min_length=1, max_length=64)
+    name: str = Field(..., min_length=1, max_length=255)
+    phone: str = Field(..., min_length=1, max_length=64)
+    blood_group: str = Field(..., min_length=1, max_length=8)
+    admitted_date: str = Field(..., min_length=1, max_length=32)
+    inspection_date: Optional[str] = Field(default=None, max_length=32)
+    hospital_id: int = Field(default=1)
+
+
+class PatientOut(BaseModel):
+    id: int
+    patient_id: str
+    name: str
+    phone: str
+    blood_group: str
+    admitted_date: str
+    inspection_date: Optional[str] = None
+    clinical_profile: Dict[str, Any] = Field(default_factory=dict)
+    ml_risk: Optional[Dict[str, Any]] = None
+    dl_imaging: Optional[Dict[str, Any]] = None
 

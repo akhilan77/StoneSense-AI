@@ -6,7 +6,7 @@ Uses SQLite for now (zero extra infra) — swap DATABASE_URL for Postgres later
 without touching any route code, since routes only depend on get_db().
 """
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import Base
@@ -21,6 +21,22 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db() -> None:
     """Call once on backend startup (see INTEGRATION.md)."""
     Base.metadata.create_all(bind=engine)
+    if DATABASE_URL.startswith("sqlite"):
+        with engine.begin() as connection:
+            columns = {column["name"] for column in inspect(connection).get_columns("model_versions")}
+            migrations = {
+                "model_versions": {"round_id": "INTEGER", "precision": "FLOAT", "recall": "FLOAT"},
+                "hospitals": {
+                    "dataset_size": "INTEGER",
+                    "class_distribution": "JSON",
+                    "current_model_version": "VARCHAR(64)",
+                },
+            }
+            for table, table_columns in migrations.items():
+                columns = {column["name"] for column in inspect(connection).get_columns(table)}
+                for name, definition in table_columns.items():
+                    if name not in columns:
+                        connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
 
 
 def get_db():

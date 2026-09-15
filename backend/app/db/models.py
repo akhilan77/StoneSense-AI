@@ -131,6 +131,11 @@ class Patient(Base):
     id = Column(Integer, primary_key=True, index=True)
     hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=False, index=True)
     reference_code = Column(String(64), nullable=False)  # de-identified reference code
+    name = Column(String(255), nullable=True)
+    phone = Column(String(64), nullable=True)
+    blood_group = Column(String(8), nullable=True)
+    admitted_date = Column(String(32), nullable=True)
+    last_inspected_date = Column(String(32), nullable=True)
     urine_features = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

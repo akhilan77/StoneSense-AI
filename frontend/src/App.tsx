@@ -19,8 +19,8 @@ export function App() {
 
       {/* Hospital Console Routes (All use persistent left vertical sidebar) */}
       <Route path="/hospital-dashboard" element={<HospitalDashboard />} />
-      <Route path="/risk-prediction" element={<RiskPredictionPage />} />
-      <Route path="/stone-detection" element={<StoneDetectionPage />} />
+      <Route path="/risk-prediction/:patientId" element={<RiskPredictionPage />} />
+      <Route path="/stone-detection/:patientId" element={<StoneDetectionPage />} />
 
       {/* Developer Console Routes (All use persistent left vertical sidebar) */}
       <Route path="/developer-dashboard" element={<DeveloperDashboard initialTab="overview" />} />

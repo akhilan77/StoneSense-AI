@@ -1,20 +1,31 @@
-import { useMemo, useState } from 'react';
-import { API_BASE_URL, predictImage } from '../services/api';
+import { useEffect, useMemo, useState } from 'react';
+import { API_BASE_URL, fetchPatient, predictImage } from '../services/api';
 import type { StoneDetection } from '../types/stoneDetection';
 import { ErrorMessage } from './ErrorMessage';
 import { LoadingSpinner } from './LoadingSpinner';
 import { PredictionCard } from './PredictionCard';
 import { useHospital } from '../context/HospitalContext';
+import type { PatientRecord } from '../types/dashboard';
 
 const acceptedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
 
-export function ImageUpload() {
+export function ImageUpload({ patientId }: { patientId: number }) {
   const { hospitalId } = useHospital();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detection, setDetection] = useState<StoneDetection | null>(null);
+  const [patientRecord, setPatientRecord] = useState<PatientRecord | null>(null);
+  const [isPatientLoading, setIsPatientLoading] = useState(true);
+
+  useEffect(() => {
+    setIsPatientLoading(true);
+    fetchPatient(patientId, hospitalId ?? 1)
+      .then(setPatientRecord)
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Unable to load patient.'))
+      .finally(() => setIsPatientLoading(false));
+  }, [patientId, hospitalId]);
 
   const detectionData = useMemo(
     () => [
@@ -60,6 +71,7 @@ export function ImageUpload() {
     const formData = new FormData();
     formData.append('image', imageFile);
     formData.append('hospital_id', String(hospitalId ?? 1));
+    formData.append('patient_id', String(patientId));
 
     try {
       const response = await predictImage(formData);
@@ -74,7 +86,16 @@ export function ImageUpload() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+    <div>
+      {isPatientLoading ? (
+        <div className="mb-6 rounded-lg border border-dashed border-stonesense-line bg-white p-5 text-sm text-stonesense-ink/60">Loading patient...</div>
+      ) : patientRecord ? (
+        <section className="mb-6 rounded-lg border border-stonesense-line bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stonesense-teal">Patient</p>
+          <div className="mt-2 grid gap-3 text-sm sm:grid-cols-2"><div><p className="font-serif text-lg text-stonesense-ink">{patientRecord.name}</p><p className="text-stonesense-ink/60">{patientRecord.phone}</p></div><div className="grid grid-cols-2 gap-2 text-xs text-stonesense-ink/70"><p><strong>Patient ID:</strong> {patientRecord.patient_id}</p><p><strong>Blood Group:</strong> {patientRecord.blood_group}</p><p><strong>Date of Admission:</strong> {patientRecord.admitted_date}</p><p><strong>Last Inspected:</strong> {patientRecord.last_inspected_date ?? '—'}</p></div></div>
+        </section>
+      ) : null}
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
       <form
         onSubmit={handleSubmit}
         className="rounded-lg border border-stonesense-line bg-white p-6 shadow-sm"
@@ -169,6 +190,7 @@ export function ImageUpload() {
             Upload an image to inspect the classification prediction result.
           </div>
         )}
+      </div>
       </div>
     </div>
   );
