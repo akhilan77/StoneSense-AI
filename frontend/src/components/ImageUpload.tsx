@@ -65,6 +65,7 @@ export function ImageUpload({ patientId }: { patientId: number }) {
       return;
     }
 
+    setDetection(null);
     setIsLoading(true);
     setError(null);
 
@@ -155,16 +156,24 @@ export function ImageUpload({ patientId }: { patientId: number }) {
               <h2 className="mt-1 font-serif text-lg text-stonesense-ink">Trustworthy Assessment</h2>
               <h3 className="mt-3 font-serif text-base text-stonesense-ink">Grad-CAM Explanation</h3>
               <p className="mt-2 text-sm text-stonesense-ink/60">
-                The highlighted region influenced the model prediction; it does not by itself prove
-                the presence of a stone.
+                {detection.gradcam?.available === false || detection.class_name === 'Normal'
+                  ? 'No stone-specific localization is shown because the model classified this scan as Normal.'
+                  : 'The highlighted regions indicate areas that contributed to the model\'s prediction. This visualization is an AI explanation and does not by itself establish a clinical diagnosis.'}
               </p>
               {detection.gradcam?.overlay_url ? (
                 <img
                   src={`${API_BASE_URL}${detection.gradcam.overlay_url}`}
                   alt="Grad-CAM explanation overlay"
                   className="mt-4 max-h-72 w-full rounded-lg border border-stonesense-line object-contain"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
                 />
-              ) : null}
+              ) : (
+                <div className="mt-4 rounded-lg border border-dashed border-stonesense-line bg-stonesense-paper p-6 text-center text-sm text-stonesense-ink/60">
+                  {detection.gradcam?.message ?? 'Explanation unavailable for this scan.'}
+                </div>
+              )}
               <div className="mt-5 grid gap-3 border-t border-stonesense-line pt-4 sm:grid-cols-2">
                 <div>
                   <p className="text-xs text-stonesense-ink/50">Model</p>
@@ -179,8 +188,8 @@ export function ImageUpload({ patientId }: { patientId: number }) {
                   <p className="font-semibold text-stonesense-ink">CT Image</p>
                 </div>
                 <div>
-                  <p className="text-xs text-stonesense-ink/50">Classes</p>
-                  <p className="font-semibold text-stonesense-ink">Cyst / Normal / Stone / Tumor</p>
+                  <p className="text-xs text-stonesense-ink/50">Target class</p>
+                  <p className="font-semibold text-stonesense-ink">{detection.gradcam?.target_class ?? detection.class_name}</p>
                 </div>
               </div>
             </section>

@@ -19,11 +19,18 @@ class RiskPredictionResponse(BaseModel):
     shap: Optional[ShapExplanation] = None
 
 
+class GradCAMResponse(BaseModel):
+    overlay_url: str = ""
+    target_class: str = ""
+    available: bool = False
+    message: str = ""
+
+
 class StoneDetectionResponse(BaseModel):
     """Independent CT image assessment output."""
     class_name: str = Field(..., description="CT Classification class label")
     confidence: float = Field(..., ge=0.0, le=1.0)
     inference_time_sec: float = Field(default=0.0)
-    gradcam: Optional[Dict[str, str]] = None
+    gradcam: Optional[GradCAMResponse] = None
 
 

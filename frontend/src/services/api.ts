@@ -58,6 +58,9 @@ export interface StoneDetection {
   inference_time_sec: number;
   gradcam?: {
     overlay_url: string;
+    target_class?: string;
+    available?: boolean;
+    message?: string;
   };
 }
 

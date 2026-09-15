@@ -100,8 +100,19 @@ async def predict_image(
         raise HTTPException(status_code=400, detail=f"Failed to process image file: {str(e)}")
 
     elapsed = time.time() - start_time
-    output_dir = Path(__file__).resolve().parents[4] / "static" / "gradcam"
-    overlay = generate_gradcam_for_bytes(content, str(output_dir / f"{uuid4().hex}_overlay.png"))
+    output_dir = Path(__file__).resolve().parents[3] / "static" / "gradcam"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    overlay = None
+    overlay_url = None
+    gradcam_error = None
+    try:
+        overlay = generate_gradcam_for_bytes(content, str(output_dir / f"{uuid4().hex}_overlay.png"), target_class=res["class"])
+        overlay_url = f"/static/gradcam/{Path(overlay['overlay_path']).name}"
+    except Exception as exc:
+        gradcam_error = str(exc)
+        import logging
+        logging.getLogger("predict_router").exception("Grad-CAM generation failed for CT upload")
 
     active_ver = getattr(model_loader, "active_dl_version_tag", "resnet18_ct_v2_1")
 
@@ -115,7 +126,7 @@ async def predict_image(
             result_label=str(res["class"]),
             confidence=res["confidence"],
             latency_ms=elapsed * 1000,
-            explainability_ref=f"/static/gradcam/{Path(overlay['overlay_path']).name}",
+            explainability_ref=overlay_url,
         )
         inf_log = InferenceLog(
             hospital_id=hospital_id,
@@ -132,10 +143,29 @@ async def predict_image(
     except Exception:
         db.rollback()
 
-    return StoneDetectionResponse(
-        class_name=res["class"],
-        confidence=res["confidence"],
-        inference_time_sec=round(elapsed, 4),
-        gradcam={"overlay_url": f"/static/gradcam/{Path(overlay['overlay_path']).name}"}
-    )
+    payload = {
+        "class_name": res["class"],
+        "confidence": res["confidence"],
+        "inference_time_sec": round(elapsed, 4),
+    }
+    if overlay_url:
+        payload["gradcam"] = {
+            "overlay_url": overlay_url if res["class"] != "Normal" else "",
+            "target_class": overlay.get("target_class", res["class"]),
+            "available": bool(res["class"] != "Normal") and bool(overlay.get("available", True)),
+            "message": (
+                "No stone-specific localization is shown because the model classified this scan as Normal."
+                if res["class"] == "Normal"
+                else overlay.get("message", "")
+            )
+        }
+    elif gradcam_error:
+        payload["gradcam"] = {
+            "overlay_url": "",
+            "target_class": res["class"],
+            "available": False,
+            "message": "Explanation unavailable for this scan."
+        }
+
+    return StoneDetectionResponse(**payload)
 

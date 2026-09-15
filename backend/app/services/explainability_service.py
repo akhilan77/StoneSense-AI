@@ -56,28 +56,104 @@ def generate_shap_for_patient(patient_features: Dict[str, Any]) -> Dict[str, Any
     }
 
 
-def generate_gradcam_for_bytes(image_bytes: bytes, output_path: str) -> Dict[str, str]:
-    """Generate and save a Grad-CAM overlay for an uploaded image."""
+def generate_gradcam_for_bytes(image_bytes: bytes, output_path: str, target_class: Optional[str] = None) -> Dict[str, Any]:
+    """Generate a class-specific Grad-CAM overlay for an uploaded CT image."""
     from app.services.model_loader import model_loader
     from app.utils.image_utils import preprocess_ct_image
     import io
     import cv2
-    from pytorch_grad_cam import GradCAM
-    from pytorch_grad_cam.utils.image import show_cam_on_image
+    import torch
 
     if model_loader.dl_model is None:
         raise RuntimeError("DL model is not loaded.")
+
+    model = model_loader.dl_model
+    model.eval()
+
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    original_rgb = np.asarray(image, dtype=np.uint8)
     transform = get_val_test_transforms(image_size=(224, 224))
     tensor = preprocess_ct_image(image_bytes, transform).to(model_loader.device)
-    resized = np.asarray(image.resize((224, 224)), dtype=np.float32) / 255.0
-    cam = GradCAM(model=model_loader.dl_model, target_layers=[model_loader.dl_model.layer4[-1]])
-    grayscale = cam(input_tensor=tensor, targets=None)[0]
-    overlay = show_cam_on_image(resized, grayscale, use_rgb=True)
+    tensor.requires_grad_(True)
+
+    activations = []
+    gradients = []
+
+    target_layer = getattr(model.layer4[-1], "conv2", model.layer4[-1])
+
+    def _forward_hook(module, inputs, output):
+        activations.append(output.detach())
+
+    def _backward_hook(module, grad_input, grad_output):
+        gradients.append(grad_output[0].detach())
+
+    forward_handle = target_layer.register_forward_hook(_forward_hook)
+    backward_handle = target_layer.register_full_backward_hook(_backward_hook)
+
+    try:
+        logits = model(tensor)
+        probs = torch.softmax(logits, dim=1)
+        pred_idx = int(torch.argmax(logits, dim=1).item())
+        pred_label = DL_CLASS_MAPPING.get(pred_idx, "Normal")
+        target_idx = pred_idx
+        if target_class is not None:
+            for idx, label in DL_CLASS_MAPPING.items():
+                if label.lower() == str(target_class).lower():
+                    target_idx = idx
+                    break
+        if pred_label == "Normal":
+            target_idx = pred_idx
+
+        model.zero_grad(set_to_none=True)
+        target_score = logits[:, target_idx].sum()
+        target_score.backward()
+    finally:
+        forward_handle.remove()
+        backward_handle.remove()
+
+    if not activations or not gradients:
+        raise RuntimeError("Grad-CAM hooks did not capture activations or gradients.")
+
+    act = activations[-1]
+    grad = gradients[-1]
+    weights = grad.mean(dim=(2, 3), keepdim=True)
+    cam = (weights * act).sum(dim=1, keepdim=True)
+    cam = torch.relu(cam)
+    cam = cam[0, 0].detach().cpu()
+    cam_min = float(cam.min())
+    cam_max = float(cam.max())
+    if cam_max > cam_min:
+        cam = (cam - cam_min) / (cam_max - cam_min + 1e-8)
+    else:
+        cam = torch.zeros_like(cam)
+
+    cam_np = cam.numpy()
+    heatmap_resized = cv2.resize(cam_np, (original_rgb.shape[1], original_rgb.shape[0]))
+    heatmap = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
+    heatmap_rgb = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    original_rgb_float = original_rgb.astype(np.float32) / 255.0
+    overlay = np.clip(0.5 * original_rgb_float + 0.5 * heatmap_rgb, 0.0, 1.0)
+    overlay_u8 = (overlay * 255).astype(np.uint8)
+
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(output), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
-    return {"overlay_path": str(output)}
+    saved = cv2.imwrite(str(output), cv2.cvtColor(overlay_u8, cv2.COLOR_RGB2BGR))
+    if not saved:
+        raise RuntimeError(f"Failed to save Grad-CAM overlay to {output}")
+
+    result = {
+        "overlay_path": str(output),
+        "target_class": DL_CLASS_MAPPING.get(target_idx, pred_label),
+        "prediction": pred_label,
+        "confidence": round(float(probs[0, target_idx].item()), 4),
+        "available": pred_label != "Normal",
+        "message": (
+            "No stone-specific localization is shown because the model classified this scan as Normal."
+            if pred_label == "Normal"
+            else "The highlighted regions indicate areas that contributed to the model's prediction."
+        )
+    }
+    return result
 
 
 class ExplainabilityService:

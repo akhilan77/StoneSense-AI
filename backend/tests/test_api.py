@@ -52,6 +52,7 @@ def test_predict_risk_endpoint(client: TestClient):
 
 def test_predict_image_endpoint(client: TestClient):
     """Verifies upload processing of binary CT scans."""
+    from pathlib import Path
     from PIL import Image
     import io
     img = Image.new("L", (224, 224), color=0)
@@ -66,6 +67,13 @@ def test_predict_image_endpoint(client: TestClient):
     assert "class_name" in data
     assert "confidence" in data
     assert data["class_name"] in ["Cyst", "Normal", "Stone", "Tumor"]
+    assert "gradcam" in data and data["gradcam"]
     assert data["gradcam"]["overlay_url"].startswith("/static/gradcam/")
+    assert data["gradcam"]["target_class"] == data["class_name"]
+
+    path = Path(__file__).resolve().parents[1] / "app" / "static" / "gradcam"
+    candidates = list(path.glob("*.png"))
+    assert candidates
+    assert any(candidate.name in data["gradcam"]["overlay_url"] for candidate in candidates)
 
 
