@@ -249,7 +249,8 @@ def persist_round_to_db(
     fit_metrics: Dict[str, Any],
     eval_metrics: Dict[str, Any],
     client_runs: List[Dict[str, Any]],
-    duration_sec: float
+    duration_sec: float,
+    selected_hospital_ids: Optional[List[int]] = None,
 ) -> None:
     """Persists round results, hospital runs, and model version into SQLite/PostgreSQL."""
     try:
@@ -288,6 +289,7 @@ def persist_round_to_db(
             fed_round = FederatedRound(
                 round_number=round_number,
                 mode=mode,
+                selected_hospital_ids=selected_hospital_ids,
                 participants_count=len(client_runs),
                 global_train_loss=train_loss,
                 global_train_acc=train_acc,
@@ -303,6 +305,7 @@ def persist_round_to_db(
             db.add(fed_round)
             db.flush()
         else:
+            fed_round.selected_hospital_ids = selected_hospital_ids
             fed_round.global_train_loss = train_loss
             fed_round.global_train_acc = train_acc
             fed_round.global_val_loss = val_loss

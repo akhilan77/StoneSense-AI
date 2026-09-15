@@ -6,7 +6,7 @@ export interface Hospital {
   name: string;
   region?: string;
   is_active: boolean;
-  tier?: "enterprise" | "standard" | "research";
+  tier?: 'enterprise' | 'standard' | 'research';
   api_key?: string;
   contact_email?: string;
   last_sync?: string;
@@ -22,13 +22,13 @@ export interface PatientRecord {
   admitted_date: string;
   last_inspected_date: string | null;
   ml_risk: {
-    status: "completed" | "pending";
-    level?: "Low" | "Moderate" | "High";
+    status: 'completed' | 'pending';
+    level?: 'Low' | 'Moderate' | 'High';
     score?: number;
   };
   dl_imaging: {
-    status: "completed" | "pending";
-    result?: "Stone" | "Normal";
+    status: 'completed' | 'pending';
+    result?: 'Stone' | 'Normal';
     confidence?: number;
   };
   clinical_profile?: Record<string, unknown>;
@@ -37,7 +37,7 @@ export interface PatientRecord {
 export interface PatientHistoryItem {
   id: number;
   reference_code: string;
-  prediction_type: "risk" | "image";
+  prediction_type: 'risk' | 'image';
   model_name: string;
   result_label: string | null;
   confidence: number | null;
@@ -54,7 +54,7 @@ export interface ModelPerformance {
   is_deployed: boolean;
   trained_at: string;
   latency_ms?: number;
-  environment?: "production" | "staging" | "canary";
+  environment?: 'production' | 'staging' | 'canary';
   rollout_pct?: number;
 }
 
@@ -62,7 +62,7 @@ export interface HospitalUpdateLogEntry {
   id?: number;
   hospital_name: string;
   version_tag: string;
-  status: "received" | "pending" | "failed" | "quarantined";
+  status: 'received' | 'pending' | 'failed' | 'quarantined';
   created_at: string;
   payload_size_mb?: number;
   gradient_hash?: string;
@@ -71,7 +71,7 @@ export interface HospitalUpdateLogEntry {
 
 export interface SystemLogEntry {
   hospital_name: string | null;
-  level: "info" | "warning" | "error" | "critical";
+  level: 'info' | 'warning' | 'error' | 'critical';
   message: string;
   created_at: string;
   service?: string;
@@ -82,7 +82,7 @@ export interface DriftPoint {
   drift_score: number;
   metric_name: string;
   computed_at: string;
-  status?: "normal" | "warning" | "drift_detected";
+  status?: 'normal' | 'warning' | 'drift_detected';
   p_value?: number;
   reference_mean?: number;
   current_mean?: number;
@@ -98,4 +98,18 @@ export interface SystemMonitoringSummary {
   gpu_utilization_pct?: number;
   cpu_utilization_pct?: number;
   active_nodes?: number;
+}
+
+export interface MLTrainingStatus {
+  status: string;
+  stage: string;
+  message: string;
+  started_at?: string;
+  completed_at?: string;
+  duration_sec: number;
+  elapsed_sec: number;
+  model_name?: string;
+  version_tag?: string;
+  metrics: Record<string, number>;
+  error?: string;
 }

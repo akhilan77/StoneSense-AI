@@ -58,6 +58,7 @@ export interface FederatedRoundDetail {
   status: string;
   completed_at: string;
   hospital_runs: HospitalRunTelemetry[];
+  selected_hospital_ids?: number[];
 }
 
 export interface HospitalParticipation {
@@ -154,6 +155,7 @@ export interface RoundLiveStatus {
     precision?: number;
     recall?: number;
   };
+  selected_hospital_ids?: number[];
 }
 
 export interface HospitalLiveStatus {

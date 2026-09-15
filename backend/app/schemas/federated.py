@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FederatedOverviewOut(BaseModel):
@@ -55,6 +55,7 @@ class FederatedRoundDetailOut(BaseModel):
     status: str
     completed_at: datetime
     hospital_runs: List[HospitalRunTelemetryOut] = []
+    selected_hospital_ids: List[int] = []
 
     class Config:
         from_attributes = True
@@ -100,6 +101,14 @@ class LocalTrainingTriggerResponse(BaseModel):
     status: str
     message: str
     metrics: Optional[Dict[str, float]] = None
+    base_model_version: Optional[str] = None
+    dataset_version: Optional[str] = None
+    samples_used: Optional[int] = None
+    duration_sec: Optional[float] = None
+    local_epochs: Optional[int] = None
+    batch_size: Optional[int] = None
+    learning_rate: Optional[float] = None
+    update_status: str = "not_submitted"
 
 
 class FederatedStatusOut(BaseModel):
@@ -113,6 +122,7 @@ class FederatedStatusOut(BaseModel):
 
 
 class StartRoundRequest(BaseModel):
+    selected_hospital_ids: List[int] = Field(min_length=1)
     num_rounds: int = 1
     local_epochs: int = 1
     batch_size: int = 32
@@ -125,6 +135,7 @@ class StartRoundResponse(BaseModel):
     status: str
     global_model_version: str
     message: Optional[str] = None
+    selected_hospital_ids: List[int] = []
 
 
 class ClientLiveStatus(BaseModel):

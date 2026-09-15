@@ -50,6 +50,7 @@ class FederatedRound(Base):
     id = Column(Integer, primary_key=True, index=True)
     round_number = Column(Integer, unique=True, index=True, nullable=False)
     mode = Column(String(32), default="iid")  # "iid" | "non-iid"
+    selected_hospital_ids = Column(JSON, nullable=True)
     participants_count = Column(Integer, default=3)
     global_train_loss = Column(Float, nullable=True)
     global_train_acc = Column(Float, nullable=True)

@@ -3,6 +3,7 @@ import AppLayout from '../components/layout/AppLayout';
 import { useHospital } from '../context/HospitalContext';
 import {
   fetchHospitalDatasetStatus,
+  triggerLocalTraining,
   uploadHospitalDataset,
   validateHospitalDataset,
 } from '../services/federatedApi';
@@ -21,6 +22,18 @@ export default function HospitalPrivateDataset() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [localTraining, setLocalTraining] = useState<{
+    status: string;
+    base_model_version?: string;
+    dataset_version?: string;
+    samples_used?: number;
+    duration_sec?: number;
+    local_epochs?: number;
+    batch_size?: number;
+    learning_rate?: number;
+    update_status?: string;
+    metrics?: Record<string, number>;
+  } | null>(null);
 
   const loadDataset = async () => {
     setLoading(true);
@@ -78,6 +91,22 @@ export default function HospitalPrivateDataset() {
       await loadDataset();
     } catch (validationError: any) {
       setError(validationError.response?.data?.detail ?? 'Private dataset validation failed.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const handleLocalTraining = async () => {
+    setWorking(true);
+    setError(null);
+    setMessage("Training locally on this hospital's private dataset...");
+    try {
+      const result = await triggerLocalTraining(activeHospitalId);
+      setLocalTraining(result);
+      setMessage(result.message);
+    } catch (trainingError: any) {
+      setError(trainingError.response?.data?.detail ?? 'Local DL training failed.');
+      setMessage(null);
     } finally {
       setWorking(false);
     }
@@ -219,6 +248,81 @@ export default function HospitalPrivateDataset() {
             </div>
           </div>
         </section>
+
+        <section className="rounded-xl border border-[#DDE3DC] bg-white p-6 shadow-xs">
+          <div className="flex flex-col gap-4 border-b border-[#DDE3DC] pb-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-[#101B16]">Local DL Training</h3>
+              <p className="mt-1 text-xs leading-5 text-[#101B16]/60">
+                Train ResNet18 locally from the current DL global model. This produces a local
+                update only; it does not count as federated participation until a
+                Developer-controlled round selects this hospital.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLocalTraining}
+              disabled={working || !dataset?.is_valid}
+              className="rounded-lg bg-[#3B3F8C] px-4 py-2 text-xs font-semibold text-white hover:bg-[#2F3270] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {working ? 'Training...' : 'Train Locally'}
+            </button>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric
+              label="Base model"
+              value={localTraining?.base_model_version ?? 'Current DL global model'}
+              mono
+            />
+            <Metric
+              label="Dataset"
+              value={localTraining?.dataset_version ?? dataset?.dataset_version ?? 'Not uploaded'}
+              mono
+            />
+            <Metric
+              label="Status"
+              value={localTraining?.status === 'completed' ? 'Training completed' : 'Ready'}
+            />
+            <Metric
+              label="Update status"
+              value={
+                localTraining?.update_status === 'not_submitted'
+                  ? 'Not submitted'
+                  : (localTraining?.update_status ?? 'Not submitted')
+              }
+            />
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric
+              label="Training duration"
+              value={
+                localTraining?.duration_sec == null
+                  ? '-'
+                  : `${localTraining.duration_sec.toFixed(3)}s`
+              }
+            />
+            <Metric
+              label="Samples used"
+              value={localTraining?.samples_used?.toLocaleString() ?? '-'}
+            />
+            <Metric
+              label="Local accuracy"
+              value={formatMetric(localTraining?.metrics?.train_accuracy)}
+            />
+            <Metric label="Local F1" value={formatMetric(localTraining?.metrics?.train_f1_macro)} />
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <Metric label="Local epochs" value={String(localTraining?.local_epochs ?? '-')} />
+            <Metric label="Batch size" value={String(localTraining?.batch_size ?? '-')} />
+            <Metric
+              label="Learning rate"
+              value={
+                localTraining?.learning_rate == null ? '-' : String(localTraining.learning_rate)
+              }
+              mono
+            />
+          </div>
+        </section>
       </div>
     </AppLayout>
   );
@@ -226,6 +330,10 @@ export default function HospitalPrivateDataset() {
 
 function formatDate(value?: string) {
   return value ? new Date(value).toLocaleString() : '-';
+}
+
+function formatMetric(value?: number) {
+  return value == null ? '-' : `${(value * 100).toFixed(1)}%`;
 }
 
 function Metric({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {

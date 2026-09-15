@@ -94,14 +94,27 @@ export async function fetchHospitalCurrentModel(hospitalId: number): Promise<{
   return data;
 }
 
-export async function triggerLocalTraining(
-  hospitalId: number
-): Promise<{ message: string; status: string }> {
-  const { data } = await client.post(`/hospital/${hospitalId}/train-local`);
+export async function triggerLocalTraining(hospitalId: number): Promise<{
+  message: string;
+  status: string;
+  metrics?: Record<string, number>;
+  base_model_version?: string;
+  dataset_version?: string;
+  samples_used?: number;
+  duration_sec?: number;
+  local_epochs?: number;
+  batch_size?: number;
+  learning_rate?: number;
+  update_status?: string;
+}> {
+  const { data } = await client.post(`/hospital/${hospitalId}/train-local`, undefined, {
+    headers: { 'X-Hospital-ID': String(hospitalId) },
+  });
   return data;
 }
 
 export async function startFederatedRound(params?: {
+  selected_hospital_ids: number[];
   num_rounds?: number;
   local_epochs?: number;
   batch_size?: number;

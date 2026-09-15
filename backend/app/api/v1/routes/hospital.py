@@ -13,6 +13,7 @@ import sys
 import shutil
 import tempfile
 import zipfile
+import time
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from PIL import Image
@@ -429,28 +430,67 @@ def upload_dataset(
 
 
 @router.post("/{hospital_id}/train-local", response_model=LocalTrainingTriggerResponse)
-def trigger_local_training(hospital_id: int, db: Session = Depends(get_db)):
-    """Triggers an isolated local benchmark training on this hospital partition."""
+def trigger_local_training(
+    hospital_id: int,
+    db: Session = Depends(get_db),
+    x_hospital_id: Optional[str] = Header(default=None, alias="X-Hospital-ID"),
+):
+    """Runs local DL training without creating a federated participation record."""
     h = _get_hospital_or_404(hospital_id, db)
+    _require_hospital_scope(hospital_id, x_hospital_id)
     part_dir = _get_hospital_partition_dir(h.hospital_code)
 
     if not part_dir.exists():
         raise HTTPException(status_code=400, detail="Local partition does not exist.")
 
-    # Run quick benchmark training pass
+    inspection = _inspect_dataset(part_dir)
+    if not inspection["is_valid"]:
+        raise HTTPException(status_code=422, detail=inspection["message"])
+
     try:
         sys.path.append(str(PROJECT_ROOT / "dl" / "federated"))
         from client import StoneSenseFLClient
+        from local_training import get_model_parameters
 
+        if not model_loader.reload_dl_model() and model_loader.dl_model is None:
+            raise RuntimeError("Current global DL model is not available.")
+
+        base_model_version = model_loader.active_dl_version_tag
         client = StoneSenseFLClient(hospital_id=h.hospital_code, partition_dir=part_dir, batch_size=32)
-        initial_params = client.get_parameters({})
-        _, samples, metrics = client.fit(initial_params, {"local_epochs": 1, "lr": 0.0005, "current_round": 0})
+        initial_params = get_model_parameters(model_loader.dl_model)
+        local_epochs = 1
+        batch_size = 32
+        learning_rate = 0.0005
+        start_time = time.perf_counter()
+        _, samples, metrics = client.fit(
+            initial_params,
+            {
+            "local_epochs": local_epochs,
+            "lr": learning_rate,
+            "base_model_version": base_model_version,
+                "current_round": 0,
+                "federated_round": False,
+            },
+        )
+        duration_sec = round(time.perf_counter() - start_time, 3)
 
         return LocalTrainingTriggerResponse(
             hospital_code=h.hospital_code,
             status="completed",
             message=f"Local training completed on {samples} samples.",
-            metrics=metrics
+            metrics={
+                key: value
+                for key, value in metrics.items()
+                if key not in {"hospital_id", "current_round"}
+            },
+            base_model_version=base_model_version,
+            dataset_version=h.dataset_version,
+            samples_used=samples,
+            duration_sec=duration_sec,
+            local_epochs=local_epochs,
+            batch_size=batch_size,
+            learning_rate=learning_rate,
+            update_status="not_submitted",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Local training execution failed: {e}")

@@ -106,13 +106,15 @@ class StoneSenseFLClient(_NumPyClientBase):
         local_epochs = int(config.get("local_epochs", 1))
         lr = float(config.get("lr", self.lr))
         current_round = int(config.get("current_round", 1))
+        federated_round = bool(config.get("federated_round", True))
         h_label = {"hospital_1": "Hospital 1", "hospital_2": "Hospital 2", "hospital_3": "Hospital 3"}.get(self.hospital_id, self.hospital_id)
         prev_ver = f"v{current_round-1}" if current_round > 1 else "v1 (initial)"
+        base_model_version = str(config.get("base_model_version", prev_ver))
 
         print("")
         print("-" * 55)
-        print(f"[{h_label}] FEDERATED ROUND {current_round}")
-        print(f"[{h_label}] Received global model: {prev_ver}")
+        print(f"[{h_label}] {'FEDERATED ROUND ' + str(current_round) if federated_round else 'LOCAL DL TRAINING'}")
+        print(f"[{h_label}] Starting model: {base_model_version}")
         print(f"[{h_label}] Privacy guarantee: RAW CT DATA REMAINS LOCAL (never transmitted)")
         print(f"[{h_label}] Local ResNet18 training started on {len(self.train_loader.dataset)} CT scans ({local_epochs} epoch(s))...")
 
@@ -133,7 +135,7 @@ class StoneSenseFLClient(_NumPyClientBase):
         if 'val_accuracy' in metrics:
             print(f"  - Local Val Acc:  {metrics['val_accuracy']*100:.2f}%")
             print(f"  - Local Val F1:   {metrics['val_f1_macro']*100:.2f}%")
-        print(f"[{h_label}] Model weights & evaluation metrics being returned to Flower server")
+        print(f"[{h_label}] Model weights & evaluation metrics {'being returned to Flower server' if federated_round else 'available as a local update only'}")
         print("-" * 55)
         print("")
 

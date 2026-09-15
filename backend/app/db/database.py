@@ -26,6 +26,7 @@ def init_db() -> None:
             columns = {column["name"] for column in inspect(connection).get_columns("model_versions")}
             migrations = {
                 "model_versions": {"round_id": "INTEGER", "precision": "FLOAT", "recall": "FLOAT"},
+                "federated_rounds": {"selected_hospital_ids": "JSON"},
                 "hospitals": {
                     "dataset_size": "INTEGER",
                     "class_distribution": "JSON",

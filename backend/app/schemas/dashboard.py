@@ -3,7 +3,7 @@ Pydantic v2 schemas for the two new dashboards.
 Drop at: backend/app/schemas/dashboard.py
 """
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic import BaseModel
 
 
@@ -79,3 +79,14 @@ class SystemMonitoringSummary(BaseModel):
 
 class DeployModelRequest(BaseModel):
     model_version_id: int
+
+
+class MLTrainingResponse(BaseModel):
+    status: str
+    model_family: str
+    model_name: str
+    version_tag: str
+    artifact_path: str
+    metrics: Dict[str, float]
+    duration_sec: float
+    message: str

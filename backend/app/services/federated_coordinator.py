@@ -61,6 +61,7 @@ HOSPITAL_WAITING_FOR_AGGREGATION = "WAITING_FOR_AGGREGATION"
 HOSPITAL_MODEL_UPDATED = "MODEL_UPDATED"
 HOSPITAL_COMPLETED = "COMPLETED"
 HOSPITAL_FAILED = "FAILED"
+HOSPITAL_NOT_SELECTED = "NOT_SELECTED"
 
 
 
@@ -79,6 +80,8 @@ class FederatedCoordinator:
         self.round_start_time: Optional[datetime] = None
         self.clients_status: Dict[str, Dict[str, Any]] = {}
         self.latest_round_metrics: Dict[str, Any] = {}
+        self.selected_hospital_ids: List[int] = []
+        self.selected_hospital_codes: List[str] = []
         self._initialize_from_db()
 
     def _initialize_from_db(self):
@@ -165,6 +168,7 @@ class FederatedCoordinator:
 
     def start_round(
         self,
+        selected_hospital_ids: Optional[List[int]] = None,
         num_rounds: int = 1,
         local_epochs: int = 1,
         batch_size: int = 32,
@@ -176,6 +180,36 @@ class FederatedCoordinator:
         with self._lock:
             if self.is_running:
                 raise RuntimeError(f"Round {self.current_round} is currently running. Duplicate execution prevented.")
+
+            db = SessionLocal()
+            try:
+                if selected_hospital_ids is None:
+                    selected_hospitals = db.query(Hospital).filter(Hospital.is_active.is_(True)).all()
+                else:
+                    unique_ids = list(dict.fromkeys(selected_hospital_ids))
+                    if not unique_ids:
+                        raise ValueError("At least one hospital must be selected.")
+                    selected_hospitals = db.query(Hospital).filter(Hospital.id.in_(unique_ids)).all()
+                    found_ids = {hospital.id for hospital in selected_hospitals}
+                    missing_ids = [hospital_id for hospital_id in unique_ids if hospital_id not in found_ids]
+                    if missing_ids:
+                        raise ValueError(f"Unknown hospital IDs: {missing_ids}")
+                    inactive_ids = [hospital.id for hospital in selected_hospitals if not hospital.is_active]
+                    if inactive_ids:
+                        raise ValueError(f"Inactive hospitals cannot participate: {inactive_ids}")
+
+                unsupported_codes = [
+                    hospital.hospital_code for hospital in selected_hospitals
+                    if hospital.hospital_code not in HOSPITAL_CODE_MAP.values()
+                ]
+                if unsupported_codes:
+                    raise ValueError(f"Hospitals do not have configured DL partitions: {unsupported_codes}")
+                if not selected_hospitals:
+                    raise ValueError("No selected hospital has a configured DL partition.")
+                self.selected_hospital_ids = [hospital.id for hospital in selected_hospitals]
+                self.selected_hospital_codes = [hospital.hospital_code for hospital in selected_hospitals]
+            finally:
+                db.close()
 
             # Compute next round number
             db = SessionLocal()
@@ -201,7 +235,7 @@ class FederatedCoordinator:
                 self.clients_status[h_code] = {
                     "hospital_id": h_code,
                     "hospital_name": HOSPITAL_NAMES.get(h_code, f"Hospital {h_code}"),
-                    "status": HOSPITAL_WAITING,
+                    "status": HOSPITAL_WAITING if h_code in self.selected_hospital_codes else HOSPITAL_NOT_SELECTED,
                     "samples": None,
                     "accuracy": None,
                     "f1": None,
@@ -217,7 +251,7 @@ class FederatedCoordinator:
         # Spawn execution in background thread
         thread = threading.Thread(
             target=self._run_round_workflow,
-            args=(next_round, local_epochs, batch_size, lr, mode, device),
+            args=(next_round, local_epochs, batch_size, lr, mode, device, list(self.selected_hospital_codes), list(self.selected_hospital_ids)),
             daemon=True,
             name=f"FL-Round-{next_round}-Worker",
         )
@@ -227,6 +261,7 @@ class FederatedCoordinator:
             "round": self.current_round,
             "status": "started",
             "global_model_version": self.previous_model_version,
+            "selected_hospital_ids": self.selected_hospital_ids,
             "message": f"DL Federated Round {self.current_round} initiated successfully.",
         }
 
@@ -238,6 +273,8 @@ class FederatedCoordinator:
         lr: float,
         mode: str,
         device_str: str,
+        selected_hospital_codes: List[str],
+        selected_hospital_ids: List[int],
     ):
         """Worker thread executing the real Flower / FedAvg training and aggregation."""
         try:
@@ -250,7 +287,7 @@ class FederatedCoordinator:
             from simulate import aggregate_weights, sync_hospital_dataset_metadata
 
             # 1. ROUND_STARTED Event
-            self._emit_event("ROUND_STARTED", data={"message": f"Round {round_num} started across 3 hospital nodes."})
+            self._emit_event("ROUND_STARTED", data={"message": f"Round {round_num} started across {len(selected_hospital_codes)} selected hospital nodes."})
             time.sleep(0.6)
 
             # 2. GLOBAL_MODEL_DISTRIBUTING Event
@@ -258,10 +295,12 @@ class FederatedCoordinator:
             self.current_step = f"Distributing DL Global Federated Model ({self.previous_model_version}) to nodes"
             self._emit_event("GLOBAL_MODEL_DISTRIBUTING", data={"model_version": self.previous_model_version})
 
-            # Mark all clients as model received
+            # The global model is distributed to every configured hospital; only selected hospitals train.
             for h_code in ["HOSP-001", "HOSP-002", "HOSP-003"]:
                 self._set_hospital_state(h_code, HOSPITAL_MODEL_RECEIVED, "HOSPITAL_MODEL_RECEIVED")
                 self._emit_event("MODEL_RECEIVED", hospital_id=h_code)
+                if h_code not in selected_hospital_codes:
+                    self._set_hospital_state(h_code, HOSPITAL_NOT_SELECTED, "HOSPITAL_NOT_SELECTED")
 
 
             time.sleep(0.5)
@@ -315,9 +354,15 @@ class FederatedCoordinator:
             client_weights = []
             client_sample_counts = []
             client_fit_metrics = []
-            client_eval_metrics = []
+            client_eval_metrics = {}
 
-            for h_id in HOSPITAL_IDS:
+            selected_partition_ids = [
+                h_id for h_id in HOSPITAL_IDS
+                if HOSPITAL_CODE_MAP.get(h_id) in selected_hospital_codes
+            ]
+            config = {"current_round": round_num, "local_epochs": local_epochs, "lr": lr, "federated_round": True}
+
+            for h_id in selected_partition_ids:
                 h_code = HOSPITAL_CODE_MAP.get(h_id, "HOSP-001")
                 self._set_hospital_state(h_code, HOSPITAL_TRAINING, "HOSPITAL_TRAINING_STARTED")
                 self._emit_event(
@@ -335,7 +380,6 @@ class FederatedCoordinator:
                     lr=lr,
                 )
 
-                config = {"current_round": round_num, "local_epochs": local_epochs, "lr": lr}
                 updated_weights, samples, fit_m = client.fit(global_weights, config)
                 client_duration = time.time() - client_start
 
@@ -397,7 +441,7 @@ class FederatedCoordinator:
                     device=dev,
                 )
                 loss, samples, eval_m = client.evaluate(global_weights, config)
-                client_eval_metrics.append(eval_m)
+                client_eval_metrics[h_code] = eval_m
 
                 total_eval_samples += samples
                 weighted_eval_loss += loss * samples
@@ -437,10 +481,10 @@ class FederatedCoordinator:
 
             # 8. Checkpoint Saving & Database Persistence
             client_runs = []
-            for i, h_id in enumerate(HOSPITAL_IDS):
+            for i, h_id in enumerate(selected_partition_ids):
                 h_code = HOSPITAL_CODE_MAP.get(h_id, "HOSP-001")
                 fit_m = client_fit_metrics[i]
-                eval_m = client_eval_metrics[i]
+                eval_m = client_eval_metrics[h_code]
                 client_runs.append({
                     "hospital_code": h_code,
                     "train_loss": fit_m.get("train_loss"),
@@ -462,6 +506,7 @@ class FederatedCoordinator:
                 eval_metrics=eval_summary,
                 client_runs=client_runs,
                 duration_sec=duration,
+                selected_hospital_ids=selected_hospital_ids,
             )
 
             # Reload runtime DL model for real-time inference
@@ -475,8 +520,11 @@ class FederatedCoordinator:
             self._emit_event("MODEL_DISTRIBUTED", data={"new_version": self.global_model_version})
 
             for h_code in ["HOSP-001", "HOSP-002", "HOSP-003"]:
-                self._set_hospital_state(h_code, HOSPITAL_MODEL_UPDATED, "HOSPITAL_MODEL_UPDATED", update_submitted=True, model_updated=True)
-                self._set_hospital_state(h_code, HOSPITAL_COMPLETED, "HOSPITAL_ROUND_COMPLETED", update_submitted=True, model_updated=True)
+                if h_code in selected_hospital_codes:
+                    self._set_hospital_state(h_code, HOSPITAL_MODEL_UPDATED, "HOSPITAL_MODEL_UPDATED", update_submitted=True, model_updated=True)
+                    self._set_hospital_state(h_code, HOSPITAL_COMPLETED, "HOSPITAL_ROUND_COMPLETED", update_submitted=True, model_updated=True)
+                else:
+                    self._set_hospital_state(h_code, HOSPITAL_MODEL_UPDATED, "HOSPITAL_MODEL_UPDATED", update_submitted=False, model_updated=True)
 
             # 9. ROUND_COMPLETED
             self.status = "COMPLETED"
@@ -513,7 +561,8 @@ class FederatedCoordinator:
         """Returns live status of current or most recent round."""
         completed_count = sum(
             1 for c in self.clients_status.values()
-            if c.get("status") in (HOSPITAL_COMPLETED, HOSPITAL_MODEL_UPDATED)
+            if c.get("hospital_id") in self.selected_hospital_codes
+            and c.get("status") in (HOSPITAL_COMPLETED, HOSPITAL_MODEL_UPDATED)
         )
         clients_list = list(self.clients_status.values())
 
@@ -522,7 +571,7 @@ class FederatedCoordinator:
             "status": self.status,
             "previous_model_version": self.previous_model_version,
             "global_model_version": self.global_model_version,
-            "participating_hospitals": len(self.clients_status),
+            "participating_hospitals": len(self.selected_hospital_codes),
             "completed_hospitals": completed_count,
             "clients": clients_list,
             "current_step": self.current_step,

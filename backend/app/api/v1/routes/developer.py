@@ -5,6 +5,9 @@ model version registry, and system health without exposing raw patient data.
 """
 
 from datetime import datetime, timedelta
+import csv
+import time
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,7 +21,7 @@ from app.db.models import (
 )
 from app.schemas.dashboard import (
     ModelPerformanceOut, HospitalUpdateLogOut, SystemLogOut,
-    DriftPointOut, SystemMonitoringSummary, DeployModelRequest,
+    DriftPointOut, SystemMonitoringSummary, DeployModelRequest, MLTrainingResponse,
 )
 from app.schemas.federated import (
     FederatedOverviewOut, FederatedRoundDetailOut, HospitalRunTelemetryOut,
@@ -32,17 +35,33 @@ router = APIRouter()
 
 
 @router.post("/federated/rounds/start", response_model=StartRoundResponse)
-def start_federated_round(payload: StartRoundRequest = StartRoundRequest()):
+def start_federated_round(payload: StartRoundRequest, db: Session = Depends(get_db)):
     """Initiates a real multi-hospital DL federated learning round."""
     try:
+        selected_ids = list(dict.fromkeys(payload.selected_hospital_ids))
+        hospitals = db.query(Hospital).filter(Hospital.id.in_(selected_ids)).all()
+        hospitals_by_id = {hospital.id: hospital for hospital in hospitals}
+        missing_ids = [hospital_id for hospital_id in selected_ids if hospital_id not in hospitals_by_id]
+        inactive_ids = [hospital.id for hospital in hospitals if not hospital.is_active]
+        if missing_ids:
+            raise HTTPException(status_code=422, detail=f"Unknown hospital IDs: {missing_ids}")
+        if inactive_ids:
+            raise HTTPException(status_code=422, detail=f"Inactive hospitals cannot participate: {inactive_ids}")
+
         res = federated_coordinator.start_round(
+            selected_hospital_ids=selected_ids,
             num_rounds=payload.num_rounds,
             local_epochs=payload.local_epochs,
             batch_size=payload.batch_size,
             lr=payload.lr,
             mode=payload.mode
         )
+        res["selected_hospital_ids"] = selected_ids
         return StartRoundResponse(**res)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
@@ -72,6 +91,89 @@ def get_federated_system_status():
         "connected_hospitals": 3,
         "ready_to_start": not federated_coordinator.is_running,
     }
+
+
+@router.post("/ml/training/start", response_model=MLTrainingResponse)
+def start_ml_training(db: Session = Depends(get_db)):
+    """Runs the existing centralized ML training and registers its new version."""
+    project_root = Path(__file__).resolve().parents[5]
+    start_time = time.perf_counter()
+    try:
+        import sys
+        ml_training_dir = project_root / "ml" / "training"
+        if str(ml_training_dir) not in sys.path:
+            sys.path.append(str(ml_training_dir))
+        from train_risk_model import MLRiskTrainer
+
+        models_dir = project_root / "ml" / "models"
+        trainer = MLRiskTrainer(
+            processed_dir=project_root / "ml" / "processed",
+            artifacts_dir=project_root / "ml" / "artifacts",
+            models_dir=models_dir,
+            charts_dir=project_root / "ml" / "outputs" / "charts",
+            reports_dir=project_root / "ml" / "outputs" / "reports",
+        )
+        metrics = trainer.train_and_compare()
+
+        comparison_path = models_dir / "comparison_results.csv"
+        with comparison_path.open("r", encoding="utf-8", newline="") as comparison_file:
+            comparison_rows = list(csv.DictReader(comparison_file))
+        if not comparison_rows:
+            raise RuntimeError("ML training produced no model comparison results.")
+
+        best_row = max(
+            comparison_rows,
+            key=lambda row: sum(float(row.get(metric, 0.0)) for metric in ("ROC-AUC", "F1", "MCC")),
+        )
+        model_name = best_row["Model"]
+        family_by_name = {
+            "XGBoost": "xgboost_risk",
+            "LogisticRegression": "logistic_regression_risk",
+            "RandomForest": "random_forest_risk",
+        }
+        model_family = family_by_name.get(model_name, "ml_centralized")
+        version_count = db.query(ModelVersion).filter(
+            ModelVersion.model_family == model_family,
+            ModelVersion.version_tag.like(f"{model_name.lower()}_centralized_v%"),
+        ).count()
+        version_tag = f"{model_name.lower()}_centralized_v{version_count + 1:03d}"
+        artifact_path = models_dir / "kidney_risk_model.pkl"
+        scalar_metrics = {
+            key: float(metrics[key])
+            for key in ("accuracy", "precision", "recall", "f1_score", "roc_auc", "matthews_correlation_coefficient")
+            if key in metrics
+        }
+
+        db.query(ModelVersion).filter(ModelVersion.model_family == model_family).update({ModelVersion.is_deployed: False})
+        db.add(ModelVersion(
+            model_family=model_family,
+            version_tag=version_tag,
+            accuracy=scalar_metrics.get("accuracy"),
+            f1_score=scalar_metrics.get("f1_score"),
+            precision=scalar_metrics.get("precision"),
+            recall=scalar_metrics.get("recall"),
+            mcc=scalar_metrics.get("matthews_correlation_coefficient"),
+            is_deployed=True,
+            artifact_path=str(artifact_path.relative_to(project_root)),
+            trained_at=datetime.utcnow(),
+        ))
+        db.commit()
+        model_loader.load_ml_model()
+
+        duration_sec = round(time.perf_counter() - start_time, 3)
+        return MLTrainingResponse(
+            status="completed",
+            model_family=model_family,
+            model_name=model_name,
+            version_tag=version_tag,
+            artifact_path=str(artifact_path.relative_to(project_root)),
+            metrics=scalar_metrics,
+            duration_sec=duration_sec,
+            message=f"Centralized ML training completed with {model_name}.",
+        )
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Centralized ML training failed: {exc}")
 
 
 @router.get("/federated-overview", response_model=FederatedOverviewOut)
@@ -163,7 +265,8 @@ def get_round_history(db: Session = Depends(get_db)):
             duration_sec=r.duration_sec,
             status=r.status,
             completed_at=r.completed_at,
-            hospital_runs=runs_out
+            hospital_runs=runs_out,
+            selected_hospital_ids=r.selected_hospital_ids or [],
         ))
 
     return results

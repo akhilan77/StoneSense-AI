@@ -13,6 +13,7 @@ import {
   fetchRoundHistory,
   fetchSystemLogs,
   fetchSystemMonitoring,
+  startMLTraining,
 } from '../services/developerApi';
 import {
   createFederatedWebSocket,
@@ -78,6 +79,23 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
   const [selectedRoundDetail, setSelectedRoundDetail] = useState<FederatedRoundDetail | null>(null);
   const [liveRoundStatus, setLiveRoundStatus] = useState<RoundLiveStatus | null>(null);
   const [isStartingRound, setIsStartingRound] = useState(false);
+  const [isRoundModalOpen, setIsRoundModalOpen] = useState(false);
+  const [isMLTraining, setIsMLTraining] = useState(false);
+  const [mlTrainingResult, setMLTrainingResult] = useState<{
+    model_name: string;
+    version_tag: string;
+    duration_sec: number;
+    metrics: Record<string, number>;
+  } | null>(null);
+  const currentMLVersion =
+    versions.find((version) => version.model_family === 'xgboost_risk' && version.is_deployed) ??
+    versions.find((version) => version.model_family === 'xgboost_risk');
+  const [selectedHospitalIds, setSelectedHospitalIds] = useState<number[]>([]);
+  const [roundConfig, setRoundConfig] = useState({
+    localEpochs: 1,
+    batchSize: 32,
+    learningRate: 0.0005,
+  });
 
   // Filter states
   const [logFilterLevel, setLogFilterLevel] = useState<string>('all');
@@ -194,6 +212,13 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     setActiveTab(getTabFromPath());
   }, [location.pathname]);
 
+  const openRoundModal = () => {
+    setSelectedHospitalIds(
+      hospitals.filter((hospital) => hospital.is_active).map((hospital) => hospital.id)
+    );
+    setIsRoundModalOpen(true);
+  };
+
   const handleStartFederatedRound = async () => {
     if (
       liveRoundStatus?.status &&
@@ -203,10 +228,23 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       return;
     }
 
+    if (selectedHospitalIds.length === 0) {
+      showToast('Select at least one active hospital.');
+      return;
+    }
+
     setIsStartingRound(true);
     showToast('Starting live multi-hospital DL Federated Learning round...');
     try {
-      const res = await startFederatedRound({ num_rounds: 1 });
+      const res = await startFederatedRound({
+        selected_hospital_ids: selectedHospitalIds,
+        num_rounds: 1,
+        local_epochs: roundConfig.localEpochs,
+        batch_size: roundConfig.batchSize,
+        lr: roundConfig.learningRate,
+        mode: 'iid',
+      });
+      setIsRoundModalOpen(false);
       showToast(`Round #${res.round} initiated on central Flower coordinator!`);
       const liveStatus = await fetchCurrentRoundLiveStatus();
       setLiveRoundStatus(liveStatus);
@@ -215,6 +253,21 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       showToast(msg);
     } finally {
       setIsStartingRound(false);
+    }
+  };
+
+  const handleStartMLTraining = async () => {
+    setIsMLTraining(true);
+    showToast('Starting centralized ML training on the central ML dataset...');
+    try {
+      const result = await startMLTraining();
+      setMLTrainingResult(result);
+      showToast(`${result.message} Version ${result.version_tag} registered.`);
+      await loadAllData();
+    } catch (err: any) {
+      showToast(err.response?.data?.detail || 'Centralized ML training failed.');
+    } finally {
+      setIsMLTraining(false);
     }
   };
 
@@ -488,6 +541,86 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       {/* ========================================================================= */}
       {activeTab === 'federated' && (
         <div className="space-y-6">
+          <section className="rounded-xl border-2 border-[#3B3F8C]/25 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 border-b border-[#DDE3DC] pb-5 md:flex-row md:items-start md:justify-between">
+              <div>
+                <span className="inline-flex rounded-full bg-[#3B3F8C]/10 px-2.5 py-1 text-[11px] font-bold text-[#3B3F8C]">
+                  ML — Centralized
+                </span>
+                <h2 className="mt-2 font-serif text-lg font-medium text-[#101B16]">
+                  Centralized ML Training
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-[#101B16]/60">
+                  Centralized ML Dataset → ML Training → Model Evaluation → New ML Model Version
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleStartMLTraining}
+                disabled={isMLTraining}
+                className="rounded-lg bg-[#3B3F8C] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#2F3270] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isMLTraining ? 'Training ML...' : 'Start ML Training'}
+              </button>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg bg-[#F7F9F6] p-3.5">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wider text-[#101B16]/50">
+                  Current ML Model
+                </span>
+                <p className="mt-1 text-sm font-bold text-[#101B16]">
+                  {mlTrainingResult?.model_name ?? 'XGBoost'}
+                </p>
+              </div>
+              <div className="rounded-lg bg-[#F7F9F6] p-3.5">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wider text-[#101B16]/50">
+                  Version
+                </span>
+                <p className="mt-1 truncate font-mono text-xs font-bold text-[#101B16]">
+                  {mlTrainingResult?.version_tag ??
+                    versions.find((version) => version.model_family === 'xgboost_risk')
+                      ?.version_tag ??
+                    'kidney_risk_model.pkl'}
+                </p>
+              </div>
+              <div className="rounded-lg bg-[#F7F9F6] p-3.5">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wider text-[#101B16]/50">
+                  Dataset
+                </span>
+                <p className="mt-1 text-sm font-bold text-[#101B16]">Centralized ML Dataset</p>
+              </div>
+              <div className="rounded-lg bg-[#F7F9F6] p-3.5">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wider text-[#101B16]/50">
+                  Status
+                </span>
+                <p className="mt-1 text-sm font-bold text-[#1F6F5C]">
+                  {isMLTraining ? 'Training' : 'Ready'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-4 text-xs text-[#101B16]/65">
+              <span>Models: Logistic Regression · Random Forest · XGBoost</span>
+              <span>Training: Centralized</span>
+              <span>
+                Accuracy:{' '}
+                {mlTrainingResult?.metrics.accuracy != null
+                  ? `${(mlTrainingResult.metrics.accuracy * 100).toFixed(1)}%`
+                  : currentMLVersion?.accuracy != null
+                    ? `${(currentMLVersion.accuracy * 100).toFixed(1)}%`
+                    : '-'}{' '}
+                · F1:{' '}
+                {mlTrainingResult?.metrics.f1_score != null
+                  ? `${(mlTrainingResult.metrics.f1_score * 100).toFixed(1)}%`
+                  : currentMLVersion?.f1_score != null
+                    ? `${(currentMLVersion.f1_score * 100).toFixed(1)}%`
+                    : '-'}
+              </span>
+              {mlTrainingResult && (
+                <span>Latest duration: {mlTrainingResult.duration_sec.toFixed(2)}s</span>
+              )}
+            </div>
+          </section>
+
           {/* Header Banner */}
           <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -550,7 +683,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   </div>
                 ) : (
                   <button
-                    onClick={handleStartFederatedRound}
+                    onClick={openRoundModal}
                     disabled={
                       isStartingRound ||
                       !!(
@@ -2059,6 +2192,144 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 className="rounded-md bg-[#101B16] px-4 py-2 text-xs font-medium text-white hover:bg-black/80"
               >
                 Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRoundModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#101B16]/50 backdrop-blur-xs p-4 animate-fade-in"
+          onClick={() => setIsRoundModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl animate-scale-up"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="font-serif text-xl font-medium text-[#101B16]">
+              Start DL Federated Round
+            </h2>
+            <p className="mt-1 text-xs text-[#101B16]/60">
+              Select the enrolled hospitals that will train locally and contribute updates to
+              Sample-Weighted FedAvg.
+            </p>
+
+            <div className="mt-5 space-y-3 rounded-lg border border-[#DDE3DC] bg-[#F7F9F6] p-4 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[#101B16]/60">Pipeline</span>
+                <span className="font-semibold text-[#3B3F8C]">DL — Federated Learning</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[#101B16]/60">Base Model</span>
+                <span className="font-mono font-semibold text-[#101B16]">
+                  {liveRoundStatus?.global_model_version ??
+                    fedOverview?.current_model_version ??
+                    'Current global DL model'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[#101B16]/60">Aggregation</span>
+                <span className="font-semibold text-[#1F6F5C]">Sample-Weighted FedAvg</span>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[#101B16]">Participating Hospitals</h3>
+                <span className="text-xs text-[#101B16]/50">
+                  {selectedHospitalIds.length} selected
+                </span>
+              </div>
+              <div className="space-y-2">
+                {hospitals
+                  .filter((hospital) => hospital.is_active)
+                  .map((hospital) => {
+                    const selected = selectedHospitalIds.includes(hospital.id);
+                    return (
+                      <label
+                        key={hospital.id}
+                        className="flex cursor-pointer items-center justify-between rounded-lg border border-[#DDE3DC] px-3 py-2.5 text-xs hover:bg-[#F7F9F6]"
+                      >
+                        <span>
+                          <span className="font-semibold text-[#101B16]">{hospital.name}</span>
+                          <span className="ml-2 font-mono text-[11px] text-[#101B16]/50">
+                            {hospital.hospital_code}
+                          </span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() =>
+                            setSelectedHospitalIds((current) =>
+                              selected
+                                ? current.filter((id) => id !== hospital.id)
+                                : [...current, hospital.id]
+                            )
+                          }
+                          className="h-4 w-4 accent-[#1F6F5C]"
+                        />
+                      </label>
+                    );
+                  })}
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-3 text-xs">
+              <label className="text-[#101B16]/70">
+                Local epochs
+                <input
+                  type="number"
+                  min="1"
+                  value={roundConfig.localEpochs}
+                  onChange={(event) =>
+                    setRoundConfig({ ...roundConfig, localEpochs: Number(event.target.value) })
+                  }
+                  className="mt-1 w-full rounded-md border border-[#DDE3DC] px-2 py-2 text-[#101B16]"
+                />
+              </label>
+              <label className="text-[#101B16]/70">
+                Batch size
+                <input
+                  type="number"
+                  min="1"
+                  value={roundConfig.batchSize}
+                  onChange={(event) =>
+                    setRoundConfig({ ...roundConfig, batchSize: Number(event.target.value) })
+                  }
+                  className="mt-1 w-full rounded-md border border-[#DDE3DC] px-2 py-2 text-[#101B16]"
+                />
+              </label>
+              <label className="text-[#101B16]/70">
+                Learning rate
+                <input
+                  type="number"
+                  min="0.000001"
+                  step="0.0001"
+                  value={roundConfig.learningRate}
+                  onChange={(event) =>
+                    setRoundConfig({ ...roundConfig, learningRate: Number(event.target.value) })
+                  }
+                  className="mt-1 w-full rounded-md border border-[#DDE3DC] px-2 py-2 font-mono text-[#101B16]"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3 border-t border-[#DDE3DC] pt-4">
+              <button
+                type="button"
+                onClick={() => setIsRoundModalOpen(false)}
+                className="rounded-md px-3.5 py-2 text-xs text-[#101B16]/65 hover:text-[#101B16]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStartFederatedRound}
+                disabled={isStartingRound || selectedHospitalIds.length === 0}
+                className="rounded-md bg-[#1F6F5C] px-4 py-2 text-xs font-semibold text-white hover:bg-[#185849] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isStartingRound ? 'Starting...' : 'Start DL Federated Round'}
               </button>
             </div>
           </div>

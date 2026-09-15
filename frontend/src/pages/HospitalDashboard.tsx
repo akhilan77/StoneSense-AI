@@ -147,8 +147,8 @@ export default function HospitalDashboard() {
       const res = await triggerLocalTraining(activeHospId);
       showToast(`Calibration Complete: ${res.message}`);
       loadFederatedData(activeHospId);
-    } catch {
-      showToast('Local calibration pass completed with Macro F1: 97.4% on local partition.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Local calibration failed.');
     } finally {
       setIsCalibratingLocal(false);
     }
