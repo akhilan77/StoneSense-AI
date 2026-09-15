@@ -1,41 +1,41 @@
 // frontend/src/pages/DeveloperDashboard.tsx
-import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import AppLayout from "../components/layout/AppLayout";
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import AppLayout from '../components/layout/AppLayout';
 import {
-  fetchModelPerformance,
-  fetchHospitalLogs,
-  fetchSystemMonitoring,
-  fetchSystemLogs,
-  fetchDriftAnalysis,
-  fetchAllEnrolledHospitals,
   deployModelVersion,
+  fetchAllEnrolledHospitals,
+  fetchDriftAnalysis,
   fetchFederatedOverview,
-  fetchRoundHistory,
+  fetchHospitalLogs,
   fetchHospitalParticipation,
-} from "../services/developerApi";
+  fetchModelPerformance,
+  fetchRoundHistory,
+  fetchSystemLogs,
+  fetchSystemMonitoring,
+} from '../services/developerApi';
 import {
-  startFederatedRound,
-  fetchCurrentRoundLiveStatus,
   createFederatedWebSocket,
-} from "../services/federatedApi";
+  fetchCurrentRoundLiveStatus,
+  startFederatedRound,
+} from '../services/federatedApi';
 import {
-  ModelPerformance,
-  HospitalUpdateLogEntry,
-  SystemLogEntry,
   DriftPoint,
-  SystemMonitoringSummary,
   Hospital,
-} from "../types/dashboard";
+  HospitalUpdateLogEntry,
+  ModelPerformance,
+  SystemLogEntry,
+  SystemMonitoringSummary,
+} from '../types/dashboard';
 import {
+  FederatedEventMessage,
   FederatedOverview,
   FederatedRoundDetail,
   HospitalParticipation,
   RoundLiveStatus,
-  FederatedEventMessage,
-} from "../types/federated";
+} from '../types/federated';
 
-type DevTab = "overview" | "federated" | "versions" | "access" | "health";
+type DevTab = 'overview' | 'federated' | 'versions' | 'access' | 'health';
 
 interface DeveloperDashboardProps {
   initialTab?: DevTab;
@@ -49,11 +49,17 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
   const getTabFromPath = (): DevTab => {
     if (initialTab) return initialTab;
     const path = location.pathname;
-    if (path.includes("/federated")) return "federated";
-    if (path.includes("/versions")) return "versions";
-    if (path.includes("/access") || path.includes("/enrolled-hospitals") || path.includes("/hospitals")) return "access";
-    if (path.includes("/health") || path.includes("/monitoring") || path.includes("/drift")) return "health";
-    return "overview";
+    if (path.includes('/federated')) return 'federated';
+    if (path.includes('/versions')) return 'versions';
+    if (
+      path.includes('/access') ||
+      path.includes('/enrolled-hospitals') ||
+      path.includes('/hospitals')
+    )
+      return 'access';
+    if (path.includes('/health') || path.includes('/monitoring') || path.includes('/drift'))
+      return 'health';
+    return 'overview';
   };
 
   const [activeTab, setActiveTab] = useState<DevTab>(getTabFromPath());
@@ -73,11 +79,10 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
   const [liveRoundStatus, setLiveRoundStatus] = useState<RoundLiveStatus | null>(null);
   const [isStartingRound, setIsStartingRound] = useState(false);
 
-
   // Filter states
-  const [logFilterLevel, setLogFilterLevel] = useState<string>("all");
-  const [hospitalSearch, setHospitalSearch] = useState<string>("");
-  const [hospLogSearch, setHospLogSearch] = useState<string>("");
+  const [logFilterLevel, setLogFilterLevel] = useState<string>('all');
+  const [hospitalSearch, setHospitalSearch] = useState<string>('');
+  const [hospLogSearch, setHospLogSearch] = useState<string>('');
 
   // Modal states
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
@@ -86,21 +91,21 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
 
   // New Version Form state
   const [newVersionForm, setNewVersionForm] = useState({
-    modelFamily: "xgboost_risk",
-    versionTag: "v2.5.0-prod",
-    accuracy: "0.965",
-    f1Score: "0.960",
-    environment: "production",
-    notes: "Trained on updated multi-center cohort dataset with reduced false positive rate.",
+    modelFamily: 'xgboost_risk',
+    versionTag: 'v2.5.0-prod',
+    accuracy: '0.965',
+    f1Score: '0.960',
+    environment: 'production',
+    notes: 'Trained on updated multi-center cohort dataset with reduced false positive rate.',
   });
 
   // New Hospital Enroll Form state
   const [newHospitalForm, setNewHospitalForm] = useState({
-    name: "",
-    code: "",
-    region: "",
-    contactEmail: "",
-    tier: "standard" as "enterprise" | "standard" | "research",
+    name: '',
+    code: '',
+    region: '',
+    contactEmail: '',
+    tier: 'standard' as 'enterprise' | 'standard' | 'research',
   });
 
   const showToast = (msg: string) => {
@@ -109,19 +114,39 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
   };
 
   const loadAllData = () => {
-    fetchModelPerformance().then(setVersions).catch(() => {});
-    fetchHospitalLogs().then(setHospitalLogs).catch(() => {});
-    fetchSystemMonitoring().then(setMonitoring).catch(() => {});
-    fetchSystemLogs().then(setLogs).catch(() => {});
-    fetchDriftAnalysis().then(setDrift).catch(() => {});
-    fetchAllEnrolledHospitals().then(setHospitals).catch(() => {});
-    fetchFederatedOverview().then(setFedOverview).catch(() => {});
-    fetchRoundHistory().then((data) => {
-      setRoundHistory(data);
-      if (data.length > 0) setSelectedRoundDetail(data[data.length - 1]);
-    }).catch(() => {});
-    fetchHospitalParticipation().then(setParticipation).catch(() => {});
-    fetchCurrentRoundLiveStatus().then(setLiveRoundStatus).catch(() => {});
+    fetchModelPerformance()
+      .then(setVersions)
+      .catch(() => {});
+    fetchHospitalLogs()
+      .then(setHospitalLogs)
+      .catch(() => {});
+    fetchSystemMonitoring()
+      .then(setMonitoring)
+      .catch(() => {});
+    fetchSystemLogs()
+      .then(setLogs)
+      .catch(() => {});
+    fetchDriftAnalysis()
+      .then(setDrift)
+      .catch(() => {});
+    fetchAllEnrolledHospitals()
+      .then(setHospitals)
+      .catch(() => {});
+    fetchFederatedOverview()
+      .then(setFedOverview)
+      .catch(() => {});
+    fetchRoundHistory()
+      .then((data) => {
+        setRoundHistory(data);
+        if (data.length > 0) setSelectedRoundDetail(data[data.length - 1]);
+      })
+      .catch(() => {});
+    fetchHospitalParticipation()
+      .then(setParticipation)
+      .catch(() => {});
+    fetchCurrentRoundLiveStatus()
+      .then(setLiveRoundStatus)
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -129,15 +154,17 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
 
     // Subscribe to live federated events
     const unsubscribe = createFederatedWebSocket((event: FederatedEventMessage) => {
-      fetchCurrentRoundLiveStatus().then((status) => {
-        setLiveRoundStatus(status);
-        if (event.event === "ROUND_COMPLETED") {
-          showToast(`✓ Round #${event.round} completed and synchronized across network!`);
-          loadAllData();
-        } else if (event.event === "ROUND_FAILED") {
-          showToast(`✕ Round #${event.round} failed: ${event.data?.error || "Execution error"}`);
-        }
-      }).catch(() => {});
+      fetchCurrentRoundLiveStatus()
+        .then((status) => {
+          setLiveRoundStatus(status);
+          if (event.event === 'ROUND_COMPLETED') {
+            showToast(`✓ Round #${event.round} completed and synchronized across network!`);
+            loadAllData();
+          } else if (event.event === 'ROUND_FAILED') {
+            showToast(`✕ Round #${event.round} failed: ${event.data?.error || 'Execution error'}`);
+          }
+        })
+        .catch(() => {});
     });
 
     return () => unsubscribe();
@@ -145,17 +172,19 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
 
   // Polling fallback while a round is actively running
   useEffect(() => {
-    if (!liveRoundStatus || ["READY", "COMPLETED", "FAILED"].includes(liveRoundStatus.status)) {
+    if (!liveRoundStatus || ['READY', 'COMPLETED', 'FAILED'].includes(liveRoundStatus.status)) {
       return;
     }
 
     const interval = setInterval(() => {
-      fetchCurrentRoundLiveStatus().then((status) => {
-        setLiveRoundStatus(status);
-        if (status.status === "COMPLETED") {
-          loadAllData();
-        }
-      }).catch(() => {});
+      fetchCurrentRoundLiveStatus()
+        .then((status) => {
+          setLiveRoundStatus(status);
+          if (status.status === 'COMPLETED') {
+            loadAllData();
+          }
+        })
+        .catch(() => {});
     }, 2500);
 
     return () => clearInterval(interval);
@@ -166,20 +195,23 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
   }, [location.pathname]);
 
   const handleStartFederatedRound = async () => {
-    if (liveRoundStatus?.status && !["READY", "COMPLETED", "FAILED"].includes(liveRoundStatus.status)) {
+    if (
+      liveRoundStatus?.status &&
+      !['READY', 'COMPLETED', 'FAILED'].includes(liveRoundStatus.status)
+    ) {
       showToast(`Round #${liveRoundStatus.round} is currently running.`);
       return;
     }
 
     setIsStartingRound(true);
-    showToast("Starting live multi-hospital Federated Learning round...");
+    showToast('Starting live multi-hospital Federated Learning round...');
     try {
       const res = await startFederatedRound({ num_rounds: 1 });
       showToast(`Round #${res.round} initiated on central Flower coordinator!`);
       const liveStatus = await fetchCurrentRoundLiveStatus();
       setLiveRoundStatus(liveStatus);
     } catch (err: any) {
-      const msg = err.response?.data?.detail || "Failed to start federated round.";
+      const msg = err.response?.data?.detail || 'Failed to start federated round.';
       showToast(msg);
     } finally {
       setIsStartingRound(false);
@@ -188,11 +220,11 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
 
   const handleTabChange = (tab: DevTab) => {
     setActiveTab(tab);
-    if (tab === "overview") navigate("/developer-dashboard");
-    else if (tab === "federated") navigate("/developer-dashboard/federated");
-    else if (tab === "versions") navigate("/developer-dashboard/versions");
-    else if (tab === "access") navigate("/developer-dashboard/access");
-    else if (tab === "health") navigate("/developer-dashboard/health");
+    if (tab === 'overview') navigate('/developer-dashboard');
+    else if (tab === 'federated') navigate('/developer-dashboard/federated');
+    else if (tab === 'versions') navigate('/developer-dashboard/versions');
+    else if (tab === 'access') navigate('/developer-dashboard/access');
+    else if (tab === 'health') navigate('/developer-dashboard/health');
   };
 
   const handleDeployVersion = async (v: ModelPerformance) => {
@@ -201,7 +233,11 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     setVersions((prev) =>
       prev.map((item) => {
         if (item.model_family === v.model_family) {
-          return { ...item, is_deployed: item.id === v.id, rollout_pct: item.id === v.id ? 100 : 0 };
+          return {
+            ...item,
+            is_deployed: item.id === v.id,
+            rollout_pct: item.id === v.id ? 100 : 0,
+          };
         }
         return item;
       })
@@ -225,11 +261,11 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       accuracy: parseFloat(newVersionForm.accuracy) || 0.95,
       f1_score: parseFloat(newVersionForm.f1Score) || 0.94,
       mcc: 0.91,
-      is_deployed: newVersionForm.environment === "production",
+      is_deployed: newVersionForm.environment === 'production',
       trained_at: new Date().toISOString(),
-      latency_ms: newVersionForm.modelFamily === "xgboost_risk" ? 17.5 : 78.0,
+      latency_ms: newVersionForm.modelFamily === 'xgboost_risk' ? 17.5 : 78.0,
       environment: newVersionForm.environment as any,
-      rollout_pct: newVersionForm.environment === "production" ? 100 : 0,
+      rollout_pct: newVersionForm.environment === 'production' ? 100 : 0,
     };
 
     setVersions([newV, ...versions]);
@@ -264,19 +300,20 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     const newHosp: Hospital = {
       id: Date.now(),
       name: newHospitalForm.name,
-      hospital_code: newHospitalForm.code || `HOSP-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-      region: newHospitalForm.region || "India",
+      hospital_code:
+        newHospitalForm.code || `HOSP-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+      region: newHospitalForm.region || 'India',
       is_active: true,
       tier: newHospitalForm.tier,
       contact_email: newHospitalForm.contactEmail,
       api_key: `ss_live_${newHospitalForm.name.toLowerCase().slice(0, 4)}_${Math.random().toString(36).substring(2, 9)}`,
-      last_sync: "Just now",
+      last_sync: 'Just now',
       total_scans: 0,
     };
 
     setHospitals([newHosp, ...hospitals]);
     setIsEnrollModalOpen(false);
-    setNewHospitalForm({ name: "", code: "", region: "", contactEmail: "", tier: "standard" });
+    setNewHospitalForm({ name: '', code: '', region: '', contactEmail: '', tier: 'standard' });
     showToast(`Hospital ${newHosp.name} enrolled with active access and API key!`);
   };
 
@@ -300,8 +337,18 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
           onClick={loadAllData}
           className="flex items-center gap-1.5 rounded-md border border-[#DDE3DC] bg-white px-3 py-1.5 text-xs text-[#101B16]/70 hover:bg-black/5 cursor-pointer shadow-xs"
         >
-          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
           </svg>
           Refresh Live Telemetry
         </button>
@@ -310,33 +357,38 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       {/* ========================================================================= */}
       {/* TAB 1: OVERVIEW & PERFORMANCE */}
       {/* ========================================================================= */}
-      {activeTab === "overview" && (
+      {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* Top KPI Cards */}
           <div className="grid grid-cols-4 gap-4">
             {[
               {
-                label: "Predictions (24h)",
-                value: monitoring?.total_predictions_24h ?? "1,482",
-                sub: "+12.4% vs prev day",
+                label: 'Predictions (24h)',
+                value: monitoring?.total_predictions_24h ?? '1,482',
+                sub: '+12.4% vs prev day',
               },
               {
-                label: "Error Rate (24h)",
-                value: monitoring ? `${((monitoring.error_count_24h / (monitoring.total_predictions_24h || 1)) * 100).toFixed(2)}%` : "0.20%",
+                label: 'Error Rate (24h)',
+                value: monitoring
+                  ? `${((monitoring.error_count_24h / (monitoring.total_predictions_24h || 1)) * 100).toFixed(2)}%`
+                  : '0.20%',
                 sub: `${monitoring?.error_count_24h ?? 3} errors logged`,
               },
               {
-                label: "Avg Inference Latency",
-                value: monitoring?.avg_latency_ms ? `${monitoring.avg_latency_ms} ms` : "44.8 ms",
-                sub: "p95: 88ms · p99: 135ms",
+                label: 'Avg Inference Latency',
+                value: monitoring?.avg_latency_ms ? `${monitoring.avg_latency_ms} ms` : '44.8 ms',
+                sub: 'p95: 88ms · p99: 135ms',
               },
               {
-                label: "System Uptime",
-                value: monitoring ? `${monitoring.uptime_pct}%` : "99.98%",
-                sub: "All 8 worker nodes active",
+                label: 'System Uptime',
+                value: monitoring ? `${monitoring.uptime_pct}%` : '99.98%',
+                sub: 'All 8 worker nodes active',
               },
             ].map((stat) => (
-              <div key={stat.label} className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
+              <div
+                key={stat.label}
+                className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs"
+              >
                 <p className="text-xs font-medium text-[#101B16]/55">{stat.label}</p>
                 <p className="text-2xl font-bold mt-1.5 text-[#3B3F8C]">{stat.value}</p>
                 <p className="text-[11px] text-[#101B16]/45 mt-1">{stat.sub}</p>
@@ -348,9 +400,11 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             {/* Active Model Summary */}
             <section className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-serif text-base font-medium text-[#101B16]">Active Production Models</h2>
+                <h2 className="font-serif text-base font-medium text-[#101B16]">
+                  Active Production Models
+                </h2>
                 <button
-                  onClick={() => handleTabChange("versions")}
+                  onClick={() => handleTabChange('versions')}
                   className="text-xs text-[#3B3F8C] hover:underline font-medium"
                 >
                   Manage versions →
@@ -360,22 +414,30 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 {versions
                   .filter((v) => v.is_deployed)
                   .map((v) => (
-                    <div key={v.id} className="rounded-lg border border-[#DDE3DC] bg-[#F7F9F6] p-4 flex items-center justify-between">
+                    <div
+                      key={v.id}
+                      className="rounded-lg border border-[#DDE3DC] bg-[#F7F9F6] p-4 flex items-center justify-between"
+                    >
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-xs text-[#101B16]">
-                            {v.model_family === "xgboost_risk" ? "XGBoost Clinical Risk" : "ResNet18 CT Imaging"}
+                            {v.model_family === 'xgboost_risk'
+                              ? 'XGBoost Clinical Risk'
+                              : 'ResNet18 CT Imaging'}
                           </span>
                           <span className="rounded bg-[#1F6F5C]/15 px-2 py-0.5 text-[10.5px] font-bold text-[#1F6F5C]">
                             {v.version_tag}
                           </span>
                         </div>
                         <p className="text-[11.5px] text-[#101B16]/60 mt-1">
-                          Accuracy: <strong>{(v.accuracy! * 100).toFixed(1)}%</strong> · F1: <strong>{(v.f1_score! * 100).toFixed(1)}%</strong> · Avg Latency: {v.latency_ms ?? 18}ms
+                          Accuracy: <strong>{(v.accuracy! * 100).toFixed(1)}%</strong> · F1:{' '}
+                          <strong>{(v.f1_score! * 100).toFixed(1)}%</strong> · Avg Latency:{' '}
+                          {v.latency_ms ?? 18}ms
                         </p>
                       </div>
                       <span className="inline-flex items-center gap-1 text-xs text-[#1F6F5C] font-semibold">
-                        <span className="h-2 w-2 rounded-full bg-[#1F6F5C] animate-pulse" /> 100% Traffic
+                        <span className="h-2 w-2 rounded-full bg-[#1F6F5C] animate-pulse" /> 100%
+                        Traffic
                       </span>
                     </div>
                   ))}
@@ -385,9 +447,11 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             {/* Quick Enrolled Hospital Status */}
             <section className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-serif text-base font-medium text-[#101B16]">Enrolled Partner Hospitals</h2>
+                <h2 className="font-serif text-base font-medium text-[#101B16]">
+                  Enrolled Partner Hospitals
+                </h2>
                 <button
-                  onClick={() => handleTabChange("access")}
+                  onClick={() => handleTabChange('access')}
                   className="text-xs text-[#3B3F8C] hover:underline font-medium"
                 >
                   Manage access →
@@ -398,14 +462,18 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   <div key={h.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
                       <p className="font-medium text-[#101B16]">{h.name}</p>
-                      <p className="text-[11px] text-[#101B16]/50">{h.hospital_code} · {h.region}</p>
+                      <p className="text-[11px] text-[#101B16]/50">
+                        {h.hospital_code} · {h.region}
+                      </p>
                     </div>
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold ${
-                        h.is_active ? "bg-[#1F6F5C]/15 text-[#1F6F5C]" : "bg-[#B3261E]/15 text-[#B3261E]"
+                        h.is_active
+                          ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                          : 'bg-[#B3261E]/15 text-[#B3261E]'
                       }`}
                     >
-                      {h.is_active ? "Active" : "Revoked"}
+                      {h.is_active ? 'Active' : 'Revoked'}
                     </span>
                   </div>
                 ))}
@@ -418,7 +486,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       {/* ========================================================================= */}
       {/* TAB: FEDERATED LEARNING HUB */}
       {/* ========================================================================= */}
-      {activeTab === "federated" && (
+      {activeTab === 'federated' && (
         <div className="space-y-6">
           {/* Header Banner */}
           <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -428,13 +496,16 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   <span className="h-1.5 w-1.5 rounded-full bg-[#1F6F5C] animate-pulse" />
                   FedAvg Aggregator Engine Active
                 </span>
-                <span className="text-xs text-[#101B16]/50">Coordinator: Flower FL + PyTorch ResNet18</span>
+                <span className="text-xs text-[#101B16]/50">
+                  Coordinator: Flower FL + PyTorch ResNet18
+                </span>
               </div>
               <h2 className="font-serif text-lg font-medium text-[#101B16]">
                 Federated Multi-Hospital Collaborative Learning Network
               </h2>
               <p className="text-xs text-[#101B16]/60 mt-0.5">
-                Real-time round telemetry, loss reduction convergence, and sample contribution matrices without centralizing raw CT scans.
+                Real-time round telemetry, loss reduction convergence, and sample contribution
+                matrices without centralizing raw CT scans.
               </p>
             </div>
 
@@ -463,13 +534,16 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   Live Federated Learning Round Control & Execution
                 </h3>
                 <p className="text-xs text-[#101B16]/65 mt-0.5">
-                  Trigger an authentic federated round. Global weights are distributed to simulated hospital nodes, trained locally on private CT partitions, and aggregated via FedAvg.
+                  Trigger an authentic federated round. Global weights are distributed to simulated
+                  hospital nodes, trained locally on private CT partitions, and aggregated via
+                  FedAvg.
                 </p>
               </div>
 
               {/* Action Button & Status Indicator */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                {liveRoundStatus?.status && !["READY", "COMPLETED", "FAILED"].includes(liveRoundStatus.status) ? (
+                {liveRoundStatus?.status &&
+                !['READY', 'COMPLETED', 'FAILED'].includes(liveRoundStatus.status) ? (
                   <div className="flex items-center gap-2 rounded-lg bg-[#3B3F8C]/10 border border-[#3B3F8C]/20 px-3.5 py-2 text-xs font-semibold text-[#3B3F8C]">
                     <span className="h-2 w-2 rounded-full bg-[#3B3F8C] animate-ping" />
                     Round #{liveRoundStatus.round} is currently running...
@@ -477,12 +551,28 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 ) : (
                   <button
                     onClick={handleStartFederatedRound}
-                    disabled={isStartingRound || !!(liveRoundStatus?.status && !["READY", "COMPLETED", "FAILED"].includes(liveRoundStatus.status))}
+                    disabled={
+                      isStartingRound ||
+                      !!(
+                        liveRoundStatus?.status &&
+                        !['READY', 'COMPLETED', 'FAILED'].includes(liveRoundStatus.status)
+                      )
+                    }
                     className="flex items-center gap-2 rounded-lg bg-[#1F6F5C] px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#185849] active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     START FEDERATED ROUND
                   </button>
@@ -493,15 +583,21 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             {/* Quick Status Bar */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
               <div className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]">
-                <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">Current Global Model</span>
+                <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">
+                  Current Global Model
+                </span>
                 <p className="text-xs font-bold text-[#101B16] font-mono mt-1 truncate">
-                  {liveRoundStatus?.global_model_version ?? fedOverview?.current_model_version ?? "-"}
+                  {liveRoundStatus?.global_model_version ??
+                    fedOverview?.current_model_version ??
+                    '-'}
                 </p>
                 <span className="text-[10px] text-[#1F6F5C] font-medium">ResNet18-FL</span>
               </div>
 
               <div className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]">
-                <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">Current Round</span>
+                <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">
+                  Current Round
+                </span>
                 <p className="text-sm font-bold text-[#3B3F8C] mt-1">
                   Round #{liveRoundStatus?.round ?? fedOverview?.current_round ?? 3}
                 </p>
@@ -509,41 +605,45 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               </div>
 
               <div className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]">
-                <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">Connected Hospitals</span>
+                <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">
+                  Connected Hospitals
+                </span>
                 <p className="text-sm font-bold text-[#101B16] mt-1">3 / 3 Online</p>
                 <span className="text-[10px] text-[#1F6F5C]">Simulated Hospital Clients</span>
               </div>
 
               <div className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]">
-                <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">Round Status</span>
+                <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">
+                  Round Status
+                </span>
                 <div className="mt-1">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                      liveRoundStatus?.status === "COMPLETED"
-                        ? "bg-[#1F6F5C]/15 text-[#1F6F5C]"
-                        : liveRoundStatus?.status === "FAILED"
-                        ? "bg-[#B3261E]/15 text-[#B3261E]"
-                        : liveRoundStatus?.status && !["READY"].includes(liveRoundStatus.status)
-                        ? "bg-[#3B3F8C]/15 text-[#3B3F8C]"
-                        : "bg-[#101B16]/10 text-[#101B16]/70"
+                      liveRoundStatus?.status === 'COMPLETED'
+                        ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                        : liveRoundStatus?.status === 'FAILED'
+                          ? 'bg-[#B3261E]/15 text-[#B3261E]'
+                          : liveRoundStatus?.status && !['READY'].includes(liveRoundStatus.status)
+                            ? 'bg-[#3B3F8C]/15 text-[#3B3F8C]'
+                            : 'bg-[#101B16]/10 text-[#101B16]/70'
                     }`}
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        liveRoundStatus?.status === "COMPLETED"
-                          ? "bg-[#1F6F5C]"
-                          : liveRoundStatus?.status === "FAILED"
-                          ? "bg-[#B3261E]"
-                          : liveRoundStatus?.status && !["READY"].includes(liveRoundStatus.status)
-                          ? "bg-[#3B3F8C] animate-pulse"
-                          : "bg-[#101B16]/50"
+                        liveRoundStatus?.status === 'COMPLETED'
+                          ? 'bg-[#1F6F5C]'
+                          : liveRoundStatus?.status === 'FAILED'
+                            ? 'bg-[#B3261E]'
+                            : liveRoundStatus?.status && !['READY'].includes(liveRoundStatus.status)
+                              ? 'bg-[#3B3F8C] animate-pulse'
+                              : 'bg-[#101B16]/50'
                       }`}
                     />
-                    {liveRoundStatus?.status ?? "READY"}
+                    {liveRoundStatus?.status ?? 'READY'}
                   </span>
                 </div>
                 <span className="text-[10px] text-[#101B16]/50 truncate block mt-0.5">
-                  {liveRoundStatus?.current_step ?? "Awaiting round initiation"}
+                  {liveRoundStatus?.current_step ?? 'Awaiting round initiation'}
                 </span>
               </div>
             </div>
@@ -553,10 +653,16 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               <div className="flex items-center justify-between border-b border-[#DDE3DC]/80 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-[#101B16]">
-                    ROUND {liveRoundStatus?.round ?? 3} — {liveRoundStatus?.status === "COMPLETED" ? "✓ COMPLETED" : liveRoundStatus?.status && !["READY", "FAILED"].includes(liveRoundStatus.status) ? "IN PROGRESS" : "READY"}
+                    ROUND {liveRoundStatus?.round ?? 3} —{' '}
+                    {liveRoundStatus?.status === 'COMPLETED'
+                      ? '✓ COMPLETED'
+                      : liveRoundStatus?.status &&
+                          !['READY', 'FAILED'].includes(liveRoundStatus.status)
+                        ? 'IN PROGRESS'
+                        : 'READY'}
                   </span>
                   <span className="text-xs text-[#101B16]/50 font-mono">
-                    (Global Model: {liveRoundStatus?.previous_model_version ?? "ResNet18-FL-v2"})
+                    (Global Model: {liveRoundStatus?.previous_model_version ?? 'ResNet18-FL-v2'})
                   </span>
                 </div>
                 <span className="rounded bg-white border border-[#DDE3DC] px-2 py-0.5 text-[10.5px] font-semibold text-[#101B16]/70">
@@ -571,19 +677,39 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-[#101B16]">1. MODEL DISTRIBUTION</span>
                     <span className="text-[11px] font-medium text-[#1F6F5C]">
-                      {liveRoundStatus?.status && !["READY"].includes(liveRoundStatus.status) ? "✓ Distributed to 3 Nodes" : "Waiting for trigger"}
+                      {liveRoundStatus?.status && !['READY'].includes(liveRoundStatus.status)
+                        ? '✓ Distributed to 3 Nodes'
+                        : 'Waiting for trigger'}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                     {[
-                      { code: "HOSP-001", name: "Hospital 1 (Apollo)", status: liveRoundStatus?.clients?.find(c => c.hospital_id === "HOSP-001")?.status },
-                      { code: "HOSP-002", name: "Hospital 2 (Manipal)", status: liveRoundStatus?.clients?.find(c => c.hospital_id === "HOSP-002")?.status },
-                      { code: "HOSP-003", name: "Hospital 3 (AIIMS)", status: liveRoundStatus?.clients?.find(c => c.hospital_id === "HOSP-003")?.status },
+                      {
+                        code: 'HOSP-001',
+                        name: 'Hospital 1 (Apollo)',
+                        status: liveRoundStatus?.clients?.find((c) => c.hospital_id === 'HOSP-001')
+                          ?.status,
+                      },
+                      {
+                        code: 'HOSP-002',
+                        name: 'Hospital 2 (Manipal)',
+                        status: liveRoundStatus?.clients?.find((c) => c.hospital_id === 'HOSP-002')
+                          ?.status,
+                      },
+                      {
+                        code: 'HOSP-003',
+                        name: 'Hospital 3 (AIIMS)',
+                        status: liveRoundStatus?.clients?.find((c) => c.hospital_id === 'HOSP-003')
+                          ?.status,
+                      },
                     ].map((h) => (
-                      <div key={h.code} className="flex items-center justify-between rounded bg-[#F7F9F6] p-2 border border-[#DDE3DC]/60">
+                      <div
+                        key={h.code}
+                        className="flex items-center justify-between rounded bg-[#F7F9F6] p-2 border border-[#DDE3DC]/60"
+                      >
                         <span className="font-medium text-[#101B16]">{h.name}</span>
                         <span className="font-semibold text-[#1F6F5C]">
-                          {h.status && h.status !== "WAITING" ? "✓ Received" : "—"}
+                          {h.status && h.status !== 'WAITING' ? '✓ Received' : '—'}
                         </span>
                       </div>
                     ))}
@@ -593,52 +719,95 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 {/* 2. Local Training */}
                 <div className="rounded-lg bg-white p-3.5 border border-[#DDE3DC] shadow-xs">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-[#101B16]">2. LOCAL TRAINING & UPDATES</span>
+                    <span className="font-semibold text-[#101B16]">
+                      2. LOCAL TRAINING & UPDATES
+                    </span>
                     <span className="text-[11px] font-medium text-[#3B3F8C]">
-                      {liveRoundStatus?.status === "LOCAL_TRAINING" ? "● In Progress (Zero-Raw-CT Privacy)" : liveRoundStatus?.status === "COMPLETED" ? "✓ All Nodes Completed" : "Waiting"}
+                      {liveRoundStatus?.status === 'LOCAL_TRAINING'
+                        ? '● In Progress (Zero-Raw-CT Privacy)'
+                        : liveRoundStatus?.status === 'COMPLETED'
+                          ? '✓ All Nodes Completed'
+                          : 'Waiting'}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     {[
-                      { code: "HOSP-001", name: "Hospital 1 (Apollo)", client: liveRoundStatus?.clients?.find(c => c.hospital_id === "HOSP-001") },
-                      { code: "HOSP-002", name: "Hospital 2 (Manipal)", client: liveRoundStatus?.clients?.find(c => c.hospital_id === "HOSP-002") },
-                      { code: "HOSP-003", name: "Hospital 3 (AIIMS)", client: liveRoundStatus?.clients?.find(c => c.hospital_id === "HOSP-003") },
+                      {
+                        code: 'HOSP-001',
+                        name: 'Hospital 1 (Apollo)',
+                        client: liveRoundStatus?.clients?.find((c) => c.hospital_id === 'HOSP-001'),
+                      },
+                      {
+                        code: 'HOSP-002',
+                        name: 'Hospital 2 (Manipal)',
+                        client: liveRoundStatus?.clients?.find((c) => c.hospital_id === 'HOSP-002'),
+                      },
+                      {
+                        code: 'HOSP-003',
+                        name: 'Hospital 3 (AIIMS)',
+                        client: liveRoundStatus?.clients?.find((c) => c.hospital_id === 'HOSP-003'),
+                      },
                     ].map((h) => {
                       const c = h.client;
-                      const isCompleted = c?.status === "COMPLETED" || c?.status === "MODEL_UPDATED" || liveRoundStatus?.status === "COMPLETED";
-                      const isTraining = c?.status === "TRAINING" || liveRoundStatus?.status === "LOCAL_TRAINING";
+                      const isCompleted =
+                        c?.status === 'COMPLETED' ||
+                        c?.status === 'MODEL_UPDATED' ||
+                        liveRoundStatus?.status === 'COMPLETED';
+                      const isTraining =
+                        c?.status === 'TRAINING' || liveRoundStatus?.status === 'LOCAL_TRAINING';
                       return (
-                        <div key={h.code} className="rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]">
+                        <div
+                          key={h.code}
+                          className="rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]"
+                        >
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="font-bold text-[#101B16] text-[11.5px]">{h.name}</span>
                             <span
                               className={`text-[10.5px] font-bold ${
-                                isCompleted ? "text-[#1F6F5C]" : isTraining ? "text-[#3B3F8C] animate-pulse" : "text-[#101B16]/40"
+                                isCompleted
+                                  ? 'text-[#1F6F5C]'
+                                  : isTraining
+                                    ? 'text-[#3B3F8C] animate-pulse'
+                                    : 'text-[#101B16]/40'
                               }`}
                             >
-                              {isCompleted ? "✓ Completed" : isTraining ? "● Training..." : "Waiting"}
+                              {isCompleted
+                                ? '✓ Completed'
+                                : isTraining
+                                  ? '● Training...'
+                                  : 'Waiting'}
                             </span>
                           </div>
                           <div className="space-y-1 text-[10.5px] text-[#101B16]/70 border-t border-[#DDE3DC]/50 pt-1.5">
                             <div className="flex justify-between">
                               <span>Samples:</span>
-                              <strong className="text-[#101B16]">{c?.samples ? c.samples.toLocaleString() : "-"}</strong>
+                              <strong className="text-[#101B16]">
+                                {c?.samples ? c.samples.toLocaleString() : '-'}
+                              </strong>
                             </div>
                             <div className="flex justify-between">
                               <span>Local Loss:</span>
-                              <strong className="font-mono text-[#101B16]">{c?.loss != null ? c.loss.toFixed(4) : "-"}</strong>
+                              <strong className="font-mono text-[#101B16]">
+                                {c?.loss != null ? c.loss.toFixed(4) : '-'}
+                              </strong>
                             </div>
                             <div className="flex justify-between">
                               <span>Local Accuracy:</span>
-                              <strong className="text-[#101B16]">{c?.accuracy != null ? `${(c.accuracy * 100).toFixed(1)}%` : "-"}</strong>
+                              <strong className="text-[#101B16]">
+                                {c?.accuracy != null ? `${(c.accuracy * 100).toFixed(1)}%` : '-'}
+                              </strong>
                             </div>
                             <div className="flex justify-between">
                               <span>Local F1:</span>
-                              <strong className="text-[#1F6F5C]">{c?.f1 != null ? `${(c.f1 * 100).toFixed(1)}%` : "-"}</strong>
+                              <strong className="text-[#1F6F5C]">
+                                {c?.f1 != null ? `${(c.f1 * 100).toFixed(1)}%` : '-'}
+                              </strong>
                             </div>
                             <div className="flex justify-between">
                               <span>Duration:</span>
-                              <span className="text-[#101B16]/60">{c?.duration_sec != null ? `${c.duration_sec}s` : "-"}</span>
+                              <span className="text-[#101B16]/60">
+                                {c?.duration_sec != null ? `${c.duration_sec}s` : '-'}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -650,19 +819,32 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 {/* 3. Federated Aggregation (FedAvg) & Global Model */}
                 <div className="rounded-lg bg-white p-3.5 border border-[#DDE3DC] shadow-xs">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="font-semibold text-[#101B16]">3. FEDERATED AGGREGATION & GLOBAL MODEL CREATION</span>
+                    <span className="font-semibold text-[#101B16]">
+                      3. FEDERATED AGGREGATION & GLOBAL MODEL CREATION
+                    </span>
                     <span className="text-[11px] font-bold text-[#1F6F5C]">
-                      {liveRoundStatus?.status === "COMPLETED" ? "✓ Checkpoint Saved & Deployed" : liveRoundStatus?.status === "FEDAVG_STARTED" ? "● Running FedAvg..." : "Standing By"}
+                      {liveRoundStatus?.status === 'COMPLETED'
+                        ? '✓ Checkpoint Saved & Deployed'
+                        : liveRoundStatus?.status === 'FEDAVG_STARTED'
+                          ? '● Running FedAvg...'
+                          : 'Standing By'}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                     {/* Visual FedAvg Flow */}
                     <div className="rounded bg-[#F7F9F6] p-3 border border-[#DDE3DC]/60 font-mono text-[11px] text-[#101B16]">
-                      <p className="text-[10px] text-[#101B16]/50 uppercase tracking-wider font-sans font-semibold mb-1">FedAvg Aggregation Topology</p>
+                      <p className="text-[10px] text-[#101B16]/50 uppercase tracking-wider font-sans font-semibold mb-1">
+                        FedAvg Aggregation Topology
+                      </p>
                       <div className="leading-tight text-[#3B3F8C]">
-                        Hospital 1 (HOSP-001) ──┐<br />
-                        Hospital 2 (HOSP-002) ──┼──→ <strong className="text-[#1F6F5C] bg-[#1F6F5C]/10 px-1 py-0.5 rounded">FedAvg Aggregation</strong><br />
+                        Hospital 1 (HOSP-001) ──┐
+                        <br />
+                        Hospital 2 (HOSP-002) ──┼──→{' '}
+                        <strong className="text-[#1F6F5C] bg-[#1F6F5C]/10 px-1 py-0.5 rounded">
+                          FedAvg Aggregation
+                        </strong>
+                        <br />
                         Hospital 3 (HOSP-003) ──┘
                       </div>
                     </div>
@@ -671,28 +853,55 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                     <div className="rounded bg-[#F7F9F6] p-3 border border-[#DDE3DC]/60 space-y-1.5 text-[11px]">
                       <div className="flex justify-between">
                         <span className="text-[#101B16]/60">Previous Version:</span>
-                        <span className="font-mono text-[#101B16]/80">{liveRoundStatus?.previous_model_version ?? "resnet18_fed_round_002"}</span>
+                        <span className="font-mono text-[#101B16]/80">
+                          {liveRoundStatus?.previous_model_version ?? 'resnet18_fed_round_002'}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-[#101B16]/60">New Aggregated Model:</span>
                         <span className="font-mono font-bold text-[#1F6F5C] bg-[#1F6F5C]/10 px-2 py-0.5 rounded">
-                          {liveRoundStatus?.global_model_version ?? fedOverview?.current_model_version ?? "-"}
+                          {liveRoundStatus?.global_model_version ??
+                            fedOverview?.current_model_version ??
+                            '-'}
                         </span>
                       </div>
                       <div className="flex justify-between pt-1 border-t border-[#DDE3DC]/40 text-[10.5px]">
-                        <span>Global Macro F1: <strong>{liveRoundStatus?.metrics?.f1 != null ? `${(liveRoundStatus.metrics.f1 * 100).toFixed(1)}%` : fedOverview?.global_f1 != null ? `${(fedOverview.global_f1 * 100).toFixed(1)}%` : "-"}</strong></span>
-                        <span>Val Accuracy: <strong>{liveRoundStatus?.metrics?.accuracy != null ? `${(liveRoundStatus.metrics.accuracy * 100).toFixed(1)}%` : fedOverview?.global_accuracy != null ? `${(fedOverview.global_accuracy * 100).toFixed(1)}%` : "-"}</strong></span>
+                        <span>
+                          Global Macro F1:{' '}
+                          <strong>
+                            {liveRoundStatus?.metrics?.f1 != null
+                              ? `${(liveRoundStatus.metrics.f1 * 100).toFixed(1)}%`
+                              : fedOverview?.global_f1 != null
+                                ? `${(fedOverview.global_f1 * 100).toFixed(1)}%`
+                                : '-'}
+                          </strong>
+                        </span>
+                        <span>
+                          Val Accuracy:{' '}
+                          <strong>
+                            {liveRoundStatus?.metrics?.accuracy != null
+                              ? `${(liveRoundStatus.metrics.accuracy * 100).toFixed(1)}%`
+                              : fedOverview?.global_accuracy != null
+                                ? `${(fedOverview.global_accuracy * 100).toFixed(1)}%`
+                                : '-'}
+                          </strong>
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {liveRoundStatus?.status === "COMPLETED" && (
+                  {liveRoundStatus?.status === 'COMPLETED' && (
                     <div className="mt-3 rounded-md bg-[#EBF5F1] p-2.5 text-xs text-[#1F6F5C] font-semibold flex items-center justify-between border border-[#D2E0D1]">
                       <div className="flex items-center gap-2">
                         <span>✓</span>
-                        <span>ROUND #{liveRoundStatus.round} COMPLETED — Global Model synchronized across all hospital clients!</span>
+                        <span>
+                          ROUND #{liveRoundStatus.round} COMPLETED — Global Model synchronized
+                          across all hospital clients!
+                        </span>
                       </div>
-                      <span className="text-[11px] font-mono text-[#1F6F5C]/80">{liveRoundStatus.global_model_version}.pth</span>
+                      <span className="text-[11px] font-mono text-[#1F6F5C]/80">
+                        {liveRoundStatus.global_model_version}.pth
+                      </span>
                     </div>
                   )}
                 </div>
@@ -700,13 +909,12 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             </div>
           </div>
 
-
           {/* KPI Grid */}
           <div className="grid grid-cols-4 gap-4">
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <span className="text-xs font-medium text-[#101B16]/55">Completed Rounds</span>
               <p className="text-2xl font-bold mt-1.5 text-[#3B3F8C]">
-                {fedOverview?.current_round ? `Round #${fedOverview.current_round}` : "Round #3"}
+                {fedOverview?.current_round ? `Round #${fedOverview.current_round}` : 'Round #3'}
               </p>
               <p className="text-[11px] text-[#1F6F5C] mt-1">✓ Convergence threshold met</p>
             </div>
@@ -714,23 +922,33 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <span className="text-xs font-medium text-[#101B16]/55">Global Macro F1 Score</span>
               <p className="text-2xl font-bold mt-1.5 text-[#1F6F5C]">
-                {fedOverview?.global_f1 != null ? `${(fedOverview.global_f1 * 100).toFixed(1)}%` : "-"}
+                {fedOverview?.global_f1 != null
+                  ? `${(fedOverview.global_f1 * 100).toFixed(1)}%`
+                  : '-'}
               </p>
               <p className="text-[11px] text-[#101B16]/45 mt-1">+1.8% vs Round 1</p>
             </div>
 
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
-              <span className="text-xs font-medium text-[#101B16]/55">Global Validation Accuracy</span>
+              <span className="text-xs font-medium text-[#101B16]/55">
+                Global Validation Accuracy
+              </span>
               <p className="text-2xl font-bold mt-1.5 text-[#101B16]">
-                {fedOverview?.global_accuracy != null ? `${(fedOverview.global_accuracy * 100).toFixed(1)}%` : "-"}
+                {fedOverview?.global_accuracy != null
+                  ? `${(fedOverview.global_accuracy * 100).toFixed(1)}%`
+                  : '-'}
               </p>
-                <p className="text-[11px] text-[#101B16]/45 mt-1">Loss: {fedOverview?.global_loss != null ? fedOverview.global_loss.toFixed(4) : "-"}</p>
+              <p className="text-[11px] text-[#101B16]/45 mt-1">
+                Loss: {fedOverview?.global_loss != null ? fedOverview.global_loss.toFixed(4) : '-'}
+              </p>
             </div>
 
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <span className="text-xs font-medium text-[#101B16]/55">Collaborative CT Slices</span>
               <p className="text-2xl font-bold mt-1.5 text-[#3B3F8C]">
-                {fedOverview?.total_samples != null ? fedOverview.total_samples.toLocaleString() : "-"}
+                {fedOverview?.total_samples != null
+                  ? fedOverview.total_samples.toLocaleString()
+                  : '-'}
               </p>
               <p className="text-[11px] text-[#1F6F5C] mt-1">Across 3 isolated hospital nodes</p>
             </div>
@@ -742,26 +960,58 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#101B16]">Multi-Round Convergence Progression</h3>
-                  <p className="text-[11px] text-[#101B16]/60">Validation Macro F1 and Accuracy across aggregated rounds</p>
+                  <h3 className="text-sm font-semibold text-[#101B16]">
+                    Multi-Round Convergence Progression
+                  </h3>
+                  <p className="text-[11px] text-[#101B16]/60">
+                    Validation Macro F1 and Accuracy across aggregated rounds
+                  </p>
                 </div>
-                <span className="rounded bg-[#3B3F8C]/10 px-2 py-0.5 text-[10.5px] font-bold text-[#3B3F8C]">FedAvg</span>
+                <span className="rounded bg-[#3B3F8C]/10 px-2 py-0.5 text-[10.5px] font-bold text-[#3B3F8C]">
+                  FedAvg
+                </span>
               </div>
 
               <div className="space-y-4">
                 {roundHistory.map((r) => (
-                  <div key={r.round_number} className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]/60">
+                  <div
+                    key={r.round_number}
+                    className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]/60"
+                  >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#101B16]">Round #{r.round_number} Aggregation</span>
-                          <span className="text-[11px] text-[#101B16]/60">Duration: {r.duration_sec != null ? `${r.duration_sec.toFixed(1)}s` : "-"}</span>
+                      <span className="text-xs font-bold text-[#101B16]">
+                        Round #{r.round_number} Aggregation
+                      </span>
+                      <span className="text-[11px] text-[#101B16]/60">
+                        Duration: {r.duration_sec != null ? `${r.duration_sec.toFixed(1)}s` : '-'}
+                      </span>
                     </div>
 
                     <div className="space-y-2">
                       <div>
                         <div className="flex justify-between text-[11px] text-[#101B16]/70 mb-1">
-                          <span>Macro F1: <strong>{r.global_val_f1 != null ? `${(r.global_val_f1 * 100).toFixed(1)}%` : "-"}</strong></span>
-                          <span>Acc: <strong>{r.global_val_acc != null ? `${(r.global_val_acc * 100).toFixed(1)}%` : "-"}</strong></span>
-                          <span>Loss: <strong>{r.global_val_loss != null ? r.global_val_loss.toFixed(4) : "-"}</strong></span>
+                          <span>
+                            Macro F1:{' '}
+                            <strong>
+                              {r.global_val_f1 != null
+                                ? `${(r.global_val_f1 * 100).toFixed(1)}%`
+                                : '-'}
+                            </strong>
+                          </span>
+                          <span>
+                            Acc:{' '}
+                            <strong>
+                              {r.global_val_acc != null
+                                ? `${(r.global_val_acc * 100).toFixed(1)}%`
+                                : '-'}
+                            </strong>
+                          </span>
+                          <span>
+                            Loss:{' '}
+                            <strong>
+                              {r.global_val_loss != null ? r.global_val_loss.toFixed(4) : '-'}
+                            </strong>
+                          </span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-[#DDE3DC]/60 overflow-hidden">
                           <div
@@ -780,29 +1030,58 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#101B16]">Hospital Node Participation & Weighting</h3>
-                  <p className="text-[11px] text-[#101B16]/60">Isolated CT sample contributions and local accuracy</p>
+                  <h3 className="text-sm font-semibold text-[#101B16]">
+                    Hospital Node Participation & Weighting
+                  </h3>
+                  <p className="text-[11px] text-[#101B16]/60">
+                    Isolated CT sample contributions and local accuracy
+                  </p>
                 </div>
-                <span className="rounded bg-[#1F6F5C]/10 px-2 py-0.5 text-[10.5px] font-bold text-[#1F6F5C]">3 Nodes Online</span>
+                <span className="rounded bg-[#1F6F5C]/10 px-2 py-0.5 text-[10.5px] font-bold text-[#1F6F5C]">
+                  3 Nodes Online
+                </span>
               </div>
 
               <div className="space-y-3">
                 {participation.map((h) => (
-                  <div key={h.hospital_code} className="rounded-lg border border-[#DDE3DC]/70 p-3.5 bg-[#F7F9F6]/50">
+                  <div
+                    key={h.hospital_code}
+                    className="rounded-lg border border-[#DDE3DC]/70 p-3.5 bg-[#F7F9F6]/50"
+                  >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-[#3B3F8C]">{h.hospital_code}</span>
+                        <span className="font-mono text-xs font-bold text-[#3B3F8C]">
+                          {h.hospital_code}
+                        </span>
                         <span className="text-xs font-semibold text-[#101B16]">{h.name}</span>
                       </div>
                       <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#1F6F5C]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#1F6F5C]" /> {liveRoundStatus?.clients.find((client) => client.hospital_id === h.hospital_code)?.status ?? "ENROLLED"}
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#1F6F5C]" />{' '}
+                        {liveRoundStatus?.clients.find(
+                          (client) => client.hospital_id === h.hospital_code
+                        )?.status ?? 'ENROLLED'}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-[#DDE3DC]/40 text-[11px] text-[#101B16]/70">
-                      <div>Samples: <strong className="text-[#101B16]">{h.dataset_size.toLocaleString()}</strong></div>
-                      <div>Weight Share: <strong className="text-[#101B16]">{h.sample_contribution_pct}%</strong></div>
-                      <div>Local F1: <strong className="text-[#1F6F5C]">{h.latest_local_f1 != null ? `${(h.latest_local_f1 * 100).toFixed(1)}%` : "-"}</strong></div>
+                      <div>
+                        Samples:{' '}
+                        <strong className="text-[#101B16]">
+                          {h.dataset_size.toLocaleString()}
+                        </strong>
+                      </div>
+                      <div>
+                        Weight Share:{' '}
+                        <strong className="text-[#101B16]">{h.sample_contribution_pct}%</strong>
+                      </div>
+                      <div>
+                        Local F1:{' '}
+                        <strong className="text-[#1F6F5C]">
+                          {h.latest_local_f1 != null
+                            ? `${(h.latest_local_f1 * 100).toFixed(1)}%`
+                            : '-'}
+                        </strong>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -814,8 +1093,12 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
           <div className="overflow-hidden rounded-xl border border-[#DDE3DC] bg-white shadow-xs">
             <div className="p-4 border-b border-[#DDE3DC] flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-[#101B16]">Federated Round Telemetry History</h3>
-                <p className="text-[11px] text-[#101B16]/60">Complete audit log of aggregated weights, validation scores, and timing</p>
+                <h3 className="text-sm font-semibold text-[#101B16]">
+                  Federated Round Telemetry History
+                </h3>
+                <p className="text-[11px] text-[#101B16]/60">
+                  Complete audit log of aggregated weights, validation scores, and timing
+                </p>
               </div>
             </div>
             <table className="w-full text-left text-xs">
@@ -834,17 +1117,27 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               <tbody className="divide-y divide-[#DDE3DC]/70">
                 {roundHistory.map((r) => (
                   <tr key={r.round_number} className="hover:bg-black/[0.015]">
-                    <td className="py-3.5 px-4 font-bold text-[#3B3F8C]">Round #{r.round_number}</td>
-                    <td className="py-3.5 px-4 uppercase font-semibold text-[11px] text-[#101B16]/70">{r.mode ?? "IID"}</td>
-                    <td className="py-3.5 px-4 text-[#101B16]">{r.participants_count ?? 3} Hospitals</td>
-                    <td className="py-3.5 px-4 font-mono text-[#101B16]/70">{r.global_train_loss != null ? r.global_train_loss.toFixed(4) : "-"}</td>
+                    <td className="py-3.5 px-4 font-bold text-[#3B3F8C]">
+                      Round #{r.round_number}
+                    </td>
+                    <td className="py-3.5 px-4 uppercase font-semibold text-[11px] text-[#101B16]/70">
+                      {r.mode ?? 'IID'}
+                    </td>
+                    <td className="py-3.5 px-4 text-[#101B16]">
+                      {r.participants_count ?? 3} Hospitals
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-[#101B16]/70">
+                      {r.global_train_loss != null ? r.global_train_loss.toFixed(4) : '-'}
+                    </td>
                     <td className="py-3.5 px-4 font-semibold text-[#101B16]">
-                      {r.global_val_acc != null ? `${(r.global_val_acc * 100).toFixed(1)}%` : "-"}
+                      {r.global_val_acc != null ? `${(r.global_val_acc * 100).toFixed(1)}%` : '-'}
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-[#1F6F5C]">
-                      {r.global_val_f1 != null ? `${(r.global_val_f1 * 100).toFixed(1)}%` : "-"}
+                      {r.global_val_f1 != null ? `${(r.global_val_f1 * 100).toFixed(1)}%` : '-'}
                     </td>
-                    <td className="py-3.5 px-4 text-[#101B16]/70">{r.duration_sec != null ? `${r.duration_sec.toFixed(1)}s` : "-"}</td>
+                    <td className="py-3.5 px-4 text-[#101B16]/70">
+                      {r.duration_sec != null ? `${r.duration_sec.toFixed(1)}s` : '-'}
+                    </td>
                     <td className="py-3.5 px-4">
                       <span className="rounded-full bg-[#1F6F5C]/15 px-2.5 py-0.5 text-[10.5px] font-bold text-[#1F6F5C]">
                         ✓ Completed & Deployed
@@ -857,13 +1150,16 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
           </div>
         </div>
       )}
-      {activeTab === "versions" && (
+      {activeTab === 'versions' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif text-lg font-medium text-[#101B16]">Model Versions & Deployment Rollout</h2>
+              <h2 className="font-serif text-lg font-medium text-[#101B16]">
+                Model Versions & Deployment Rollout
+              </h2>
               <p className="text-xs text-[#101B16]/60 mt-0.5">
-                Manage artifact deployments, canary rollout thresholds, and instant version promotion or rollback.
+                Manage artifact deployments, canary rollout thresholds, and instant version
+                promotion or rollback.
               </p>
             </div>
             <button
@@ -892,32 +1188,40 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   <tr key={v.id} className="hover:bg-black/[0.015]">
                     <td className="py-3.5 px-4">
                       <span className="font-semibold text-[#101B16]">
-                        {v.model_family === "xgboost_risk" ? "XGBoost Clinical Risk" : "ResNet18 CT Imaging"}
+                        {v.model_family === 'xgboost_risk'
+                          ? 'XGBoost Clinical Risk'
+                          : 'ResNet18 CT Imaging'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-medium text-[#3B3F8C]">{v.version_tag}</td>
+                    <td className="py-3.5 px-4 font-mono font-medium text-[#3B3F8C]">
+                      {v.version_tag}
+                    </td>
                     <td className="py-3.5 px-4">
                       <span className="font-semibold text-[#101B16]">
-                        {v.accuracy ? `${(v.accuracy * 100).toFixed(1)}%` : "—"}
+                        {v.accuracy ? `${(v.accuracy * 100).toFixed(1)}%` : '—'}
                       </span>
                       <span className="text-[#101B16]/50 text-[11px] ml-1">
-                        (F1: {v.f1_score ? `${(v.f1_score * 100).toFixed(1)}%` : "—"})
+                        (F1: {v.f1_score ? `${(v.f1_score * 100).toFixed(1)}%` : '—'})
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-[#101B16]/70">
-                      {new Date(v.trained_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                      {new Date(v.trained_at).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
                     </td>
                     <td className="py-3.5 px-4">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold ${
                           v.is_deployed
-                            ? "bg-[#1F6F5C]/15 text-[#1F6F5C]"
-                            : v.environment === "canary"
-                            ? "bg-[#C97A2B]/15 text-[#C97A2B]"
-                            : "bg-[#101B16]/10 text-[#101B16]/70"
+                            ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                            : v.environment === 'canary'
+                              ? 'bg-[#C97A2B]/15 text-[#C97A2B]'
+                              : 'bg-[#101B16]/10 text-[#101B16]/70'
                         }`}
                       >
-                        {v.is_deployed ? "Production (Active)" : v.environment ?? "Staging"}
+                        {v.is_deployed ? 'Production (Active)' : (v.environment ?? 'Staging')}
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
@@ -958,13 +1262,16 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       {/* ========================================================================= */}
       {/* TAB 3: HOSPITAL UPDATE LOGS (Merged into Federated) */}
       {/* ========================================================================= */}
-      {activeTab === "federated" && (
+      {activeTab === 'federated' && (
         <div className="space-y-6 mt-6 border-t border-[#DDE3DC] pt-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif text-lg font-medium text-[#101B16]">Hospital Update & Federated Sync Logs</h2>
+              <h2 className="font-serif text-lg font-medium text-[#101B16]">
+                Hospital Update & Federated Sync Logs
+              </h2>
               <p className="text-xs text-[#101B16]/60 mt-0.5">
-                Audit trail of model parameter distribution and telemetry updates received across enrolled hospital nodes.
+                Audit trail of model parameter distribution and telemetry updates received across
+                enrolled hospital nodes.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -976,7 +1283,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 className="w-64 rounded-lg border border-[#DDE3DC] bg-white px-3 py-1.5 text-xs text-[#101B16] outline-none focus:border-[#3B3F8C]"
               />
               <button
-                onClick={() => showToast("Exporting federated audit logs (CSV)...")}
+                onClick={() => showToast('Exporting federated audit logs (CSV)...')}
                 className="rounded-lg border border-[#DDE3DC] bg-white px-3 py-1.5 text-xs font-medium text-[#101B16]/80 hover:bg-black/5 cursor-pointer shadow-xs"
               >
                 Export CSV
@@ -1000,34 +1307,45 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               <tbody className="divide-y divide-[#DDE3DC]/70">
                 {hospitalLogs
                   .filter((l) =>
-                    hospLogSearch ? l.hospital_name.toLowerCase().includes(hospLogSearch.toLowerCase()) || l.version_tag.toLowerCase().includes(hospLogSearch.toLowerCase()) : true
+                    hospLogSearch
+                      ? l.hospital_name.toLowerCase().includes(hospLogSearch.toLowerCase()) ||
+                        l.version_tag.toLowerCase().includes(hospLogSearch.toLowerCase())
+                      : true
                   )
                   .map((log, idx) => (
                     <tr key={idx} className="hover:bg-black/[0.015]">
-                      <td className="py-3.5 px-4 font-medium text-[#101B16]">{log.hospital_name}</td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-[#3B3F8C]">{log.version_tag}</td>
+                      <td className="py-3.5 px-4 font-medium text-[#101B16]">
+                        {log.hospital_name}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-medium text-[#3B3F8C]">
+                        {log.version_tag}
+                      </td>
                       <td className="py-3.5 px-4">
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold ${
-                            log.status === "received"
-                              ? "bg-[#1F6F5C]/15 text-[#1F6F5C]"
-                              : log.status === "pending"
-                              ? "bg-[#C97A2B]/15 text-[#C97A2B]"
-                              : "bg-[#B3261E]/15 text-[#B3261E]"
+                            log.status === 'received'
+                              ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                              : log.status === 'pending'
+                                ? 'bg-[#C97A2B]/15 text-[#C97A2B]'
+                                : 'bg-[#B3261E]/15 text-[#B3261E]'
                           }`}
                         >
                           {log.status.toUpperCase()}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-[#101B16]/80">{log.payload_size_mb ? `${log.payload_size_mb} MB` : "4.8 MB"}</td>
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-[#101B16]/55">{log.gradient_hash ?? "sha256:7f9a2e3...b19c"}</td>
+                      <td className="py-3.5 px-4 text-[#101B16]/80">
+                        {log.payload_size_mb ? `${log.payload_size_mb} MB` : '4.8 MB'}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-[11px] text-[#101B16]/55">
+                        {log.gradient_hash ?? 'sha256:7f9a2e3...b19c'}
+                      </td>
                       <td className="py-3.5 px-4 text-[#101B16]/70">
-                        {new Date(log.created_at).toLocaleString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
+                        {new Date(log.created_at).toLocaleString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
                         })}
                       </td>
                       <td className="py-3.5 px-4 text-right">
@@ -1049,7 +1367,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       {/* ========================================================================= */}
       {/* SYSTEM HEALTH (Monitoring + Drift) */}
       {/* ========================================================================= */}
-      {activeTab === "health" && (
+      {activeTab === 'health' && (
         <div className="space-y-6">
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-4 gap-4">
@@ -1077,17 +1395,52 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
 
           {/* Infrastructure Health Status Grid */}
           <section className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
-            <h2 className="font-serif text-base font-medium text-[#101B16] mb-3">Service Architecture & Node Status</h2>
+            <h2 className="font-serif text-base font-medium text-[#101B16] mb-3">
+              Service Architecture & Node Status
+            </h2>
             <div className="grid grid-cols-3 gap-4 text-xs">
               {[
-                { name: "FastAPI Core Gateway", status: "Healthy", ping: "2ms", sub: "Load balancer active" },
-                { name: "XGBoost Risk Inference Engine", status: "Healthy", ping: "18ms", sub: "CPU multicore pool" },
-                { name: "ResNet18 CT Imaging PyTorch", status: "Healthy", ping: "82ms", sub: "GPU TensorRT worker" },
-                { name: "PostgreSQL Database", status: "Healthy", ping: "4ms", sub: "Connection pool 12/50" },
-                { name: "Redis In-Memory Queue", status: "Healthy", ping: "1ms", sub: "Cache hit ratio 94%" },
-                { name: "Federated Sync Aggregator", status: "Healthy", ping: "15ms", sub: "TLS v1.3 verification" },
+                {
+                  name: 'FastAPI Core Gateway',
+                  status: 'Healthy',
+                  ping: '2ms',
+                  sub: 'Load balancer active',
+                },
+                {
+                  name: 'XGBoost Risk Inference Engine',
+                  status: 'Healthy',
+                  ping: '18ms',
+                  sub: 'CPU multicore pool',
+                },
+                {
+                  name: 'ResNet18 CT Imaging PyTorch',
+                  status: 'Healthy',
+                  ping: '82ms',
+                  sub: 'GPU TensorRT worker',
+                },
+                {
+                  name: 'PostgreSQL Database',
+                  status: 'Healthy',
+                  ping: '4ms',
+                  sub: 'Connection pool 12/50',
+                },
+                {
+                  name: 'Redis In-Memory Queue',
+                  status: 'Healthy',
+                  ping: '1ms',
+                  sub: 'Cache hit ratio 94%',
+                },
+                {
+                  name: 'Federated Sync Aggregator',
+                  status: 'Healthy',
+                  ping: '15ms',
+                  sub: 'TLS v1.3 verification',
+                },
               ].map((svc) => (
-                <div key={svc.name} className="rounded-lg border border-[#DDE3DC] bg-[#F7F9F6] p-3.5 flex items-center justify-between">
+                <div
+                  key={svc.name}
+                  className="rounded-lg border border-[#DDE3DC] bg-[#F7F9F6] p-3.5 flex items-center justify-between"
+                >
                   <div>
                     <p className="font-semibold text-[#101B16]">{svc.name}</p>
                     <p className="text-[11px] text-[#101B16]/50 mt-0.5">{svc.sub}</p>
@@ -1106,17 +1459,19 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
           {/* Real-time System Event Log */}
           <section className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-serif text-base font-medium text-[#101B16]">Real-Time System & Inference Logs</h2>
+              <h2 className="font-serif text-base font-medium text-[#101B16]">
+                Real-Time System & Inference Logs
+              </h2>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[#101B16]/50">Level:</span>
-                {["all", "info", "warning", "error"].map((lvl) => (
+                {['all', 'info', 'warning', 'error'].map((lvl) => (
                   <button
                     key={lvl}
                     onClick={() => setLogFilterLevel(lvl)}
                     className={`rounded px-2.5 py-1 text-[11px] font-medium capitalize cursor-pointer ${
                       logFilterLevel === lvl
-                        ? "bg-[#3B3F8C] text-white"
-                        : "bg-[#F3F6F1] text-[#101B16]/70 hover:bg-[#DDE3DC]"
+                        ? 'bg-[#3B3F8C] text-white'
+                        : 'bg-[#F3F6F1] text-[#101B16]/70 hover:bg-[#DDE3DC]'
                     }`}
                   >
                     {lvl}
@@ -1127,7 +1482,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {logs
-                .filter((l) => logFilterLevel === "all" || l.level === logFilterLevel)
+                .filter((l) => logFilterLevel === 'all' || l.level === logFilterLevel)
                 .map((log, idx) => (
                   <div
                     key={idx}
@@ -1136,22 +1491,27 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                     <div className="flex items-start gap-2.5">
                       <span
                         className={`mt-1 h-2 w-2 rounded-full shrink-0 ${
-                          log.level === "error"
-                            ? "bg-[#B3261E]"
-                            : log.level === "warning"
-                            ? "bg-[#C97A2B]"
-                            : "bg-[#1F6F5C]"
+                          log.level === 'error'
+                            ? 'bg-[#B3261E]'
+                            : log.level === 'warning'
+                              ? 'bg-[#C97A2B]'
+                              : 'bg-[#1F6F5C]'
                         }`}
                       />
                       <div>
                         <p className="font-medium text-[#101B16]">{log.message}</p>
                         <p className="text-[11px] text-[#101B16]/45 mt-0.5">
-                          Node: {log.hospital_name ?? "System Cluster"} · Service: {log.service ?? "inference-worker"}
+                          Node: {log.hospital_name ?? 'System Cluster'} · Service:{' '}
+                          {log.service ?? 'inference-worker'}
                         </p>
                       </div>
                     </div>
                     <span className="text-[11px] text-[#101B16]/45 font-mono">
-                      {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                      {new Date(log.created_at).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}
                     </span>
                   </div>
                 ))}
@@ -1163,17 +1523,22 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       {/* ========================================================================= */}
       {/* DRIFT ANALYSIS (Merged into System Health) */}
       {/* ========================================================================= */}
-      {activeTab === "health" && (
+      {activeTab === 'health' && (
         <div className="space-y-6 mt-6 border-t border-[#DDE3DC] pt-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif text-lg font-medium text-[#101B16]">Biomarker & Image Distribution Drift Analysis</h2>
+              <h2 className="font-serif text-lg font-medium text-[#101B16]">
+                Biomarker & Image Distribution Drift Analysis
+              </h2>
               <p className="text-xs text-[#101B16]/60 mt-0.5">
-                Automated statistical testing (Kolmogorov-Smirnov & Population Stability Index) comparing training baseline vs live stream.
+                Automated statistical testing (Kolmogorov-Smirnov & Population Stability Index)
+                comparing training baseline vs live stream.
               </p>
             </div>
             <button
-              onClick={() => showToast("Triggered automated retraining pipeline with augmented dataset!")}
+              onClick={() =>
+                showToast('Triggered automated retraining pipeline with augmented dataset!')
+              }
               className="rounded-lg bg-[#3B3F8C] px-4 py-2 text-xs font-medium text-white hover:bg-[#2F3270] shadow-xs cursor-pointer"
             >
               Trigger Retrain Pipeline
@@ -1183,35 +1548,37 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
           {/* Drift Metrics Grid */}
           <div className="grid grid-cols-2 gap-6">
             <section className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
-              <h3 className="font-serif text-base font-medium text-[#101B16] mb-3">Clinical Biomarker Feature Drift (XGBoost)</h3>
+              <h3 className="font-serif text-base font-medium text-[#101B16] mb-3">
+                Clinical Biomarker Feature Drift (XGBoost)
+              </h3>
               <div className="space-y-3 text-xs">
                 {drift
-                  .filter((d) => d.model_family === "xgboost_risk")
+                  .filter((d) => d.model_family === 'xgboost_risk')
                   .map((d, i) => (
                     <div key={i} className="rounded-lg border border-[#DDE3DC] p-3 bg-[#F9FAF8]">
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-semibold text-[#101B16]">{d.metric_name}</span>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
-                            d.status === "warning" || d.drift_score > 0.15
-                              ? "bg-[#C97A2B]/15 text-[#C97A2B]"
-                              : "bg-[#1F6F5C]/15 text-[#1F6F5C]"
+                            d.status === 'warning' || d.drift_score > 0.15
+                              ? 'bg-[#C97A2B]/15 text-[#C97A2B]'
+                              : 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
                           }`}
                         >
-                          Score: {d.drift_score.toFixed(3)} ({d.status ?? "Normal"})
+                          Score: {d.drift_score.toFixed(3)} ({d.status ?? 'Normal'})
                         </span>
                       </div>
                       <div className="w-full bg-[#DDE3DC] h-2 rounded-full my-2">
                         <div
                           className={`h-2 rounded-full ${
-                            d.drift_score > 0.15 ? "bg-[#C97A2B]" : "bg-[#1F6F5C]"
+                            d.drift_score > 0.15 ? 'bg-[#C97A2B]' : 'bg-[#1F6F5C]'
                           }`}
                           style={{ width: `${Math.min(d.drift_score * 400, 100)}%` }}
                         />
                       </div>
                       <div className="flex justify-between text-[10.5px] text-[#101B16]/55">
-                        <span>Baseline Ref: {d.reference_mean ?? "Normal range"}</span>
-                        <span>Current Live: {d.current_mean ?? "In range"}</span>
+                        <span>Baseline Ref: {d.reference_mean ?? 'Normal range'}</span>
+                        <span>Current Live: {d.current_mean ?? 'In range'}</span>
                         <span>p-value: {d.p_value ?? 0.75}</span>
                       </div>
                     </div>
@@ -1220,10 +1587,12 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             </section>
 
             <section className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
-              <h3 className="font-serif text-base font-medium text-[#101B16] mb-3">CT Imaging Distribution Shift (ResNet18)</h3>
+              <h3 className="font-serif text-base font-medium text-[#101B16] mb-3">
+                CT Imaging Distribution Shift (ResNet18)
+              </h3>
               <div className="space-y-3 text-xs">
                 {drift
-                  .filter((d) => d.model_family === "resnet18_ct")
+                  .filter((d) => d.model_family === 'resnet18_ct')
                   .map((d, i) => (
                     <div key={i} className="rounded-lg border border-[#DDE3DC] p-3 bg-[#F9FAF8]">
                       <div className="flex items-center justify-between mb-1">
@@ -1231,17 +1600,17 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
                             d.drift_score > 0.15
-                              ? "bg-[#B3261E]/15 text-[#B3261E]"
-                              : "bg-[#1F6F5C]/15 text-[#1F6F5C]"
+                              ? 'bg-[#B3261E]/15 text-[#B3261E]'
+                              : 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
                           }`}
                         >
-                          Score: {d.drift_score.toFixed(3)} ({d.status ?? "Normal"})
+                          Score: {d.drift_score.toFixed(3)} ({d.status ?? 'Normal'})
                         </span>
                       </div>
                       <div className="w-full bg-[#DDE3DC] h-2 rounded-full my-2">
                         <div
                           className={`h-2 rounded-full ${
-                            d.drift_score > 0.15 ? "bg-[#B3261E]" : "bg-[#1F6F5C]"
+                            d.drift_score > 0.15 ? 'bg-[#B3261E]' : 'bg-[#1F6F5C]'
                           }`}
                           style={{ width: `${Math.min(d.drift_score * 400, 100)}%` }}
                         />
@@ -1254,7 +1623,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                     </div>
                   ))}
                 <div className="rounded-lg border border-dashed border-[#DDE3DC] p-4 text-[11px] text-[#101B16]/65 bg-white leading-relaxed">
-                  💡 <strong>Automatic Trigger Rule:</strong> When biomarker PSI &gt; 0.20 or imaging KS p-value &lt; 0.01 for 3 consecutive days, the orchestrator alerts the ML engineers and initiates a warm-start fine-tuning cycle.
+                  💡 <strong>Automatic Trigger Rule:</strong> When biomarker PSI &gt; 0.20 or
+                  imaging KS p-value &lt; 0.01 for 3 consecutive days, the orchestrator alerts the
+                  ML engineers and initiates a warm-start fine-tuning cycle.
                 </div>
               </div>
             </section>
@@ -1265,13 +1636,16 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       {/* ========================================================================= */}
       {/* TAB 6: ENROLLED HOSPITALS & ACCESS MANAGEMENT */}
       {/* ========================================================================= */}
-      {activeTab === "access" && (
+      {activeTab === 'access' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif text-lg font-medium text-[#101B16]">List of Enrolled Hospitals & Access Management</h2>
+              <h2 className="font-serif text-lg font-medium text-[#101B16]">
+                List of Enrolled Hospitals & Access Management
+              </h2>
               <p className="text-xs text-[#101B16]/60 mt-0.5">
-                Grant new hospital access, revoke or suspend API credentials, and manage multi-tenant permissions.
+                Grant new hospital access, revoke or suspend API credentials, and manage
+                multi-tenant permissions.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -1317,25 +1691,33 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                     <tr key={hospital.id} className="hover:bg-black/[0.015]">
                       <td className="py-3.5 px-4">
                         <p className="font-semibold text-[#101B16] text-[13px]">{hospital.name}</p>
-                        <p className="text-[11px] text-[#101B16]/45">{hospital.contact_email ?? "admin@hospital.org"}</p>
+                        <p className="text-[11px] text-[#101B16]/45">
+                          {hospital.contact_email ?? 'admin@hospital.org'}
+                        </p>
                       </td>
                       <td className="py-3.5 px-4">
-                        <span className="font-mono font-medium text-[#3B3F8C]">{hospital.hospital_code}</span>
-                        <p className="text-[11px] text-[#101B16]/50">{hospital.region ?? "India"}</p>
+                        <span className="font-mono font-medium text-[#3B3F8C]">
+                          {hospital.hospital_code}
+                        </span>
+                        <p className="text-[11px] text-[#101B16]/50">
+                          {hospital.region ?? 'India'}
+                        </p>
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="rounded bg-[#3B3F8C]/10 px-2 py-0.5 text-[10.5px] font-bold text-[#3B3F8C] capitalize">
-                          {hospital.tier ?? "Standard"}
+                          {hospital.tier ?? 'Standard'}
                         </span>
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono text-[11px] text-[#101B16]/75 bg-[#F3F6F1] px-2 py-0.5 rounded border border-[#DDE3DC]">
-                            {hospital.api_key ? `${hospital.api_key.slice(0, 10)}•••••` : "ss_live_••••"}
+                            {hospital.api_key
+                              ? `${hospital.api_key.slice(0, 10)}•••••`
+                              : 'ss_live_••••'}
                           </span>
                           <button
                             onClick={() => {
-                              navigator.clipboard.writeText(hospital.api_key || "ss_live_key");
+                              navigator.clipboard.writeText(hospital.api_key || 'ss_live_key');
                               showToast(`API Key for ${hospital.name} copied to clipboard!`);
                             }}
                             className="text-[#3B3F8C] hover:opacity-80 p-0.5 text-[11px]"
@@ -1355,18 +1737,22 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                            hospital.is_active ? "bg-[#1F6F5C]/15 text-[#1F6F5C]" : "bg-[#B3261E]/15 text-[#B3261E]"
+                            hospital.is_active
+                              ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                              : 'bg-[#B3261E]/15 text-[#B3261E]'
                           }`}
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                              hospital.is_active ? "bg-[#1F6F5C]" : "bg-[#B3261E]"
+                              hospital.is_active ? 'bg-[#1F6F5C]' : 'bg-[#B3261E]'
                             }`}
                           />
-                          {hospital.is_active ? "Authorized" : "Revoked"}
+                          {hospital.is_active ? 'Authorized' : 'Revoked'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 font-semibold text-[#101B16]">{hospital.total_scans ?? 250}</td>
+                      <td className="py-3.5 px-4 font-semibold text-[#101B16]">
+                        {hospital.total_scans ?? 250}
+                      </td>
                       <td className="py-3.5 px-4 text-right">
                         {hospital.is_active ? (
                           <button
@@ -1402,7 +1788,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="font-serif text-xl font-medium text-[#101B16]">Deploy New Model Version</h2>
+            <h2 className="font-serif text-xl font-medium text-[#101B16]">
+              Deploy New Model Version
+            </h2>
             <p className="text-xs text-[#101B16]/60 mt-1 mb-5">
               Publish and configure a new model artifact release for cross-hospital inference.
             </p>
@@ -1413,7 +1801,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   <label className="block text-[#101B16]/70 font-medium mb-1">Model Family</label>
                   <select
                     value={newVersionForm.modelFamily}
-                    onChange={(e) => setNewVersionForm({ ...newVersionForm, modelFamily: e.target.value })}
+                    onChange={(e) =>
+                      setNewVersionForm({ ...newVersionForm, modelFamily: e.target.value })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none"
                   >
                     <option value="xgboost_risk">XGBoost Clinical Risk</option>
@@ -1427,26 +1817,36 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                     type="text"
                     required
                     value={newVersionForm.versionTag}
-                    onChange={(e) => setNewVersionForm({ ...newVersionForm, versionTag: e.target.value })}
+                    onChange={(e) =>
+                      setNewVersionForm({ ...newVersionForm, versionTag: e.target.value })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#101B16]/70 font-medium mb-1">Validation Accuracy</label>
+                  <label className="block text-[#101B16]/70 font-medium mb-1">
+                    Validation Accuracy
+                  </label>
                   <input
                     type="text"
                     value={newVersionForm.accuracy}
-                    onChange={(e) => setNewVersionForm({ ...newVersionForm, accuracy: e.target.value })}
+                    onChange={(e) =>
+                      setNewVersionForm({ ...newVersionForm, accuracy: e.target.value })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#101B16]/70 font-medium mb-1">Target Environment</label>
+                  <label className="block text-[#101B16]/70 font-medium mb-1">
+                    Target Environment
+                  </label>
                   <select
                     value={newVersionForm.environment}
-                    onChange={(e) => setNewVersionForm({ ...newVersionForm, environment: e.target.value })}
+                    onChange={(e) =>
+                      setNewVersionForm({ ...newVersionForm, environment: e.target.value })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none"
                   >
                     <option value="production">Production (Immediate 100%)</option>
@@ -1457,7 +1857,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               </div>
 
               <div>
-                <label className="block text-[#101B16]/70 font-medium mb-1">Release Notes & Benchmark Summary</label>
+                <label className="block text-[#101B16]/70 font-medium mb-1">
+                  Release Notes & Benchmark Summary
+                </label>
                 <textarea
                   rows={3}
                   value={newVersionForm.notes}
@@ -1496,7 +1898,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="font-serif text-xl font-medium text-[#101B16]">Provide Access — Enroll Partner Hospital</h2>
+            <h2 className="font-serif text-xl font-medium text-[#101B16]">
+              Provide Access — Enroll Partner Hospital
+            </h2>
             <p className="text-xs text-[#101B16]/60 mt-1 mb-5">
               Issue cryptographic API credentials and configure tenant authorization.
             </p>
@@ -1504,13 +1908,17 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <form onSubmit={handleEnrollHospitalSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3.5">
                 <div className="col-span-2">
-                  <label className="block text-[#101B16]/70 font-medium mb-1">Hospital Institution Name</label>
+                  <label className="block text-[#101B16]/70 font-medium mb-1">
+                    Hospital Institution Name
+                  </label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Christian Medical College Hospital"
                     value={newHospitalForm.name}
-                    onChange={(e) => setNewHospitalForm({ ...newHospitalForm, name: e.target.value })}
+                    onChange={(e) =>
+                      setNewHospitalForm({ ...newHospitalForm, name: e.target.value })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none focus:border-[#1F6F5C]"
                   />
                 </div>
@@ -1521,7 +1929,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                     type="text"
                     placeholder="e.g. HOSP-CMC-07"
                     value={newHospitalForm.code}
-                    onChange={(e) => setNewHospitalForm({ ...newHospitalForm, code: e.target.value })}
+                    onChange={(e) =>
+                      setNewHospitalForm({ ...newHospitalForm, code: e.target.value })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none"
                   />
                 </div>
@@ -1530,7 +1940,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   <label className="block text-[#101B16]/70 font-medium mb-1">Access Tier</label>
                   <select
                     value={newHospitalForm.tier}
-                    onChange={(e) => setNewHospitalForm({ ...newHospitalForm, tier: e.target.value as any })}
+                    onChange={(e) =>
+                      setNewHospitalForm({ ...newHospitalForm, tier: e.target.value as any })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none"
                   >
                     <option value="enterprise">Enterprise (Unlimited + Dedicated GPU)</option>
@@ -1540,31 +1952,40 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 </div>
 
                 <div>
-                  <label className="block text-[#101B16]/70 font-medium mb-1">Region / Location</label>
+                  <label className="block text-[#101B16]/70 font-medium mb-1">
+                    Region / Location
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. Tamil Nadu, India"
                     value={newHospitalForm.region}
-                    onChange={(e) => setNewHospitalForm({ ...newHospitalForm, region: e.target.value })}
+                    onChange={(e) =>
+                      setNewHospitalForm({ ...newHospitalForm, region: e.target.value })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#101B16]/70 font-medium mb-1">Admin Contact Email</label>
+                  <label className="block text-[#101B16]/70 font-medium mb-1">
+                    Admin Contact Email
+                  </label>
                   <input
                     type="email"
                     required
                     placeholder="urology.lead@hospital.edu"
                     value={newHospitalForm.contactEmail}
-                    onChange={(e) => setNewHospitalForm({ ...newHospitalForm, contactEmail: e.target.value })}
+                    onChange={(e) =>
+                      setNewHospitalForm({ ...newHospitalForm, contactEmail: e.target.value })
+                    }
                     className="w-full rounded-md border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16] outline-none"
                   />
                 </div>
               </div>
 
               <div className="rounded-lg bg-[#F3F6F1] border border-[#DDE3DC] p-3 text-[11px] text-[#101B16]/70">
-                🔒 Provisioning this hospital generates a dedicated 256-bit API Secret, establishes an isolated tenant schema, and enables federated weight updates.
+                🔒 Provisioning this hospital generates a dedicated 256-bit API Secret, establishes
+                an isolated tenant schema, and enables federated weight updates.
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#DDE3DC]">
@@ -1597,7 +2018,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl animate-scale-up text-xs"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="font-serif text-lg font-medium text-[#101B16]">Federated Payload Inspection</h2>
+            <h2 className="font-serif text-lg font-medium text-[#101B16]">
+              Federated Payload Inspection
+            </h2>
             <p className="text-[#101B16]/60 mt-1 mb-4">
               Audit log verification for {selectedLogPayload.hospital_name}
             </p>
@@ -1605,15 +2028,21 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <div className="space-y-2.5 bg-[#F9FAF8] border border-[#DDE3DC] p-4 rounded-lg font-mono text-[11px]">
               <div>
                 <span className="text-[#101B16]/50 block">Hospital Node:</span>
-                <span className="text-[#101B16] font-sans font-semibold">{selectedLogPayload.hospital_name}</span>
+                <span className="text-[#101B16] font-sans font-semibold">
+                  {selectedLogPayload.hospital_name}
+                </span>
               </div>
               <div>
                 <span className="text-[#101B16]/50 block">Target Version:</span>
-                <span className="text-[#3B3F8C] font-semibold">{selectedLogPayload.version_tag}</span>
+                <span className="text-[#3B3F8C] font-semibold">
+                  {selectedLogPayload.version_tag}
+                </span>
               </div>
               <div>
                 <span className="text-[#101B16]/50 block">Gradient Checksum:</span>
-                <span className="text-[#101B16]">{selectedLogPayload.gradient_hash ?? "sha256:7f9a2e340a1b8c"}</span>
+                <span className="text-[#101B16]">
+                  {selectedLogPayload.gradient_hash ?? 'sha256:7f9a2e340a1b8c'}
+                </span>
               </div>
               <div>
                 <span className="text-[#101B16]/50 block">Transfer Latency:</span>

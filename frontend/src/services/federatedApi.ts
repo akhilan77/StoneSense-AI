@@ -1,32 +1,32 @@
 // frontend/src/services/federatedApi.ts
-import axios from "axios";
+import axios from 'axios';
 import {
-  FederatedOverview,
-  FederatedRoundDetail,
-  HospitalParticipation,
   DatasetStatus,
   DatasetValidationResult,
-  FederatedStatus,
-  RoundLiveStatus,
-  HospitalLiveStatus,
-  StartRoundResponse,
   FederatedEventMessage,
-} from "../types/federated";
+  FederatedOverview,
+  FederatedRoundDetail,
+  FederatedStatus,
+  HospitalLiveStatus,
+  HospitalParticipation,
+  RoundLiveStatus,
+  StartRoundResponse,
+} from '../types/federated';
 
-const client = axios.create({ baseURL: "/api/v1" });
+const client = axios.create({ baseURL: '/api/v1' });
 
 export async function fetchFederatedOverview(): Promise<FederatedOverview> {
-  const { data } = await client.get<FederatedOverview>("/developer/federated-overview");
+  const { data } = await client.get<FederatedOverview>('/developer/federated-overview');
   return data;
 }
 
 export async function fetchRoundHistory(): Promise<FederatedRoundDetail[]> {
-  const { data } = await client.get<FederatedRoundDetail[]>("/developer/round-history");
+  const { data } = await client.get<FederatedRoundDetail[]>('/developer/round-history');
   return data;
 }
 
 export async function fetchHospitalParticipation(): Promise<HospitalParticipation[]> {
-  const { data } = await client.get<HospitalParticipation[]>("/developer/hospital-participation");
+  const { data } = await client.get<HospitalParticipation[]>('/developer/hospital-participation');
   return data;
 }
 
@@ -35,8 +35,12 @@ export async function fetchHospitalDatasetStatus(hospitalId: number): Promise<Da
   return data;
 }
 
-export async function validateHospitalDataset(hospitalId: number): Promise<DatasetValidationResult> {
-  const { data } = await client.post<DatasetValidationResult>(`/hospital/${hospitalId}/dataset-validate`);
+export async function validateHospitalDataset(
+  hospitalId: number
+): Promise<DatasetValidationResult> {
+  const { data } = await client.post<DatasetValidationResult>(
+    `/hospital/${hospitalId}/dataset-validate`
+  );
   return data;
 }
 
@@ -45,8 +49,12 @@ export async function fetchHospitalFederatedStatus(hospitalId: number): Promise<
   return data;
 }
 
-export async function fetchHospitalTrainingHistory(hospitalId: number): Promise<FederatedRoundDetail["hospital_runs"]> {
-  const { data } = await client.get<FederatedRoundDetail["hospital_runs"]>(`/hospital/${hospitalId}/training-history`);
+export async function fetchHospitalTrainingHistory(
+  hospitalId: number
+): Promise<FederatedRoundDetail['hospital_runs']> {
+  const { data } = await client.get<FederatedRoundDetail['hospital_runs']>(
+    `/hospital/${hospitalId}/training-history`
+  );
   return data;
 }
 
@@ -63,7 +71,9 @@ export async function fetchHospitalCurrentModel(hospitalId: number): Promise<{
   return data;
 }
 
-export async function triggerLocalTraining(hospitalId: number): Promise<{ message: string; status: string }> {
+export async function triggerLocalTraining(
+  hospitalId: number
+): Promise<{ message: string; status: string }> {
   const { data } = await client.post(`/hospital/${hospitalId}/train-local`);
   return data;
 }
@@ -75,22 +85,31 @@ export async function startFederatedRound(params?: {
   lr?: number;
   mode?: string;
 }): Promise<StartRoundResponse> {
-  const { data } = await client.post<StartRoundResponse>("/developer/federated/rounds/start", params || {});
+  const { data } = await client.post<StartRoundResponse>(
+    '/developer/federated/rounds/start',
+    params || {}
+  );
   return data;
 }
 
 export async function fetchCurrentRoundLiveStatus(): Promise<RoundLiveStatus> {
-  const { data } = await client.get<RoundLiveStatus>("/developer/federated/rounds/current/status");
+  const { data } = await client.get<RoundLiveStatus>('/developer/federated/rounds/current/status');
   return data;
 }
 
 export async function fetchRoundStatusById(roundId: number): Promise<RoundLiveStatus> {
-  const { data } = await client.get<RoundLiveStatus>(`/developer/federated/rounds/${roundId}/status`);
+  const { data } = await client.get<RoundLiveStatus>(
+    `/developer/federated/rounds/${roundId}/status`
+  );
   return data;
 }
 
-export async function fetchHospitalLiveStatus(hospitalId: number | string): Promise<HospitalLiveStatus> {
-  const { data } = await client.get<HospitalLiveStatus>(`/hospital/${hospitalId}/federated-live-status`);
+export async function fetchHospitalLiveStatus(
+  hospitalId: number | string
+): Promise<HospitalLiveStatus> {
+  const { data } = await client.get<HospitalLiveStatus>(
+    `/hospital/${hospitalId}/federated-live-status`
+  );
   return data;
 }
 
@@ -100,7 +119,7 @@ export function createFederatedWebSocket(
   hospitalCode?: string,
   onConnectionChange?: (connected: boolean) => void
 ): () => void {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
   const wsUrl = hospitalCode
     ? `${protocol}//${host}/api/v1/hospital/${encodeURIComponent(hospitalCode)}/federated/ws`
@@ -116,7 +135,7 @@ export function createFederatedWebSocket(
       onConnectionChange?.(true);
       keepAliveInterval = setInterval(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send("ping");
+          ws.send('ping');
         }
       }, 15000);
     };
@@ -124,11 +143,11 @@ export function createFederatedWebSocket(
     ws.onmessage = (event) => {
       try {
         const payload: FederatedEventMessage = JSON.parse(event.data);
-        if (payload.event !== "pong") {
+        if (payload.event !== 'pong') {
           onMessage(payload);
         }
       } catch (err) {
-        console.warn("Error parsing WebSocket event:", err);
+        console.warn('Error parsing WebSocket event:', err);
       }
     };
 
@@ -138,7 +157,7 @@ export function createFederatedWebSocket(
     ws.onclose = () => onConnectionChange?.(false);
   } catch (err) {
     onConnectionChange?.(false);
-    console.warn("WebSocket connection could not be established:", err);
+    console.warn('WebSocket connection could not be established:', err);
   }
 
   return () => {
@@ -149,4 +168,3 @@ export function createFederatedWebSocket(
     }
   };
 }
-

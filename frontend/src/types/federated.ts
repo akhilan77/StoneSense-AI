@@ -32,15 +32,15 @@ export interface HospitalRunTelemetry {
 }
 
 export type HospitalFLStatus =
-  | "WAITING"
-  | "MODEL_RECEIVED"
-  | "TRAINING"
-  | "TRAINING_COMPLETED"
-  | "UPDATE_SUBMITTED"
-  | "WAITING_FOR_AGGREGATION"
-  | "MODEL_UPDATED"
-  | "COMPLETED"
-  | "FAILED";
+  | 'WAITING'
+  | 'MODEL_RECEIVED'
+  | 'TRAINING'
+  | 'TRAINING_COMPLETED'
+  | 'UPDATE_SUBMITTED'
+  | 'WAITING_FOR_AGGREGATION'
+  | 'MODEL_UPDATED'
+  | 'COMPLETED'
+  | 'FAILED';
 
 export interface FederatedRoundDetail {
   id: number;
@@ -125,7 +125,17 @@ export interface ClientLiveStatus {
 
 export interface RoundLiveStatus {
   round: number;
-  status: "READY" | "ROUND_STARTED" | "GLOBAL_MODEL_DISTRIBUTING" | "LOCAL_TRAINING" | "FEDAVG_STARTED" | "FEDAVG_COMPLETED" | "GLOBAL_MODEL_SAVED" | "COMPLETED" | "FAILED" | string;
+  status:
+    | 'READY'
+    | 'ROUND_STARTED'
+    | 'GLOBAL_MODEL_DISTRIBUTING'
+    | 'LOCAL_TRAINING'
+    | 'FEDAVG_STARTED'
+    | 'FEDAVG_COMPLETED'
+    | 'GLOBAL_MODEL_SAVED'
+    | 'COMPLETED'
+    | 'FAILED'
+    | string;
   previous_model_version?: string;
   global_model_version: string;
   participating_hospitals: number;
@@ -146,13 +156,13 @@ export interface HospitalLiveStatus {
   hospital_id: string;
   round: number;
   status: HospitalFLStatus;
-  phase?: RoundLiveStatus["status"];
+  phase?: RoundLiveStatus['status'];
   global_model_version: string;
   update_submitted: boolean;
   model_updated: boolean;
   last_event?: string;
   last_event_at?: string;
-  round_status?: RoundLiveStatus["status"];
+  round_status?: RoundLiveStatus['status'];
   local_training?: {
     status: HospitalFLStatus;
     samples: number | null;
@@ -182,4 +192,3 @@ export interface StartRoundResponse {
   global_model_version: string;
   message?: string;
 }
-

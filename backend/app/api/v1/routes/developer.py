@@ -81,7 +81,7 @@ def get_federated_overview(db: Session = Depends(get_db)):
     latest_round = db.query(FederatedRound).order_by(desc(FederatedRound.round_number)).first()
     active_hospitals = db.query(Hospital).filter(Hospital.is_active.is_(True)).count()
     deployed_ver = db.query(ModelVersion).filter_by(is_deployed=True, model_family="resnet18_ct").first()
-    
+
     total_samples = db.query(func.sum(Hospital.dataset_size)).scalar() or 0
 
     if latest_round:

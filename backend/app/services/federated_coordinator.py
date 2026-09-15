@@ -262,7 +262,7 @@ class FederatedCoordinator:
             for h_code in ["HOSP-001", "HOSP-002", "HOSP-003"]:
                 self._set_hospital_state(h_code, HOSPITAL_MODEL_RECEIVED, "HOSPITAL_MODEL_RECEIVED")
                 self._emit_event("MODEL_RECEIVED", hospital_id=h_code)
-                
+
 
             time.sleep(0.5)
 
@@ -311,7 +311,7 @@ class FederatedCoordinator:
             # 5. LOCAL TRAINING on Hospital Clients (Zero-Raw-CT Privacy Isolation)
             self.status = "LOCAL_TRAINING"
             self.current_step = "Executing isolated local client training on hospital nodes"
-            
+
             client_weights = []
             client_sample_counts = []
             client_fit_metrics = []

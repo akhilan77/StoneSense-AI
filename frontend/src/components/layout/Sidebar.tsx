@@ -1,27 +1,27 @@
 // frontend/src/components/layout/Sidebar.tsx
-import { NavLink } from "react-router-dom";
+import { NavLink } from 'react-router-dom';
 
 interface SidebarProps {
-  role: "hospital" | "developer";
+  role: 'hospital' | 'developer';
 }
 
 const hospitalLinks = [
-  { to: "/hospital-dashboard", label: "Overview" },
-  { to: "/hospital/federated-learning", label: "Federated Learning" },
-  { to: "/risk-prediction", label: "Risk prediction" },
-  { to: "/stone-detection", label: "Stone detection" },
+  { to: '/hospital-dashboard', label: 'Overview' },
+  { to: '/hospital/federated-learning', label: 'Federated Learning' },
+  { to: '/risk-prediction', label: 'Risk prediction' },
+  { to: '/stone-detection', label: 'Stone detection' },
 ];
 
 const developerLinks = [
-  { to: "/developer-dashboard", label: "Overview" },
-  { to: "/developer-dashboard/federated", label: "Federated Learning" },
-  { to: "/developer-dashboard/versions", label: "Model Versions" },
-  { to: "/developer-dashboard/access", label: "Hospitals & Access" },
-  { to: "/developer-dashboard/health", label: "System Health" },
+  { to: '/developer-dashboard', label: 'Overview' },
+  { to: '/developer-dashboard/federated', label: 'Federated Learning' },
+  { to: '/developer-dashboard/versions', label: 'Model Versions' },
+  { to: '/developer-dashboard/access', label: 'Hospitals & Access' },
+  { to: '/developer-dashboard/health', label: 'System Health' },
 ];
 
 export default function Sidebar({ role }: SidebarProps) {
-  const links = role === "hospital" ? hospitalLinks : developerLinks;
+  const links = role === 'hospital' ? hospitalLinks : developerLinks;
 
   return (
     <aside className="sidebar flex h-full w-60 shrink-0 flex-col justify-between bg-[#101B16] text-[#F3F6F1]">
@@ -29,7 +29,7 @@ export default function Sidebar({ role }: SidebarProps) {
         <div className="px-5 pt-6 pb-4">
           <p className="font-serif text-lg leading-tight text-white font-medium">StoneSense</p>
           <p className="text-xs text-[#F3F6F1]/50 mt-0.5">
-            {role === "hospital" ? "Hospital console" : "Developer console"}
+            {role === 'hospital' ? 'Hospital console' : 'Developer console'}
           </p>
         </div>
         <nav className="mt-1 flex flex-col gap-0.5 px-3">
@@ -37,16 +37,16 @@ export default function Sidebar({ role }: SidebarProps) {
             <NavLink
               key={link.to}
               to={link.to}
-              end={link.to === "/developer-dashboard" || link.to === "/hospital-dashboard"}
+              end={link.to === '/developer-dashboard' || link.to === '/hospital-dashboard'}
               className={({ isActive }) =>
                 `rounded-md px-3 py-2 text-sm transition-colors ${
                   isActive
                     ? `${
-                        role === "hospital"
-                          ? "active role-hospital bg-[#1F6F5C]/28 text-white font-medium border border-[#1F6F5C]/40"
-                          : "active role-developer bg-[#3B3F8C]/35 text-white font-medium border border-[#3B3F8C]/50"
+                        role === 'hospital'
+                          ? 'active role-hospital bg-[#1F6F5C]/28 text-white font-medium border border-[#1F6F5C]/40'
+                          : 'active role-developer bg-[#3B3F8C]/35 text-white font-medium border border-[#3B3F8C]/50'
                       }`
-                    : "text-[#F3F6F1]/70 hover:bg-white/10 hover:text-white"
+                    : 'text-[#F3F6F1]/70 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
