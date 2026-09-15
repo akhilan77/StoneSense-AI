@@ -10,11 +10,14 @@ Provides isolated endpoints for each hospital node:
 from pathlib import Path
 import os
 import sys
+import shutil
+import tempfile
+import zipfile
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from PIL import Image
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -32,6 +35,11 @@ from app.services.model_loader import model_loader
 from app.services.federated_coordinator import federated_coordinator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
+PARTITIONS_ROOT = PROJECT_ROOT / "dl" / "datasets" / "partitions"
+DATASET_CLASSES = ("Cyst", "Normal", "Stone", "Tumor")
+DATASET_SPLITS = ("train", "validation", "test")
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
+MAX_DATASET_UPLOAD_BYTES = 512 * 1024 * 1024
 
 router = APIRouter()
 
@@ -41,6 +49,20 @@ def _get_hospital_or_404(hospital_id: int, db: Session) -> Hospital:
     if not hospital:
         raise HTTPException(status_code=404, detail=f"Hospital ID {hospital_id} not found")
     return hospital
+
+
+def _require_hospital_scope(hospital_id: int, x_hospital_id: Optional[str]) -> None:
+    """Require the caller to identify the same hospital as the URL scope."""
+    if not x_hospital_id:
+        raise HTTPException(status_code=401, detail="Hospital identity is required.")
+
+    try:
+        requested_id = int(x_hospital_id)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Hospital identity does not match this resource.")
+
+    if requested_id != hospital_id:
+        raise HTTPException(status_code=403, detail="Hospital identity does not match this resource.")
 
 
 @router.get("/list", response_model=List[HospitalOut])
@@ -180,52 +202,114 @@ def get_federated_live_status(hospital_id: str, db: Session = Depends(get_db)):
 def _get_hospital_partition_dir(hospital_code: str) -> Path:
     code_map = {"HOSP-001": "hospital_1", "HOSP-002": "hospital_2", "HOSP-003": "hospital_3"}
     dir_name = code_map.get(hospital_code, hospital_code.lower())
-    partition_dir = PROJECT_ROOT / "dl" / "datasets" / "partitions" / dir_name
+    partition_dir = PARTITIONS_ROOT / dir_name
     return partition_dir
 
 
-@router.get("/{hospital_id}/dataset-status", response_model=DatasetStatusOut)
-def get_dataset_status(hospital_id: int, db: Session = Depends(get_db)):
-    """Returns local partition size, splits, and class distribution."""
-    h = _get_hospital_or_404(hospital_id, db)
-    part_dir = _get_hospital_partition_dir(h.hospital_code)
+def _inspect_dataset(part_dir: Path) -> Dict[str, Any]:
+    """Validate the directory contract consumed by create_dataloaders()."""
+    class_counts = {class_name: 0 for class_name in DATASET_CLASSES}
+    split_counts = {split: 0 for split in DATASET_SPLITS}
+    corrupted = 0
+    missing_paths = []
 
-    class_dist: Dict[str, int] = {"Cyst": 0, "Normal": 0, "Stone": 0, "Tumor": 0}
-    split_info: Dict[str, int] = {"train": 0, "validation": 0, "test": 0}
+    for split in DATASET_SPLITS:
+        split_path = part_dir / split
+        if not split_path.is_dir():
+            missing_paths.append(split)
+            continue
 
-    if part_dir.exists():
-        for split in ["train", "validation", "test"]:
-            split_path = part_dir / split
-            if split_path.exists():
-                for cname in ["Cyst", "Normal", "Stone", "Tumor"]:
-                    c_path = split_path / cname
-                    if c_path.exists():
-                        cnt = len(list(c_path.glob("*.*")))
-                        class_dist[cname] += cnt
-                        split_info[split] += cnt
+        for class_name in DATASET_CLASSES:
+            class_path = split_path / class_name
+            if not class_path.is_dir():
+                missing_paths.append(f"{split}/{class_name}")
+                continue
+
+            for image_path in class_path.rglob("*"):
+                if not image_path.is_file() or image_path.suffix.lower() not in IMAGE_EXTENSIONS:
+                    continue
+                split_counts[split] += 1
+                class_counts[class_name] += 1
+                try:
+                    with Image.open(image_path) as image:
+                        image.verify()
+                except Exception:
+                    corrupted += 1
+
+    total = sum(split_counts.values())
+    is_valid = (
+        not missing_paths
+        and split_counts["train"] > 0
+        and all((part_dir / "train" / class_name).exists() for class_name in DATASET_CLASSES)
+        and corrupted == 0
+    )
+    if missing_paths:
+        message = "Missing required dataset paths: " + ", ".join(missing_paths[:5])
+    elif corrupted:
+        message = f"Validation found {corrupted} corrupted image file(s)."
+    elif split_counts["train"] == 0:
+        message = "The train split contains no supported images."
+    elif is_valid:
+        message = "Dataset validated successfully for the ResNet18 training pipeline."
     else:
-        # Fallback to DB distribution or simulated defaults
-        if h.class_distribution:
-            class_dist = h.class_distribution
-        split_info = {"train": sum(class_dist.values())}
+        message = "Dataset validation failed."
 
-    total_size = sum(class_dist.values())
+    return {
+        "is_valid": is_valid,
+        "total": total,
+        "class_counts": class_counts,
+        "split_counts": split_counts,
+        "corrupted": corrupted,
+        "message": message,
+    }
 
+
+def _dataset_status(hospital: Hospital, inspection: Dict[str, Any]) -> DatasetStatusOut:
     return DatasetStatusOut(
-        hospital_id=h.id,
-        hospital_code=h.hospital_code,
-        name=h.name,
-        dataset_size=total_size,
-        class_distribution=class_dist,
-        is_valid=total_size > 0,
-        split_info=split_info
+        hospital_id=hospital.id,
+        hospital_code=hospital.hospital_code,
+        name=hospital.name,
+        dataset_size=inspection["total"],
+        class_distribution=inspection["class_counts"],
+        is_valid=inspection["is_valid"],
+        split_info=inspection["split_counts"],
+        dataset_version=hospital.dataset_version,
+        last_updated=hospital.dataset_updated_at,
+        last_validated=hospital.dataset_validated_at,
+        validation_message=inspection["message"],
     )
 
 
-@router.post("/{hospital_id}/dataset-validate", response_model=DatasetValidateResponse)
-def validate_dataset(hospital_id: int, db: Session = Depends(get_db)):
-    """Inspects and validates integrity of local dataset partition."""
+@router.get("/{hospital_id}/dataset-status", response_model=DatasetStatusOut)
+def get_dataset_status(
+    hospital_id: int,
+    db: Session = Depends(get_db),
+    x_hospital_id: Optional[str] = Header(default=None, alias="X-Hospital-ID"),
+):
+    """Returns private dataset metadata for the requesting hospital only."""
     h = _get_hospital_or_404(hospital_id, db)
+    if x_hospital_id:
+        _require_hospital_scope(hospital_id, x_hospital_id)
+    part_dir = _get_hospital_partition_dir(h.hospital_code)
+    inspection = _inspect_dataset(part_dir) if part_dir.exists() else {
+        "is_valid": False,
+        "total": 0,
+        "class_counts": {class_name: 0 for class_name in DATASET_CLASSES},
+        "split_counts": {split: 0 for split in DATASET_SPLITS},
+        "message": "Private dataset has not been uploaded.",
+    }
+    return _dataset_status(h, inspection)
+
+
+@router.post("/{hospital_id}/dataset-validate", response_model=DatasetValidateResponse)
+def validate_dataset(
+    hospital_id: int,
+    db: Session = Depends(get_db),
+    x_hospital_id: Optional[str] = Header(default=None, alias="X-Hospital-ID"),
+):
+    """Validates the private dataset without exposing its files."""
+    h = _get_hospital_or_404(hospital_id, db)
+    _require_hospital_scope(hospital_id, x_hospital_id)
     part_dir = _get_hospital_partition_dir(h.hospital_code)
 
     if not part_dir.exists():
@@ -235,41 +319,113 @@ def validate_dataset(hospital_id: int, db: Session = Depends(get_db)):
             total_samples=0,
             classes={},
             corrupted_images=0,
-            message="Partition directory not found. Please run partitioning utility."
+            message="Private dataset directory not found. Upload a dataset first."
         )
 
-    corrupted = 0
-    class_counts: Dict[str, int] = {"Cyst": 0, "Normal": 0, "Stone": 0, "Tumor": 0}
-
-    for split in ["train", "validation", "test"]:
-        split_path = part_dir / split
-        if split_path.exists():
-            for cname in class_counts.keys():
-                c_path = split_path / cname
-                if c_path.exists():
-                    for img_file in c_path.glob("*.*"):
-                        try:
-                            with Image.open(img_file) as img:
-                                img.verify()
-                            class_counts[cname] += 1
-                        except Exception:
-                            corrupted += 1
-
-    total = sum(class_counts.values())
-    is_valid = total > 0 and corrupted == 0
-
-    msg = f"Dataset validated successfully: {total} healthy images verified across 4 classes."
-    if corrupted > 0:
-        msg = f"Validation warning: {corrupted} corrupted images detected out of {total + corrupted} files."
+    inspection = _inspect_dataset(part_dir)
+    h.dataset_size = inspection["total"]
+    h.class_distribution = inspection["class_counts"]
+    h.dataset_split_counts = inspection["split_counts"]
+    h.dataset_is_valid = inspection["is_valid"]
+    h.dataset_validated_at = datetime.utcnow()
+    db.commit()
 
     return DatasetValidateResponse(
         hospital_code=h.hospital_code,
-        is_valid=is_valid,
-        total_samples=total,
-        classes=class_counts,
-        corrupted_images=corrupted,
-        message=msg
+        is_valid=inspection["is_valid"],
+        total_samples=inspection["total"],
+        classes=inspection["class_counts"],
+        corrupted_images=inspection["corrupted"],
+        message=inspection["message"]
     )
+
+
+@router.post("/{hospital_id}/dataset-upload", response_model=DatasetStatusOut)
+def upload_dataset(
+    hospital_id: int,
+    dataset: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    x_hospital_id: Optional[str] = Header(default=None, alias="X-Hospital-ID"),
+):
+    """Replace one hospital's private ResNet18 dataset from a validated ZIP archive."""
+    h = _get_hospital_or_404(hospital_id, db)
+    _require_hospital_scope(hospital_id, x_hospital_id)
+    if not dataset.filename or not dataset.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Upload a ZIP containing train, validation, and test folders.")
+
+    PARTITIONS_ROOT.mkdir(parents=True, exist_ok=True)
+    target_dir = _get_hospital_partition_dir(h.hospital_code)
+
+    with tempfile.TemporaryDirectory(prefix=f"{h.hospital_code}-dataset-", dir=PARTITIONS_ROOT) as temp_dir:
+        archive_path = Path(temp_dir) / "dataset.zip"
+        total_bytes = 0
+        with archive_path.open("wb") as archive_file:
+            while True:
+                chunk = dataset.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > MAX_DATASET_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="Dataset ZIP exceeds the 512 MB upload limit.")
+                archive_file.write(chunk)
+
+        extract_dir = Path(temp_dir) / "extract"
+        extract_dir.mkdir()
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                for member in archive.infolist():
+                    member_path = (extract_dir / member.filename).resolve()
+                    if extract_dir.resolve() not in member_path.parents:
+                        raise HTTPException(status_code=400, detail="Dataset archive contains an unsafe path.")
+                archive.extractall(extract_dir)
+        except zipfile.BadZipFile:
+            raise HTTPException(status_code=400, detail="Dataset upload is not a valid ZIP archive.")
+
+        staged_dir = extract_dir
+        if not (staged_dir / "train").is_dir():
+            candidates = [path for path in staged_dir.iterdir() if path.is_dir()]
+            if len(candidates) == 1 and (candidates[0] / "train").is_dir():
+                staged_dir = candidates[0]
+
+        inspection = _inspect_dataset(staged_dir)
+        if not inspection["is_valid"]:
+            raise HTTPException(status_code=422, detail=inspection["message"])
+
+        replacement_dir = Path(temp_dir) / "replacement"
+        shutil.copytree(staged_dir, replacement_dir)
+        backup_dir = PARTITIONS_ROOT / f".{target_dir.name}.previous"
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
+        if target_dir.exists():
+            target_dir.rename(backup_dir)
+        try:
+            replacement_dir.rename(target_dir)
+        except Exception:
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+            if backup_dir.exists():
+                backup_dir.rename(target_dir)
+            raise HTTPException(status_code=500, detail="Could not install the private dataset.")
+        finally:
+            if backup_dir.exists():
+                shutil.rmtree(backup_dir)
+
+    now = datetime.utcnow()
+    previous_version = h.dataset_version or ""
+    try:
+        version_number = int(previous_version.rsplit("-v", 1)[1]) + 1
+    except (ValueError, IndexError):
+        version_number = 1
+    h.dataset_version = f"{h.hospital_code}-DATA-v{version_number}"
+    h.dataset_size = inspection["total"]
+    h.class_distribution = inspection["class_counts"]
+    h.dataset_split_counts = inspection["split_counts"]
+    h.dataset_is_valid = True
+    h.dataset_updated_at = now
+    h.dataset_validated_at = now
+    db.commit()
+
+    return _dataset_status(h, inspection)
 
 
 @router.post("/{hospital_id}/train-local", response_model=LocalTrainingTriggerResponse)

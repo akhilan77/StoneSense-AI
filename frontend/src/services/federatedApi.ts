@@ -31,7 +31,9 @@ export async function fetchHospitalParticipation(): Promise<HospitalParticipatio
 }
 
 export async function fetchHospitalDatasetStatus(hospitalId: number): Promise<DatasetStatus> {
-  const { data } = await client.get<DatasetStatus>(`/hospital/${hospitalId}/dataset-status`);
+  const { data } = await client.get<DatasetStatus>(`/hospital/${hospitalId}/dataset-status`, {
+    headers: { 'X-Hospital-ID': String(hospitalId) },
+  });
   return data;
 }
 
@@ -39,7 +41,28 @@ export async function validateHospitalDataset(
   hospitalId: number
 ): Promise<DatasetValidationResult> {
   const { data } = await client.post<DatasetValidationResult>(
-    `/hospital/${hospitalId}/dataset-validate`
+    `/hospital/${hospitalId}/dataset-validate`,
+    undefined,
+    { headers: { 'X-Hospital-ID': String(hospitalId) } }
+  );
+  return data;
+}
+
+export async function uploadHospitalDataset(
+  hospitalId: number,
+  file: File
+): Promise<DatasetStatus> {
+  const formData = new FormData();
+  formData.append('dataset', file);
+  const { data } = await client.post<DatasetStatus>(
+    `/hospital/${hospitalId}/dataset-upload`,
+    formData,
+    {
+      headers: {
+        'X-Hospital-ID': String(hospitalId),
+        'Content-Type': 'multipart/form-data',
+      },
+    }
   );
   return data;
 }

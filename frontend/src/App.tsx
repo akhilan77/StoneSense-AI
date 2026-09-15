@@ -4,6 +4,7 @@ import DeveloperDashboard from './pages/DeveloperDashboard';
 import { HomePage } from './pages/HomePage';
 import HospitalDashboard from './pages/HospitalDashboard';
 import HospitalFederatedLearning from './pages/HospitalFederatedLearning';
+import HospitalPrivateDataset from './pages/HospitalPrivateDataset';
 import { LandingPage } from './pages/LandingPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
@@ -21,6 +22,7 @@ export function App() {
       {/* Hospital Console Routes (All use persistent left vertical sidebar) */}
       <Route path="/hospital-dashboard" element={<HospitalDashboard />} />
       <Route path="/hospital/federated-learning" element={<HospitalFederatedLearning />} />
+      <Route path="/hospital/private-dataset" element={<HospitalPrivateDataset />} />
       <Route path="/risk-prediction/:patientId" element={<RiskPredictionPage />} />
       <Route path="/stone-detection/:patientId" element={<StoneDetectionPage />} />
 

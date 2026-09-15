@@ -29,6 +29,11 @@ def init_db() -> None:
                 "hospitals": {
                     "dataset_size": "INTEGER",
                     "class_distribution": "JSON",
+                    "dataset_version": "VARCHAR(64)",
+                    "dataset_split_counts": "JSON",
+                    "dataset_is_valid": "BOOLEAN",
+                    "dataset_updated_at": "DATETIME",
+                    "dataset_validated_at": "DATETIME",
                     "current_model_version": "VARCHAR(64)",
                 },
             }

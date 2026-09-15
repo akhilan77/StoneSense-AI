@@ -80,6 +80,10 @@ class DatasetStatusOut(BaseModel):
     class_distribution: Dict[str, int]
     is_valid: bool = True
     split_info: Dict[str, int] = {}
+    dataset_version: Optional[str] = None
+    last_updated: Optional[datetime] = None
+    last_validated: Optional[datetime] = None
+    validation_message: Optional[str] = None
 
 
 class DatasetValidateResponse(BaseModel):

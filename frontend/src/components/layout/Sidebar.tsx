@@ -7,6 +7,7 @@ interface SidebarProps {
 
 const hospitalLinks = [
   { to: '/hospital-dashboard', label: 'Overview' },
+  { to: '/hospital/private-dataset', label: 'Private Dataset' },
   { to: '/hospital/federated-learning', label: 'DL Federated Learning' },
   { to: '/risk-prediction', label: 'Risk prediction' },
   { to: '/stone-detection', label: 'Stone detection' },

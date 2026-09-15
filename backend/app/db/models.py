@@ -29,6 +29,11 @@ class Hospital(Base):
     is_active = Column(Boolean, default=True)
     dataset_size = Column(Integer, default=0)
     class_distribution = Column(JSON, nullable=True)  # {"Cyst": 100, "Normal": 200, ...}
+    dataset_version = Column(String(64), nullable=True)
+    dataset_split_counts = Column(JSON, nullable=True)
+    dataset_is_valid = Column(Boolean, default=False)
+    dataset_updated_at = Column(DateTime, nullable=True)
+    dataset_validated_at = Column(DateTime, nullable=True)
     current_model_version = Column(String(64), nullable=True, default="resnet18_centralized_v1")
     created_at = Column(DateTime, default=datetime.utcnow)
 

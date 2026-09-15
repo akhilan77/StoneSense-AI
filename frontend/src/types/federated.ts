@@ -91,6 +91,10 @@ export interface DatasetStatus {
     test?: number;
     [key: string]: number | undefined;
   };
+  dataset_version?: string;
+  last_updated?: string;
+  last_validated?: string;
+  validation_message?: string;
 }
 
 export interface DatasetValidationResult {
