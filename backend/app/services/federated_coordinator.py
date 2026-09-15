@@ -52,6 +52,16 @@ HOSPITAL_NAMES = {
     "HOSP-003": "AIIMS Nephrology Labs",
 }
 
+HOSPITAL_WAITING = "WAITING"
+HOSPITAL_MODEL_RECEIVED = "MODEL_RECEIVED"
+HOSPITAL_TRAINING = "TRAINING"
+HOSPITAL_TRAINING_COMPLETED = "TRAINING_COMPLETED"
+HOSPITAL_UPDATE_SUBMITTED = "UPDATE_SUBMITTED"
+HOSPITAL_WAITING_FOR_AGGREGATION = "WAITING_FOR_AGGREGATION"
+HOSPITAL_MODEL_UPDATED = "MODEL_UPDATED"
+HOSPITAL_COMPLETED = "COMPLETED"
+HOSPITAL_FAILED = "FAILED"
+
 
 
 class FederatedCoordinator:
@@ -103,32 +113,32 @@ class FederatedCoordinator:
             "HOSP-001": {
                 "hospital_id": "HOSP-001",
                 "hospital_name": "Apollo Kidney Care",
-                "status": "ready",
-                "samples": 2902,
-                "accuracy": 0.978,
-                "f1": 0.975,
-                "loss": 0.062,
-                "duration_sec": 0.0,
+                "status": HOSPITAL_WAITING,
+                "samples": None,
+                "accuracy": None,
+                "f1": None,
+                "loss": None,
+                "duration_sec": None,
             },
             "HOSP-002": {
                 "hospital_id": "HOSP-002",
                 "hospital_name": "Manipal Urology Institute",
-                "status": "ready",
-                "samples": 2902,
-                "accuracy": 0.976,
-                "f1": 0.972,
-                "loss": 0.068,
-                "duration_sec": 0.0,
+                "status": HOSPITAL_WAITING,
+                "samples": None,
+                "accuracy": None,
+                "f1": None,
+                "loss": None,
+                "duration_sec": None,
             },
             "HOSP-003": {
                 "hospital_id": "HOSP-003",
                 "hospital_name": "AIIMS Nephrology Labs",
-                "status": "ready",
-                "samples": 2906,
-                "accuracy": 0.981,
-                "f1": 0.979,
-                "loss": 0.055,
-                "duration_sec": 0.0,
+                "status": HOSPITAL_WAITING,
+                "samples": None,
+                "accuracy": None,
+                "f1": None,
+                "loss": None,
+                "duration_sec": None,
             },
         }
 
@@ -140,9 +150,14 @@ class FederatedCoordinator:
             "hospital_id": hospital_id,
             "model_version": self.global_model_version,
             "previous_model_version": self.previous_model_version,
-            "status": self.status,
+            "status": (
+                self.clients_status.get(hospital_id, {}).get("status", self.status)
+                if hospital_id
+                else self.status
+            ),
             "current_step": self.current_step,
             "data": data or {},
+            "payload": data or {},
             "timestamp": datetime.utcnow().isoformat(),
         }
         logger.info(f"FL Event: {event_type} | Round: {self.current_round} | Node: {hospital_id or 'GLOBAL'}")
@@ -186,13 +201,18 @@ class FederatedCoordinator:
                 self.clients_status[h_code] = {
                     "hospital_id": h_code,
                     "hospital_name": HOSPITAL_NAMES.get(h_code, f"Hospital {h_code}"),
-                    "status": "waiting",
-                    "samples": 0,
+                    "status": HOSPITAL_WAITING,
+                    "samples": None,
                     "accuracy": None,
                     "f1": None,
                     "loss": None,
                     "duration_sec": None,
+                    "update_submitted": False,
+                    "model_updated": False,
+                    "last_event": "HOSPITAL_WAITING",
+                    "last_event_at": datetime.utcnow().isoformat(),
                 }
+                self._emit_event("HOSPITAL_WAITING", hospital_id=h_code, data={"status": HOSPITAL_WAITING})
 
         # Spawn execution in background thread
         thread = threading.Thread(
@@ -240,8 +260,9 @@ class FederatedCoordinator:
 
             # Mark all clients as model received
             for h_code in ["HOSP-001", "HOSP-002", "HOSP-003"]:
-                self.clients_status[h_code]["status"] = "received"
+                self._set_hospital_state(h_code, HOSPITAL_MODEL_RECEIVED, "HOSPITAL_MODEL_RECEIVED")
                 self._emit_event("MODEL_RECEIVED", hospital_id=h_code)
+                
 
             time.sleep(0.5)
 
@@ -298,7 +319,7 @@ class FederatedCoordinator:
 
             for h_id in HOSPITAL_IDS:
                 h_code = HOSPITAL_CODE_MAP.get(h_id, "HOSP-001")
-                self.clients_status[h_code]["status"] = "training"
+                self._set_hospital_state(h_code, HOSPITAL_TRAINING, "HOSPITAL_TRAINING_STARTED")
                 self._emit_event(
                     "HOSPITAL_TRAINING",
                     hospital_id=h_code,
@@ -328,27 +349,27 @@ class FederatedCoordinator:
                 loss = float(fit_m.get("train_loss", 0.08))
 
                 self.clients_status[h_code].update({
-                    "status": "completed",
+                    "status": HOSPITAL_TRAINING_COMPLETED,
                     "samples": samples,
                     "accuracy": round(acc, 4),
                     "f1": round(f1, 4),
                     "loss": round(loss, 4),
                     "duration_sec": round(client_duration, 2),
                 })
-
-                self._emit_event(
+                self._set_hospital_state(
+                    h_code,
+                    HOSPITAL_TRAINING_COMPLETED,
                     "HOSPITAL_TRAINING_COMPLETED",
-                    hospital_id=h_code,
-                    data={
-                        "status": "completed",
-                        "samples": samples,
-                        "accuracy": round(acc, 4),
-                        "f1": round(f1, 4),
-                        "loss": round(loss, 4),
-                        "duration_sec": round(client_duration, 2),
-                    },
+                    samples=samples,
+                    accuracy=round(acc, 4),
+                    f1=round(f1, 4),
+                    loss=round(loss, 4),
+                    duration_sec=round(client_duration, 2),
                 )
+
                 self._emit_event("CLIENT_UPDATE_RECEIVED", hospital_id=h_code)
+                self._set_hospital_state(h_code, HOSPITAL_UPDATE_SUBMITTED, "HOSPITAL_UPDATE_SUBMITTED", update_submitted=True)
+                self._set_hospital_state(h_code, HOSPITAL_WAITING_FOR_AGGREGATION, "HOSPITAL_WAITING_FOR_AGGREGATION", update_submitted=True)
 
             # 6. FedAvg Aggregation
             self.status = "FEDAVG_STARTED"
@@ -453,6 +474,10 @@ class FederatedCoordinator:
             self._emit_event("GLOBAL_MODEL_SAVED", data={"new_version": self.global_model_version})
             self._emit_event("MODEL_DISTRIBUTED", data={"new_version": self.global_model_version})
 
+            for h_code in ["HOSP-001", "HOSP-002", "HOSP-003"]:
+                self._set_hospital_state(h_code, HOSPITAL_MODEL_UPDATED, "HOSPITAL_MODEL_UPDATED", update_submitted=True, model_updated=True)
+                self._set_hospital_state(h_code, HOSPITAL_COMPLETED, "HOSPITAL_ROUND_COMPLETED", update_submitted=True, model_updated=True)
+
             # 9. ROUND_COMPLETED
             self.status = "COMPLETED"
             self.current_step = f"Round {round_num} successfully completed and synchronized"
@@ -477,13 +502,19 @@ class FederatedCoordinator:
             self.error_message = str(e)
             self.current_step = f"Round execution failed: {e}"
             self._emit_event("ROUND_FAILED", data={"error": str(e)})
+            for h_code, client_data in self.clients_status.items():
+                if client_data.get("status") not in (HOSPITAL_COMPLETED, HOSPITAL_MODEL_UPDATED):
+                    self._set_hospital_state(h_code, HOSPITAL_FAILED, "HOSPITAL_ROUND_FAILED", error=str(e))
         finally:
             with self._lock:
                 self.is_running = False
 
     def get_live_round_status(self, round_id: Optional[int] = None) -> Dict[str, Any]:
         """Returns live status of current or most recent round."""
-        completed_count = sum(1 for c in self.clients_status.values() if c.get("status") == "completed")
+        completed_count = sum(
+            1 for c in self.clients_status.values()
+            if c.get("status") in (HOSPITAL_COMPLETED, HOSPITAL_MODEL_UPDATED)
+        )
         clients_list = list(self.clients_status.values())
 
         return {
@@ -502,22 +533,37 @@ class FederatedCoordinator:
     def get_hospital_live_status(self, hospital_identifier: str) -> Dict[str, Any]:
         """Returns hospital-specific status during live round."""
         db_code = HOSPITAL_CODE_MAP.get(str(hospital_identifier), str(hospital_identifier))
+        if db_code not in self.clients_status:
+            raise KeyError(f"Unknown hospital identifier: {hospital_identifier}")
         client_data = self.clients_status.get(db_code, {})
 
         return {
             "hospital_id": db_code,
             "round": self.current_round,
-            "status": self.status if self.is_running else ("MODEL_UPDATED" if self.status == "COMPLETED" else "WAITING"),
+            "status": client_data.get("status", HOSPITAL_WAITING),
+            "phase": self.status,
             "global_model_version": self.global_model_version,
             "local_training": {
-                "status": client_data.get("status", "waiting"),
-                "samples": client_data.get("samples", 2902),
+                "status": client_data.get("status", HOSPITAL_WAITING),
+                "samples": client_data.get("samples"),
                 "accuracy": client_data.get("accuracy"),
                 "f1": client_data.get("f1"),
                 "loss": client_data.get("loss"),
                 "duration_sec": client_data.get("duration_sec"),
             },
+            "update_submitted": client_data.get("update_submitted", False),
+            "model_updated": client_data.get("model_updated", False),
+            "last_event": client_data.get("last_event"),
+            "last_event_at": client_data.get("last_event_at"),
+            "round_status": self.status,
         }
+
+    def _set_hospital_state(self, hospital_id: str, status: str, event_type: str, **updates: Any) -> None:
+        """Update live client telemetry and emit the matching hospital event."""
+        client_data = self.clients_status[hospital_id]
+        event_at = datetime.utcnow().isoformat()
+        client_data.update({"status": status, "last_event": event_type, "last_event_at": event_at, **updates})
+        self._emit_event(event_type, hospital_id=hospital_id, data={"status": status, **updates})
 
 
 federated_coordinator = FederatedCoordinator()

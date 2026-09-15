@@ -372,7 +372,7 @@ export default function HospitalDashboard() {
                 <div className="mt-1">
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
-                      hospitalLiveStatus?.local_training?.status === "training"
+                      hospitalLiveStatus?.local_training?.status === "TRAINING"
                         ? "bg-[#3B3F8C]/15 text-[#3B3F8C]"
                         : hospitalLiveStatus?.status === "MODEL_UPDATED"
                         ? "bg-[#1F6F5C]/15 text-[#1F6F5C]"
@@ -381,18 +381,18 @@ export default function HospitalDashboard() {
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        hospitalLiveStatus?.local_training?.status === "training"
+                        hospitalLiveStatus?.local_training?.status === "TRAINING"
                           ? "bg-[#3B3F8C] animate-pulse"
                           : hospitalLiveStatus?.status === "MODEL_UPDATED"
                           ? "bg-[#1F6F5C]"
                           : "bg-[#101B16]/50"
                       }`}
                     />
-                    {hospitalLiveStatus?.local_training?.status === "training"
+                    {hospitalLiveStatus?.local_training?.status === "TRAINING"
                       ? "Local Training"
-                      : hospitalLiveStatus?.local_training?.status === "completed"
+                      : hospitalLiveStatus?.local_training?.status === "COMPLETED"
                       ? "Update Ready"
-                      : hospitalLiveStatus?.status === "GLOBAL_MODEL_DISTRIBUTING"
+                      : hospitalLiveStatus?.phase === "GLOBAL_MODEL_DISTRIBUTING"
                       ? "Receiving Global Model"
                       : hospitalLiveStatus?.status === "MODEL_UPDATED"
                       ? "Global Model Updated"

@@ -120,8 +120,9 @@ def get_round_history(db: Session = Depends(get_db)):
 
     for r in rounds:
         runs = (
-            db.query(HospitalTrainingRun, Hospital.name)
+            db.query(HospitalTrainingRun, Hospital.name, ModelVersion.version_tag)
             .join(Hospital, Hospital.id == HospitalTrainingRun.hospital_id)
+            .outerjoin(ModelVersion, ModelVersion.round_id == HospitalTrainingRun.round_id)
             .filter(HospitalTrainingRun.round_id == r.id)
             .all()
         )
@@ -134,6 +135,7 @@ def get_round_history(db: Session = Depends(get_db)):
                 hospital_code=run.hospital_code,
                 hospital_name=h_name,
                 train_loss=run.train_loss,
+                model_version=model_version,
                 train_acc=run.train_acc,
                 train_f1=run.train_f1,
                 val_loss=run.val_loss,
@@ -143,7 +145,7 @@ def get_round_history(db: Session = Depends(get_db)):
                 duration_sec=run.duration_sec,
                 created_at=run.created_at
             )
-            for run, h_name in runs
+            for run, h_name, model_version in runs
         ]
 
         results.append(FederatedRoundDetailOut(

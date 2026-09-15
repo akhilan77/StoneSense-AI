@@ -19,6 +19,7 @@ export interface HospitalRunTelemetry {
   hospital_id: number;
   hospital_code: string;
   hospital_name?: string;
+  model_version?: string;
   train_loss?: number;
   train_acc?: number;
   train_f1?: number;
@@ -29,6 +30,17 @@ export interface HospitalRunTelemetry {
   duration_sec?: number;
   created_at: string;
 }
+
+export type HospitalFLStatus =
+  | "WAITING"
+  | "MODEL_RECEIVED"
+  | "TRAINING"
+  | "TRAINING_COMPLETED"
+  | "UPDATE_SUBMITTED"
+  | "WAITING_FOR_AGGREGATION"
+  | "MODEL_UPDATED"
+  | "COMPLETED"
+  | "FAILED";
 
 export interface FederatedRoundDetail {
   id: number;
@@ -103,7 +115,7 @@ export interface FederatedStatus {
 export interface ClientLiveStatus {
   hospital_id: string;
   hospital_name?: string;
-  status: "waiting" | "received" | "training" | "completed" | "failed" | string;
+  status: HospitalFLStatus | string;
   samples?: number;
   accuracy?: number;
   f1?: number;
@@ -133,11 +145,17 @@ export interface RoundLiveStatus {
 export interface HospitalLiveStatus {
   hospital_id: string;
   round: number;
-  status: string;
+  status: HospitalFLStatus;
+  phase?: RoundLiveStatus["status"];
   global_model_version: string;
+  update_submitted: boolean;
+  model_updated: boolean;
+  last_event?: string;
+  last_event_at?: string;
+  round_status?: RoundLiveStatus["status"];
   local_training?: {
-    status: string;
-    samples: number;
+    status: HospitalFLStatus;
+    samples: number | null;
     accuracy?: number;
     f1?: number;
     loss?: number;
@@ -154,6 +172,7 @@ export interface FederatedEventMessage {
   status?: string;
   current_step?: string;
   data?: Record<string, any>;
+  payload?: Record<string, any>;
   timestamp?: string;
 }
 

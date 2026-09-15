@@ -85,8 +85,9 @@ def get_training_history(hospital_id: int, limit: int = 20, db: Session = Depend
     """Returns history of local training runs per round for this hospital."""
     h = _get_hospital_or_404(hospital_id, db)
     runs = (
-        db.query(HospitalTrainingRun)
+        db.query(HospitalTrainingRun, ModelVersion.version_tag)
         .filter(HospitalTrainingRun.hospital_id == hospital_id)
+        .outerjoin(ModelVersion, ModelVersion.round_id == HospitalTrainingRun.round_id)
         .order_by(desc(HospitalTrainingRun.round_number))
         .limit(limit)
         .all()
@@ -98,6 +99,7 @@ def get_training_history(hospital_id: int, limit: int = 20, db: Session = Depend
             hospital_id=r.hospital_id,
             hospital_code=r.hospital_code,
             hospital_name=h.name,
+            model_version=model_version,
             train_loss=r.train_loss,
             train_acc=r.train_acc,
             train_f1=r.train_f1,
@@ -108,7 +110,7 @@ def get_training_history(hospital_id: int, limit: int = 20, db: Session = Depend
             duration_sec=r.duration_sec,
             created_at=r.created_at
         )
-        for r in runs
+        for r, model_version in runs
     ]
 
 
@@ -159,11 +161,19 @@ def get_federated_live_status(hospital_id: str, db: Session = Depends(get_db)):
     # Support both numeric ID and hospital_code (e.g. 1 or HOSP-001)
     if hospital_id.isdigit():
         h = db.query(Hospital).filter(Hospital.id == int(hospital_id)).first()
-        h_code = h.hospital_code if h else f"HOSP-00{hospital_id}"
+        if not h:
+            raise HTTPException(status_code=404, detail=f"Hospital ID {hospital_id} not found")
+        h_code = h.hospital_code
     else:
-        h_code = hospital_id
-    
-    return federated_coordinator.get_hospital_live_status(h_code)
+        h = db.query(Hospital).filter(Hospital.hospital_code == hospital_id).first()
+        if not h:
+            raise HTTPException(status_code=404, detail=f"Hospital code {hospital_id} not found")
+        h_code = h.hospital_code
+
+    try:
+        return federated_coordinator.get_hospital_live_status(h_code)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Hospital {h_code} is not configured as an FL client")
 
 
 

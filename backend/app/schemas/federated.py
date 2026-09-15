@@ -24,6 +24,7 @@ class HospitalRunTelemetryOut(BaseModel):
     hospital_id: int
     hospital_code: str
     hospital_name: Optional[str] = None
+    model_version: Optional[str] = None
     train_loss: Optional[float] = None
     train_acc: Optional[float] = None
     train_f1: Optional[float] = None
@@ -125,7 +126,7 @@ class StartRoundResponse(BaseModel):
 class ClientLiveStatus(BaseModel):
     hospital_id: str
     hospital_name: Optional[str] = None
-    status: str  # "waiting" | "received" | "training" | "completed" | "failed"
+    status: str
     samples: Optional[int] = None
     accuracy: Optional[float] = None
     f1: Optional[float] = None
@@ -150,8 +151,14 @@ class HospitalLiveStatusResponse(BaseModel):
     hospital_id: str
     round: int
     status: str
+    phase: Optional[str] = None
     global_model_version: str
     local_training: Optional[Dict[str, Any]] = None
+    update_submitted: bool = False
+    model_updated: bool = False
+    last_event: Optional[str] = None
+    last_event_at: Optional[datetime] = None
+    round_status: Optional[str] = None
 
 
 class FederatedEventMessage(BaseModel):
@@ -161,5 +168,6 @@ class FederatedEventMessage(BaseModel):
     model_version: Optional[str] = None
     status: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
+    payload: Optional[Dict[str, Any]] = None
     timestamp: Optional[str] = None
 

@@ -77,6 +77,19 @@ def create_app() -> FastAPI:
         except (WebSocketDisconnect, Exception):
             await ws_manager.disconnect(websocket)
 
+    @application.websocket("/api/v1/hospital/{hospital_id}/federated/ws")
+    async def hospital_federated_websocket(websocket: WebSocket, hospital_id: str):
+        # Hospital sockets receive their own events plus global round telemetry.
+        hospital_codes = {"1": "HOSP-001", "2": "HOSP-002", "3": "HOSP-003"}
+        await ws_manager.connect(websocket, hospital_id=hospital_codes.get(hospital_id, hospital_id))
+        try:
+            while True:
+                data = await websocket.receive_text()
+                if data == "ping":
+                    await websocket.send_text('{"event": "pong"}')
+        except (WebSocketDisconnect, Exception):
+            await ws_manager.disconnect(websocket)
+
     static_dir = Path(__file__).resolve().parent / "static"
     static_dir.mkdir(parents=True, exist_ok=True)
     application.mount("/static", StaticFiles(directory=static_dir), name="static")

@@ -45,6 +45,24 @@ export async function fetchHospitalFederatedStatus(hospitalId: number): Promise<
   return data;
 }
 
+export async function fetchHospitalTrainingHistory(hospitalId: number): Promise<FederatedRoundDetail["hospital_runs"]> {
+  const { data } = await client.get<FederatedRoundDetail["hospital_runs"]>(`/hospital/${hospitalId}/training-history`);
+  return data;
+}
+
+export async function fetchHospitalCurrentModel(hospitalId: number): Promise<{
+  hospital_id: number;
+  hospital_code: string;
+  current_model_version: string;
+  global_round: number;
+  global_accuracy: number | null;
+  global_f1: number | null;
+  deployed_at: string;
+}> {
+  const { data } = await client.get(`/hospital/${hospitalId}/current-model`);
+  return data;
+}
+
 export async function triggerLocalTraining(hospitalId: number): Promise<{ message: string; status: string }> {
   const { data } = await client.post(`/hospital/${hospitalId}/train-local`);
   return data;
@@ -78,11 +96,15 @@ export async function fetchHospitalLiveStatus(hospitalId: number | string): Prom
 
 export function createFederatedWebSocket(
   onMessage: (msg: FederatedEventMessage) => void,
-  onError?: (err: Event) => void
+  onError?: (err: Event) => void,
+  hospitalCode?: string,
+  onConnectionChange?: (connected: boolean) => void
 ): () => void {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host;
-  const wsUrl = `${protocol}//${host}/api/v1/developer/federated/ws`;
+  const wsUrl = hospitalCode
+    ? `${protocol}//${host}/api/v1/hospital/${encodeURIComponent(hospitalCode)}/federated/ws`
+    : `${protocol}//${host}/api/v1/developer/federated/ws`;
 
   let ws: WebSocket | null = null;
   let keepAliveInterval: any = null;
@@ -91,6 +113,7 @@ export function createFederatedWebSocket(
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
+      onConnectionChange?.(true);
       keepAliveInterval = setInterval(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send("ping");
@@ -112,7 +135,9 @@ export function createFederatedWebSocket(
     ws.onerror = (err) => {
       if (onError) onError(err);
     };
+    ws.onclose = () => onConnectionChange?.(false);
   } catch (err) {
+    onConnectionChange?.(false);
     console.warn("WebSocket connection could not be established:", err);
   }
 

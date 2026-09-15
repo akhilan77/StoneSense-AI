@@ -495,7 +495,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               <div className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]">
                 <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">Current Global Model</span>
                 <p className="text-xs font-bold text-[#101B16] font-mono mt-1 truncate">
-                  {liveRoundStatus?.global_model_version ?? fedOverview?.current_model_version ?? "resnet18_fed_round_003"}
+                  {liveRoundStatus?.global_model_version ?? fedOverview?.current_model_version ?? "-"}
                 </p>
                 <span className="text-[10px] text-[#1F6F5C] font-medium">ResNet18-FL</span>
               </div>
@@ -583,7 +583,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                       <div key={h.code} className="flex items-center justify-between rounded bg-[#F7F9F6] p-2 border border-[#DDE3DC]/60">
                         <span className="font-medium text-[#101B16]">{h.name}</span>
                         <span className="font-semibold text-[#1F6F5C]">
-                          {h.status && h.status !== "waiting" ? "✓ Received" : "—"}
+                          {h.status && h.status !== "WAITING" ? "✓ Received" : "—"}
                         </span>
                       </div>
                     ))}
@@ -605,8 +605,8 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                       { code: "HOSP-003", name: "Hospital 3 (AIIMS)", client: liveRoundStatus?.clients?.find(c => c.hospital_id === "HOSP-003") },
                     ].map((h) => {
                       const c = h.client;
-                      const isCompleted = c?.status === "completed" || liveRoundStatus?.status === "COMPLETED";
-                      const isTraining = c?.status === "training" || liveRoundStatus?.status === "LOCAL_TRAINING";
+                      const isCompleted = c?.status === "COMPLETED" || c?.status === "MODEL_UPDATED" || liveRoundStatus?.status === "COMPLETED";
+                      const isTraining = c?.status === "TRAINING" || liveRoundStatus?.status === "LOCAL_TRAINING";
                       return (
                         <div key={h.code} className="rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]">
                           <div className="flex items-center justify-between mb-1.5">
@@ -622,23 +622,23 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                           <div className="space-y-1 text-[10.5px] text-[#101B16]/70 border-t border-[#DDE3DC]/50 pt-1.5">
                             <div className="flex justify-between">
                               <span>Samples:</span>
-                              <strong className="text-[#101B16]">{c?.samples ? c.samples.toLocaleString() : "2,902"}</strong>
+                              <strong className="text-[#101B16]">{c?.samples ? c.samples.toLocaleString() : "-"}</strong>
                             </div>
                             <div className="flex justify-between">
                               <span>Local Loss:</span>
-                              <strong className="font-mono text-[#101B16]">{c?.loss ? c.loss.toFixed(4) : "0.0620"}</strong>
+                              <strong className="font-mono text-[#101B16]">{c?.loss != null ? c.loss.toFixed(4) : "-"}</strong>
                             </div>
                             <div className="flex justify-between">
                               <span>Local Accuracy:</span>
-                              <strong className="text-[#101B16]">{c?.accuracy ? `${(c.accuracy * 100).toFixed(1)}%` : "97.8%"}</strong>
+                              <strong className="text-[#101B16]">{c?.accuracy != null ? `${(c.accuracy * 100).toFixed(1)}%` : "-"}</strong>
                             </div>
                             <div className="flex justify-between">
                               <span>Local F1:</span>
-                              <strong className="text-[#1F6F5C]">{c?.f1 ? `${(c.f1 * 100).toFixed(1)}%` : "97.5%"}</strong>
+                              <strong className="text-[#1F6F5C]">{c?.f1 != null ? `${(c.f1 * 100).toFixed(1)}%` : "-"}</strong>
                             </div>
                             <div className="flex justify-between">
                               <span>Duration:</span>
-                              <span className="text-[#101B16]/60">{c?.duration_sec ? `${c.duration_sec}s` : "1.2s"}</span>
+                              <span className="text-[#101B16]/60">{c?.duration_sec != null ? `${c.duration_sec}s` : "-"}</span>
                             </div>
                           </div>
                         </div>
@@ -676,12 +676,12 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                       <div className="flex justify-between items-center">
                         <span className="text-[#101B16]/60">New Aggregated Model:</span>
                         <span className="font-mono font-bold text-[#1F6F5C] bg-[#1F6F5C]/10 px-2 py-0.5 rounded">
-                          {liveRoundStatus?.global_model_version ?? "resnet18_fed_round_003"}
+                          {liveRoundStatus?.global_model_version ?? fedOverview?.current_model_version ?? "-"}
                         </span>
                       </div>
                       <div className="flex justify-between pt-1 border-t border-[#DDE3DC]/40 text-[10.5px]">
-                        <span>Global Macro F1: <strong>{liveRoundStatus?.metrics?.f1 ? `${(liveRoundStatus.metrics.f1 * 100).toFixed(1)}%` : "98.2%"}</strong></span>
-                        <span>Val Accuracy: <strong>{liveRoundStatus?.metrics?.accuracy ? `${(liveRoundStatus.metrics.accuracy * 100).toFixed(1)}%` : "98.5%"}</strong></span>
+                        <span>Global Macro F1: <strong>{liveRoundStatus?.metrics?.f1 != null ? `${(liveRoundStatus.metrics.f1 * 100).toFixed(1)}%` : fedOverview?.global_f1 != null ? `${(fedOverview.global_f1 * 100).toFixed(1)}%` : "-"}</strong></span>
+                        <span>Val Accuracy: <strong>{liveRoundStatus?.metrics?.accuracy != null ? `${(liveRoundStatus.metrics.accuracy * 100).toFixed(1)}%` : fedOverview?.global_accuracy != null ? `${(fedOverview.global_accuracy * 100).toFixed(1)}%` : "-"}</strong></span>
                       </div>
                     </div>
                   </div>
@@ -714,7 +714,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <span className="text-xs font-medium text-[#101B16]/55">Global Macro F1 Score</span>
               <p className="text-2xl font-bold mt-1.5 text-[#1F6F5C]">
-                {fedOverview?.global_f1 ? `${(fedOverview.global_f1 * 100).toFixed(1)}%` : "97.8%"}
+                {fedOverview?.global_f1 != null ? `${(fedOverview.global_f1 * 100).toFixed(1)}%` : "-"}
               </p>
               <p className="text-[11px] text-[#101B16]/45 mt-1">+1.8% vs Round 1</p>
             </div>
@@ -722,15 +722,15 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <span className="text-xs font-medium text-[#101B16]/55">Global Validation Accuracy</span>
               <p className="text-2xl font-bold mt-1.5 text-[#101B16]">
-                {fedOverview?.global_accuracy ? `${(fedOverview.global_accuracy * 100).toFixed(1)}%` : "98.1%"}
+                {fedOverview?.global_accuracy != null ? `${(fedOverview.global_accuracy * 100).toFixed(1)}%` : "-"}
               </p>
-              <p className="text-[11px] text-[#101B16]/45 mt-1">Loss: {fedOverview?.global_loss ? fedOverview.global_loss.toFixed(4) : "0.0521"}</p>
+                <p className="text-[11px] text-[#101B16]/45 mt-1">Loss: {fedOverview?.global_loss != null ? fedOverview.global_loss.toFixed(4) : "-"}</p>
             </div>
 
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <span className="text-xs font-medium text-[#101B16]/55">Collaborative CT Slices</span>
               <p className="text-2xl font-bold mt-1.5 text-[#3B3F8C]">
-                {fedOverview?.total_samples ? fedOverview.total_samples.toLocaleString() : "8,710"}
+                {fedOverview?.total_samples != null ? fedOverview.total_samples.toLocaleString() : "-"}
               </p>
               <p className="text-[11px] text-[#1F6F5C] mt-1">Across 3 isolated hospital nodes</p>
             </div>
@@ -749,31 +749,24 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               </div>
 
               <div className="space-y-4">
-                {(roundHistory.length > 0
-                  ? roundHistory
-                  : [
-                      { round_number: 1, global_val_acc: 0.942, global_val_f1: 0.938, global_val_loss: 0.162, duration_sec: 42.1 },
-                      { round_number: 2, global_val_acc: 0.968, global_val_f1: 0.964, global_val_loss: 0.089, duration_sec: 41.5 },
-                      { round_number: 3, global_val_acc: 0.981, global_val_f1: 0.978, global_val_loss: 0.052, duration_sec: 40.8 },
-                    ]
-                ).map((r) => (
+                {roundHistory.map((r) => (
                   <div key={r.round_number} className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]/60">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-[#101B16]">Round #{r.round_number} Aggregation</span>
-                      <span className="text-[11px] text-[#101B16]/60">Duration: {r.duration_sec ? `${r.duration_sec.toFixed(1)}s` : "41.2s"}</span>
+                          <span className="text-[11px] text-[#101B16]/60">Duration: {r.duration_sec != null ? `${r.duration_sec.toFixed(1)}s` : "-"}</span>
                     </div>
 
                     <div className="space-y-2">
                       <div>
                         <div className="flex justify-between text-[11px] text-[#101B16]/70 mb-1">
-                          <span>Macro F1: <strong>{((r.global_val_f1 ?? 0.95) * 100).toFixed(1)}%</strong></span>
-                          <span>Acc: <strong>{((r.global_val_acc ?? 0.95) * 100).toFixed(1)}%</strong></span>
-                          <span>Loss: <strong>{(r.global_val_loss ?? 0.08).toFixed(4)}</strong></span>
+                          <span>Macro F1: <strong>{r.global_val_f1 != null ? `${(r.global_val_f1 * 100).toFixed(1)}%` : "-"}</strong></span>
+                          <span>Acc: <strong>{r.global_val_acc != null ? `${(r.global_val_acc * 100).toFixed(1)}%` : "-"}</strong></span>
+                          <span>Loss: <strong>{r.global_val_loss != null ? r.global_val_loss.toFixed(4) : "-"}</strong></span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-[#DDE3DC]/60 overflow-hidden">
                           <div
                             className="h-full rounded-full bg-[#1F6F5C] transition-all duration-500"
-                            style={{ width: `${(r.global_val_f1 ?? 0.95) * 100}%` }}
+                            style={{ width: `${(r.global_val_f1 ?? 0) * 100}%` }}
                           />
                         </div>
                       </div>
@@ -794,26 +787,22 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               </div>
 
               <div className="space-y-3">
-                {[
-                  { code: "HOSP-001", name: "Apollo Kidney Care", samples: 2902, pct: 33.3, f1: 97.8, status: "Active Participant" },
-                  { code: "HOSP-002", name: "Manipal Urology Institute", samples: 2902, pct: 33.3, f1: 97.6, status: "Active Participant" },
-                  { code: "HOSP-003", name: "AIIMS Nephrology Labs", samples: 2906, pct: 33.4, f1: 98.1, status: "Active Participant" },
-                ].map((h) => (
-                  <div key={h.code} className="rounded-lg border border-[#DDE3DC]/70 p-3.5 bg-[#F7F9F6]/50">
+                {participation.map((h) => (
+                  <div key={h.hospital_code} className="rounded-lg border border-[#DDE3DC]/70 p-3.5 bg-[#F7F9F6]/50">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-[#3B3F8C]">{h.code}</span>
+                        <span className="font-mono text-xs font-bold text-[#3B3F8C]">{h.hospital_code}</span>
                         <span className="text-xs font-semibold text-[#101B16]">{h.name}</span>
                       </div>
                       <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#1F6F5C]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#1F6F5C]" /> {h.status}
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#1F6F5C]" /> {liveRoundStatus?.clients.find((client) => client.hospital_id === h.hospital_code)?.status ?? "ENROLLED"}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-[#DDE3DC]/40 text-[11px] text-[#101B16]/70">
-                      <div>Samples: <strong className="text-[#101B16]">{h.samples.toLocaleString()}</strong></div>
-                      <div>Weight Share: <strong className="text-[#101B16]">{h.pct}%</strong></div>
-                      <div>Local F1: <strong className="text-[#1F6F5C]">{h.f1}%</strong></div>
+                      <div>Samples: <strong className="text-[#101B16]">{h.dataset_size.toLocaleString()}</strong></div>
+                      <div>Weight Share: <strong className="text-[#101B16]">{h.sample_contribution_pct}%</strong></div>
+                      <div>Local F1: <strong className="text-[#1F6F5C]">{h.latest_local_f1 != null ? `${(h.latest_local_f1 * 100).toFixed(1)}%` : "-"}</strong></div>
                     </div>
                   </div>
                 ))}
@@ -843,26 +832,19 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DDE3DC]/70">
-                {(roundHistory.length > 0
-                  ? roundHistory
-                  : [
-                      { round_number: 1, mode: "iid", participants_count: 3, global_train_loss: 0.452, global_val_acc: 0.942, global_val_f1: 0.938, duration_sec: 42.1, status: "completed" },
-                      { round_number: 2, mode: "iid", participants_count: 3, global_train_loss: 0.218, global_val_acc: 0.968, global_val_f1: 0.964, duration_sec: 41.5, status: "completed" },
-                      { round_number: 3, mode: "iid", participants_count: 3, global_train_loss: 0.095, global_val_acc: 0.981, global_val_f1: 0.978, duration_sec: 40.8, status: "completed" },
-                    ]
-                ).map((r) => (
+                {roundHistory.map((r) => (
                   <tr key={r.round_number} className="hover:bg-black/[0.015]">
                     <td className="py-3.5 px-4 font-bold text-[#3B3F8C]">Round #{r.round_number}</td>
                     <td className="py-3.5 px-4 uppercase font-semibold text-[11px] text-[#101B16]/70">{r.mode ?? "IID"}</td>
                     <td className="py-3.5 px-4 text-[#101B16]">{r.participants_count ?? 3} Hospitals</td>
-                    <td className="py-3.5 px-4 font-mono text-[#101B16]/70">{r.global_train_loss ? r.global_train_loss.toFixed(4) : "0.0950"}</td>
+                    <td className="py-3.5 px-4 font-mono text-[#101B16]/70">{r.global_train_loss != null ? r.global_train_loss.toFixed(4) : "-"}</td>
                     <td className="py-3.5 px-4 font-semibold text-[#101B16]">
-                      {r.global_val_acc ? `${(r.global_val_acc * 100).toFixed(1)}%` : "98.1%"}
+                      {r.global_val_acc != null ? `${(r.global_val_acc * 100).toFixed(1)}%` : "-"}
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-[#1F6F5C]">
-                      {r.global_val_f1 ? `${(r.global_val_f1 * 100).toFixed(1)}%` : "97.8%"}
+                      {r.global_val_f1 != null ? `${(r.global_val_f1 * 100).toFixed(1)}%` : "-"}
                     </td>
-                    <td className="py-3.5 px-4 text-[#101B16]/70">{r.duration_sec ? `${r.duration_sec.toFixed(1)}s` : "40.8s"}</td>
+                    <td className="py-3.5 px-4 text-[#101B16]/70">{r.duration_sec != null ? `${r.duration_sec.toFixed(1)}s` : "-"}</td>
                     <td className="py-3.5 px-4">
                       <span className="rounded-full bg-[#1F6F5C]/15 px-2.5 py-0.5 text-[10.5px] font-bold text-[#1F6F5C]">
                         ✓ Completed & Deployed

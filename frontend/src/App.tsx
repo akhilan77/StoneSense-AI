@@ -8,6 +8,7 @@ import HospitalDashboard from './pages/HospitalDashboard';
 import DeveloperDashboard from './pages/DeveloperDashboard';
 import { LandingPage } from './pages/LandingPage';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import HospitalFederatedLearning from './pages/HospitalFederatedLearning';
 
 export function App() {
   return (
@@ -19,6 +20,7 @@ export function App() {
 
       {/* Hospital Console Routes (All use persistent left vertical sidebar) */}
       <Route path="/hospital-dashboard" element={<HospitalDashboard />} />
+      <Route path="/hospital/federated-learning" element={<HospitalFederatedLearning />} />
       <Route path="/risk-prediction/:patientId" element={<RiskPredictionPage />} />
       <Route path="/stone-detection/:patientId" element={<StoneDetectionPage />} />
 
