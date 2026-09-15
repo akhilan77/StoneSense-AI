@@ -43,7 +43,7 @@ export default function HospitalDashboard() {
   const [viewMode, setViewMode] = useState<'overview' | 'workflow'>('overview');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Federated Learning & Local Dataset States
+  // DL Federated Learning & Local Dataset States
   const [datasetStatus, setDatasetStatus] = useState<DatasetStatus | null>(null);
   const [fedStatus, setFedStatus] = useState<FederatedStatus | null>(null);
   const [hospitalLiveStatus, setHospitalLiveStatus] = useState<HospitalLiveStatus | null>(null);
@@ -77,7 +77,7 @@ export default function HospitalDashboard() {
   useEffect(() => {
     loadFederatedData(activeHospId);
 
-    // Subscribe to live federated round events
+    // Subscribe to live DL federated round events
     const unsubscribe = createFederatedWebSocket((event: FederatedEventMessage) => {
       fetchHospitalLiveStatus(activeHospId)
         .then(setHospitalLiveStatus)
@@ -87,7 +87,7 @@ export default function HospitalDashboard() {
           .then(setFedStatus)
           .catch(() => {});
         showToast(
-          `Federated Round #${event.round} completed! Active model updated to ${event.model_version || 'latest'}.`
+          `DL Federated Round #${event.round} completed! DL model updated to ${event.model_version || 'latest'}.`
         );
       }
     });
@@ -306,14 +306,14 @@ export default function HospitalDashboard() {
       {viewMode === 'overview' ? (
         /* PATIENT OVERVIEW SCREEN */
         <div>
-          {/* Federated Learning Node & Dataset Inspector Banner */}
+          {/* DL Federated Learning Node & Dataset Inspector Banner */}
           <div className="mb-6 rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#DDE3DC]/60 pb-4 mb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EBF5F1] px-2.5 py-0.5 text-[11px] font-medium text-[#1F6F5C]">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#1F6F5C] animate-pulse" />
-                    Federated Learning Node Active
+                    DL Federated Learning Node Active
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-[#3B3F8C]/10 px-2 py-0.5 text-[10.5px] font-semibold text-[#3B3F8C]">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#3B3F8C]" /> ● Connected
@@ -386,7 +386,7 @@ export default function HospitalDashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
               <div className="rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]/50">
                 <span className="text-[11px] font-medium text-[#101B16]/60 uppercase tracking-wider">
-                  Active Global Model
+                  Active DL Global Federated Model
                 </span>
                 <p className="text-xs font-bold text-[#101B16] font-mono truncate mt-1">
                   {hospitalLiveStatus?.global_model_version ??
@@ -457,9 +457,9 @@ export default function HospitalDashboard() {
                       : hospitalLiveStatus?.local_training?.status === 'COMPLETED'
                         ? 'Update Ready'
                         : hospitalLiveStatus?.phase === 'GLOBAL_MODEL_DISTRIBUTING'
-                          ? 'Receiving Global Model'
+                          ? 'Receiving DL Global Model'
                           : hospitalLiveStatus?.status === 'MODEL_UPDATED'
-                            ? 'Global Model Updated'
+                            ? 'DL Global Model Updated'
                             : 'Waiting'}
                   </span>
                 </div>

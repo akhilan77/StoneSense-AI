@@ -1,6 +1,6 @@
-"""StoneSense-AI Live Federated Learning Round Coordinator.
+"""StoneSense-AI Live DL Federated Learning Round Coordinator.
 
-Orchestrates real-time multi-hospital Federated Learning rounds:
+Orchestrates real-time multi-hospital DL Federated Learning rounds:
 - Enforces single-round concurrency lock
 - Coordinates isolated local training on hospital partitions (Zero Raw CT Transfer)
 - Runs FedAvg parameter aggregation
@@ -65,7 +65,7 @@ HOSPITAL_FAILED = "FAILED"
 
 
 class FederatedCoordinator:
-    """Manages the end-to-end lifecycle and telemetry of live federated learning rounds."""
+    """Manages the end-to-end lifecycle and telemetry of live DL federated rounds."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -172,7 +172,7 @@ class FederatedCoordinator:
         mode: str = "iid",
         device: str = "auto",
     ) -> Dict[str, Any]:
-        """Validates and kicks off a live federated learning round in background."""
+        """Validates and kicks off a live DL federated learning round in background."""
         with self._lock:
             if self.is_running:
                 raise RuntimeError(f"Round {self.current_round} is currently running. Duplicate execution prevented.")
@@ -227,7 +227,7 @@ class FederatedCoordinator:
             "round": self.current_round,
             "status": "started",
             "global_model_version": self.previous_model_version,
-            "message": f"Federated Round {self.current_round} initiated successfully.",
+            "message": f"DL Federated Round {self.current_round} initiated successfully.",
         }
 
     def _run_round_workflow(
@@ -255,7 +255,7 @@ class FederatedCoordinator:
 
             # 2. GLOBAL_MODEL_DISTRIBUTING Event
             self.status = "GLOBAL_MODEL_DISTRIBUTING"
-            self.current_step = f"Distributing Global Model ({self.previous_model_version}) to nodes"
+            self.current_step = f"Distributing DL Global Federated Model ({self.previous_model_version}) to nodes"
             self._emit_event("GLOBAL_MODEL_DISTRIBUTING", data={"model_version": self.previous_model_version})
 
             # Mark all clients as model received
@@ -492,7 +492,7 @@ class FederatedCoordinator:
             )
 
             logger.info(
-                f"=== Live Federated Round {round_num} Complete: "
+                f"=== Live DL Federated Round {round_num} Complete: "
                 f"Acc: {global_val_acc:.4f} | F1: {global_val_f1:.4f} | Model: {self.global_model_version} ==="
             )
 

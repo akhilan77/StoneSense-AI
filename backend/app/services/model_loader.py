@@ -1,7 +1,7 @@
 """Model loader startup service.
 
-Loads ML and DL models once at startup and stores them as singletons.
-Supports dynamic reloading when new federated rounds complete.
+Loads the centralized ML model and DL federated model once at startup and stores
+them as separate singletons. Supports DL checkpoint reloading when rounds complete.
 """
 
 from pathlib import Path
@@ -19,10 +19,10 @@ logger = logging.getLogger("ModelLoader")
 
 
 class ModelLoader:
-    """Singleton model loader to load ML and DL models once."""
-    
+    """Singleton loader for the centralized ML and DL federated models."""
+
     _instance: Optional["ModelLoader"] = None
-    
+
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super(ModelLoader, cls).__new__(cls, *args, **kwargs)
@@ -32,7 +32,7 @@ class ModelLoader:
     def __init__(self):
         if self._initialized:
             return
-        
+
         try:
             import torch
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,11 +42,11 @@ class ModelLoader:
         self.ml_model = None
         self.ml_pipeline = None
         self.active_dl_version_tag = "resnet18_centralized_v1"
-        
+
         self._initialized = True
 
     def load_all_models(self) -> None:
-        """Loads ResNet18 and XGBoost models once."""
+        """Loads the DL federated ResNet18 and centralized ML XGBoost models."""
         logger.info("Initializing StoneSense-AI Singleton Model Loader...")
         self.reload_dl_model()
         self.load_ml_model()
@@ -85,7 +85,7 @@ class ModelLoader:
                 logger.info(f"Loading ResNet18 weights from {target_path} (Version: {self.active_dl_version_tag})...")
                 self.dl_model = build_resnet18_classifier(num_classes=4, freeze_backbone=False)
                 checkpoint_data = torch.load(target_path, map_location=self.device, weights_only=False)
-                
+
                 if isinstance(checkpoint_data, dict) and "model_state_dict" in checkpoint_data:
                     self.dl_model.load_state_dict(checkpoint_data["model_state_dict"])
                 else:
@@ -103,10 +103,10 @@ class ModelLoader:
             return False
 
     def load_ml_model(self) -> None:
-        """Loads XGBoost model and pipeline."""
+        """Loads the centralized XGBoost model and preprocessing pipeline."""
         ml_model_path = PROJECT_ROOT / "ml" / "models" / "kidney_risk_model.pkl"
         ml_pipeline_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
-        
+
         if ml_model_path.exists() and ml_pipeline_path.exists():
             logger.info("Loading XGBoost model and pipeline...")
             self.ml_model = joblib.load(ml_model_path)

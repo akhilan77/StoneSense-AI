@@ -19,11 +19,11 @@ import {
 } from '../types/federated';
 
 const lifecycle: Array<{ status: HospitalFLStatus; label: string }> = [
-  { status: 'MODEL_RECEIVED', label: 'Global model received' },
+  { status: 'MODEL_RECEIVED', label: 'DL global model received' },
   { status: 'TRAINING', label: 'Local training' },
   { status: 'UPDATE_SUBMITTED', label: 'Model update submitted' },
   { status: 'WAITING_FOR_AGGREGATION', label: 'Waiting for FedAvg' },
-  { status: 'MODEL_UPDATED', label: 'Global model updated' },
+  { status: 'MODEL_UPDATED', label: 'DL global model updated' },
   { status: 'COMPLETED', label: 'Round completed' },
 ];
 
@@ -84,7 +84,9 @@ export default function HospitalFederatedLearning() {
       setError(null);
     } catch (loadError) {
       setError(
-        loadError instanceof Error ? loadError.message : 'Unable to load federated learning status.'
+        loadError instanceof Error
+          ? loadError.message
+          : 'Unable to load DL federated learning status.'
       );
     } finally {
       setLoading(false);
@@ -142,8 +144,8 @@ export default function HospitalFederatedLearning() {
   return (
     <AppLayout
       role="hospital"
-      title="Federated Learning"
-      subtitle="Observe this hospital's participation in coordinator-managed training rounds."
+      title="DL Federated Learning"
+      subtitle="Observe this hospital's participation in DL coordinator-managed training rounds."
     >
       <div className="space-y-6">
         {error && (
@@ -186,7 +188,7 @@ export default function HospitalFederatedLearning() {
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
             <Metric
-              label="Current model"
+              label="DL Global Federated Model"
               value={live?.global_model_version ?? currentModel?.current_model_version ?? '-'}
               mono
             />
@@ -261,7 +263,7 @@ export default function HospitalFederatedLearning() {
 
           <section className="rounded-xl border border-[#DDE3DC] bg-white p-6 shadow-xs">
             <h3 className="text-sm font-semibold text-[#101B16]">
-              Global model{' '}
+              DL Global Federated Model{' '}
               <span className="ml-1 text-[10px] font-normal uppercase text-[#3B3F8C]">
                 Global metrics
               </span>
@@ -360,7 +362,9 @@ export default function HospitalFederatedLearning() {
             </div>
           </section>
           <section className="rounded-xl border border-[#DDE3DC] bg-white p-6 shadow-xs">
-            <h3 className="text-sm font-semibold text-[#101B16]">How federated learning works</h3>
+            <h3 className="text-sm font-semibold text-[#101B16]">
+              How DL federated learning works
+            </h3>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-[#101B16]">
               <span className="rounded-md bg-[#EBF5F1] px-3 py-2">Your patient data</span>
               <span>→</span>
@@ -370,7 +374,7 @@ export default function HospitalFederatedLearning() {
               <span>→</span>
               <span className="rounded-md bg-[#F0F0FA] px-3 py-2">FedAvg</span>
               <span>→</span>
-              <span className="rounded-md bg-[#EBF5F1] px-3 py-2">Global model</span>
+              <span className="rounded-md bg-[#EBF5F1] px-3 py-2">DL global model</span>
             </div>
             <p className="mt-4 text-xs leading-5 text-[#101B16]/60">
               Patient data remains within your hospital. Only model updates and training telemetry

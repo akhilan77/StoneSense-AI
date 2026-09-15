@@ -1,4 +1,4 @@
-"""Pydantic v2 schemas for Federated Learning endpoints."""
+"""Pydantic v2 schemas for DL Federated Learning endpoints."""
 
 from datetime import datetime
 from typing import Optional, List, Dict, Any

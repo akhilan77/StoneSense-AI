@@ -7,14 +7,14 @@ interface SidebarProps {
 
 const hospitalLinks = [
   { to: '/hospital-dashboard', label: 'Overview' },
-  { to: '/hospital/federated-learning', label: 'Federated Learning' },
+  { to: '/hospital/federated-learning', label: 'DL Federated Learning' },
   { to: '/risk-prediction', label: 'Risk prediction' },
   { to: '/stone-detection', label: 'Stone detection' },
 ];
 
 const developerLinks = [
   { to: '/developer-dashboard', label: 'Overview' },
-  { to: '/developer-dashboard/federated', label: 'Federated Learning' },
+  { to: '/developer-dashboard/federated', label: 'DL Federated Learning' },
   { to: '/developer-dashboard/versions', label: 'Model Versions' },
   { to: '/developer-dashboard/access', label: 'Hospitals & Access' },
   { to: '/developer-dashboard/health', label: 'System Health' },

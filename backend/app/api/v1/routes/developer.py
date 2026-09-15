@@ -33,7 +33,7 @@ router = APIRouter()
 
 @router.post("/federated/rounds/start", response_model=StartRoundResponse)
 def start_federated_round(payload: StartRoundRequest = StartRoundRequest()):
-    """Initiates a real multi-hospital federated learning round."""
+    """Initiates a real multi-hospital DL federated learning round."""
     try:
         res = federated_coordinator.start_round(
             num_rounds=payload.num_rounds,
@@ -51,19 +51,19 @@ def start_federated_round(payload: StartRoundRequest = StartRoundRequest()):
 
 @router.get("/federated/rounds/current/status", response_model=RoundLiveStatusResponse)
 def get_current_round_status():
-    """Returns real-time status and client telemetry of current or latest federated round."""
+    """Returns real-time status and client telemetry of the current or latest DL round."""
     return federated_coordinator.get_live_round_status()
 
 
 @router.get("/federated/rounds/{round_id}/status", response_model=RoundLiveStatusResponse)
 def get_round_status_by_id(round_id: int):
-    """Returns telemetry and status for a specific federated round."""
+    """Returns telemetry and status for a specific DL federated round."""
     return federated_coordinator.get_live_round_status(round_id)
 
 
 @router.get("/federated/status")
 def get_federated_system_status():
-    """Returns overall readiness of federated learning coordinator and network nodes."""
+    """Returns readiness of the DL federated coordinator and network nodes."""
     return {
         "is_running": federated_coordinator.is_running,
         "current_round": federated_coordinator.current_round,
@@ -77,7 +77,7 @@ def get_federated_system_status():
 @router.get("/federated-overview", response_model=FederatedOverviewOut)
 
 def get_federated_overview(db: Session = Depends(get_db)):
-    """Summary metrics for the Developer Dashboard overview cards."""
+    """Summary metrics for the DL federated Developer Dashboard cards."""
     latest_round = db.query(FederatedRound).order_by(desc(FederatedRound.round_number)).first()
     active_hospitals = db.query(Hospital).filter(Hospital.is_active.is_(True)).count()
     deployed_ver = db.query(ModelVersion).filter_by(is_deployed=True, model_family="resnet18_ct").first()
@@ -114,7 +114,7 @@ def get_federated_overview(db: Session = Depends(get_db)):
 
 @router.get("/round-history", response_model=List[FederatedRoundDetailOut])
 def get_round_history(db: Session = Depends(get_db)):
-    """Returns convergence telemetry across all completed federated rounds."""
+    """Returns convergence telemetry across completed DL federated rounds."""
     rounds = db.query(FederatedRound).order_by(FederatedRound.round_number.asc()).all()
     results = []
 

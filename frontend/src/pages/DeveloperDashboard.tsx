@@ -204,14 +204,14 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     }
 
     setIsStartingRound(true);
-    showToast('Starting live multi-hospital Federated Learning round...');
+    showToast('Starting live multi-hospital DL Federated Learning round...');
     try {
       const res = await startFederatedRound({ num_rounds: 1 });
       showToast(`Round #${res.round} initiated on central Flower coordinator!`);
       const liveStatus = await fetchCurrentRoundLiveStatus();
       setLiveRoundStatus(liveStatus);
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Failed to start federated round.';
+      const msg = err.response?.data?.detail || 'Failed to start DL federated round.';
       showToast(msg);
     } finally {
       setIsStartingRound(false);
@@ -401,7 +401,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <section className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-serif text-base font-medium text-[#101B16]">
-                  Active Production Models
+                  Active ML/DL Models
                 </h2>
                 <button
                   onClick={() => handleTabChange('versions')}
@@ -422,8 +422,8 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-xs text-[#101B16]">
                             {v.model_family === 'xgboost_risk'
-                              ? 'XGBoost Clinical Risk'
-                              : 'ResNet18 CT Imaging'}
+                              ? 'ML — Centralized · XGBoost Clinical Risk'
+                              : 'DL — Federated Learning · ResNet18 CT Imaging'}
                           </span>
                           <span className="rounded bg-[#1F6F5C]/15 px-2 py-0.5 text-[10.5px] font-bold text-[#1F6F5C]">
                             {v.version_tag}
@@ -484,7 +484,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
       )}
 
       {/* ========================================================================= */}
-      {/* TAB: FEDERATED LEARNING HUB */}
+      {/* TAB: DL FEDERATED LEARNING HUB */}
       {/* ========================================================================= */}
       {activeTab === 'federated' && (
         <div className="space-y-6">
@@ -494,14 +494,14 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
               <div className="flex items-center gap-2 mb-1">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EBF5F1] px-2.5 py-0.5 text-[11px] font-medium text-[#1F6F5C]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#1F6F5C] animate-pulse" />
-                  FedAvg Aggregator Engine Active
+                  DL — Federated Learning · FedAvg Aggregator Active
                 </span>
                 <span className="text-xs text-[#101B16]/50">
                   Coordinator: Flower FL + PyTorch ResNet18
                 </span>
               </div>
               <h2 className="font-serif text-lg font-medium text-[#101B16]">
-                Federated Multi-Hospital Collaborative Learning Network
+                DL Global Federated Model · Multi-Hospital Learning Network
               </h2>
               <p className="text-xs text-[#101B16]/60 mt-0.5">
                 Real-time round telemetry, loss reduction convergence, and sample contribution
@@ -531,12 +531,12 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   </span>
                 </div>
                 <h3 className="font-serif text-base font-semibold text-[#101B16]">
-                  Live Federated Learning Round Control & Execution
+                  DL Federated Round Control & Execution
                 </h3>
                 <p className="text-xs text-[#101B16]/65 mt-0.5">
-                  Trigger an authentic federated round. Global weights are distributed to simulated
-                  hospital nodes, trained locally on private CT partitions, and aggregated via
-                  FedAvg.
+                  Trigger an authentic DL federated round. DL global weights are distributed to
+                  simulated hospital nodes, trained locally on private CT partitions, and aggregated
+                  via FedAvg.
                 </p>
               </div>
 
@@ -574,7 +574,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                         d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    START FEDERATED ROUND
+                    START DL FEDERATED ROUND
                   </button>
                 )}
               </div>
@@ -584,7 +584,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-6">
               <div className="rounded-lg bg-[#F7F9F6] p-3.5 border border-[#DDE3DC]">
                 <span className="text-[10.5px] font-semibold text-[#101B16]/50 uppercase tracking-wider">
-                  Current Global Model
+                  DL Global Federated Model
                 </span>
                 <p className="text-xs font-bold text-[#101B16] font-mono mt-1 truncate">
                   {liveRoundStatus?.global_model_version ??
@@ -662,7 +662,8 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                         : 'READY'}
                   </span>
                   <span className="text-xs text-[#101B16]/50 font-mono">
-                    (Global Model: {liveRoundStatus?.previous_model_version ?? 'ResNet18-FL-v2'})
+                    (DL Global Federated Model:{' '}
+                    {liveRoundStatus?.previous_model_version ?? 'ResNet18-FL-v2'})
                   </span>
                 </div>
                 <span className="rounded bg-white border border-[#DDE3DC] px-2 py-0.5 text-[10.5px] font-semibold text-[#101B16]/70">
@@ -816,11 +817,11 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   </div>
                 </div>
 
-                {/* 3. Federated Aggregation (FedAvg) & Global Model */}
+                {/* 3. DL Federated Aggregation (FedAvg) & DL Global Federated Model */}
                 <div className="rounded-lg bg-white p-3.5 border border-[#DDE3DC] shadow-xs">
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-semibold text-[#101B16]">
-                      3. FEDERATED AGGREGATION & GLOBAL MODEL CREATION
+                      3. DL FEDERATED AGGREGATION & DL GLOBAL MODEL CREATION
                     </span>
                     <span className="text-[11px] font-bold text-[#1F6F5C]">
                       {liveRoundStatus?.status === 'COMPLETED'
@@ -895,8 +896,8 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                       <div className="flex items-center gap-2">
                         <span>✓</span>
                         <span>
-                          ROUND #{liveRoundStatus.round} COMPLETED — Global Model synchronized
-                          across all hospital clients!
+                          ROUND #{liveRoundStatus.round} COMPLETED — DL Global Federated Model
+                          synchronized across all hospital clients!
                         </span>
                       </div>
                       <span className="text-[11px] font-mono text-[#1F6F5C]/80">
@@ -1094,7 +1095,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             <div className="p-4 border-b border-[#DDE3DC] flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-[#101B16]">
-                  Federated Round Telemetry History
+                  DL Federated Round Telemetry History
                 </h3>
                 <p className="text-[11px] text-[#101B16]/60">
                   Complete audit log of aggregated weights, validation scores, and timing
@@ -1267,7 +1268,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-serif text-lg font-medium text-[#101B16]">
-                Hospital Update & Federated Sync Logs
+                DL Hospital Update & Federated Sync Logs
               </h2>
               <p className="text-xs text-[#101B16]/60 mt-0.5">
                 Audit trail of model parameter distribution and telemetry updates received across
@@ -1537,11 +1538,13 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
             </div>
             <button
               onClick={() =>
-                showToast('Triggered automated retraining pipeline with augmented dataset!')
+                showToast(
+                  'ML is centralized. Start ML Training is ready for the centralized training pipeline.'
+                )
               }
               className="rounded-lg bg-[#3B3F8C] px-4 py-2 text-xs font-medium text-white hover:bg-[#2F3270] shadow-xs cursor-pointer"
             >
-              Trigger Retrain Pipeline
+              Start ML Training
             </button>
           </div>
 
