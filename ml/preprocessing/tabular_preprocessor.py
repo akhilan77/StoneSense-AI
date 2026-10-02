@@ -89,20 +89,6 @@ class TabularPreprocessor:
                 if infs > 0:
                     logger.warning(f"Detected {infs} infinite values in feature '{col}'")
 
-        # 4. Fill missing numerical values with median
-        for col in self.numerical_cols:
-            if col in df.columns and df[col].isnull().sum() > 0:
-                med_val = df[col].median()
-                logger.info(f"Imputing missing values in numerical column '{col}' with median: {med_val}")
-                df[col] = df[col].fillna(med_val)
-
-        # 5. Fill missing categorical values with mode
-        for col in self.categorical_cols:
-            if col in df.columns and df[col].isnull().sum() > 0:
-                mode_val = df[col].mode()[0]
-                logger.info(f"Imputing missing values in categorical column '{col}' with mode: {mode_val}")
-                df[col] = df[col].fillna(mode_val)
-
         logger.info(f"Cleaned dataset shape: {df.shape}")
         return df
 
@@ -127,12 +113,12 @@ class TabularPreprocessor:
         self.pipeline = ColumnTransformer(transformers=transformers, remainder='drop')
         return self.pipeline
 
-    def fit_transform(self, X: pd.DataFrame) -> np.ndarray:
-        """Fits pipeline on X and returns transformed feature array."""
+    def fit(self, X: pd.DataFrame) -> "TabularPreprocessor":
+        """Fits preprocessing pipeline strictly on training data."""
         if self.pipeline is None:
             self.build_pipeline()
-        logger.info("Fitting and transforming feature data...")
-        transformed = self.pipeline.fit_transform(X)
+        logger.info("Fitting preprocessing pipeline on training data only...")
+        self.pipeline.fit(X)
 
         # Extract sub-fit components
         if self.numerical_cols and 'num' in self.pipeline.named_transformers_:
@@ -140,7 +126,12 @@ class TabularPreprocessor:
         if self.categorical_cols and 'cat' in self.pipeline.named_transformers_:
             self.encoder = self.pipeline.named_transformers_['cat'].named_steps['encoder']
 
-        return transformed
+        return self
+
+    def fit_transform(self, X: pd.DataFrame) -> np.ndarray:
+        """Fits pipeline on training data X and returns transformed feature array."""
+        self.fit(X)
+        return self.pipeline.transform(X)
 
     def transform(self, X: pd.DataFrame) -> np.ndarray:
         """Transforms feature data X using fitted pipeline."""

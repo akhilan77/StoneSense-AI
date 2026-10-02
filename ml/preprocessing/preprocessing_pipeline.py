@@ -40,20 +40,21 @@ def run_ml_preprocessing_pipeline() -> None:
     # 1. Load Data
     raw_df = pd.read_csv(dataset_path)
 
-    # 2. Instantiate and clean data
+    # 2. Instantiate and clean data (removes duplicates, drops missing targets)
     preprocessor = TabularPreprocessor()
     num_cols, cat_cols, target_col = preprocessor.auto_detect_columns(raw_df)
     cleaned_df = preprocessor.clean_data(raw_df)
 
-    # 3. Fit ColumnTransformer pipeline
-    X_features = cleaned_df.drop(columns=[target_col])
-    preprocessor.fit_transform(X_features)
-
-    # 4. Save ML Preprocessing artifacts
-    preprocessor.save_artifacts(artifacts_dir)
-
-    # 5. Split Dataset (70% Train, 15% Val, 15% Test)
+    # 3. Split Dataset First (70% Train, 15% Val, 15% Test) with Stratification
+    # Prevents data leakage: validation/test data must never influence transformer/scaler fitting.
     train_df, val_df, test_df = split_tabular_dataset(cleaned_df, target_column=target_col, random_state=42)
+
+    # 4. Fit ColumnTransformer Preprocessing Pipeline ONLY on Training Data
+    X_train = train_df.drop(columns=[target_col])
+    preprocessor.fit(X_train)
+
+    # 5. Save ML Preprocessing artifacts (fitted strictly on train fold)
+    preprocessor.save_artifacts(artifacts_dir)
 
     # 6. Export Processed Datasets
     train_path = processed_dir / "train.csv"
@@ -84,7 +85,7 @@ def run_ml_preprocessing_pipeline() -> None:
         json.dump(metadata, f, indent=4)
 
     logger.info(f"Saved preprocessing metadata JSON to {metadata_path}")
-    logger.info("ML Preprocessing Pipeline executed successfully.")
+    logger.info("ML Preprocessing Pipeline executed successfully without data leakage.")
 
 
 if __name__ == "__main__":
