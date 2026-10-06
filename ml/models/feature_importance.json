@@ -1,26 +1,26 @@
 [
     {
+        "feature":"gravity",
+        "importance":3.2443896495
+    },
+    {
         "feature":"calc",
-        "importance":0.3556793332
+        "importance":2.077666311
     },
     {
         "feature":"urea",
-        "importance":0.2383441627
-    },
-    {
-        "feature":"gravity",
-        "importance":0.1562293321
+        "importance":1.5245216163
     },
     {
         "feature":"osmo",
-        "importance":0.1262607127
+        "importance":0.9663535478
     },
     {
         "feature":"cond",
-        "importance":0.1057738662
+        "importance":0.9502689517
     },
     {
         "feature":"ph",
-        "importance":0.0177126192
+        "importance":0.1520552834
     }
 ]

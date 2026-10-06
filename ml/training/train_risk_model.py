@@ -1,8 +1,12 @@
-"""Main Machine Learning Training and Selection Pipeline for Kidney Stone Risk prediction.
+"""Main Machine Learning Training, Nested CV Optimization, and Model Selection Pipeline.
 
-Loads processed train/validation/test datasets, applies pre-fitted Phase 3
-ColumnTransformers, performs cross-validation & hyperparameter search, selects
-the best model (ROC-AUC/F1/MCC based), and generates charts and reports.
+Implements:
+1. Nested Repeated Stratified K-Fold CV (5 folds x 10 repeats = 50 folds) with sklearn Pipeline.
+2. Row-level Bootstrap 95% Confidence Intervals for ROC-AUC, F1, MCC, Sensitivity, and Specificity.
+3. Non-parametric Permutation Significance Testing (1000 permutations, n_jobs=-1).
+4. 1-Standard-Error Model Selection Rule (with Nadeau-Bengio corrected SE, baseline: Logistic Regression).
+5. Data integrity checks (duplicate checking failing loudly, class balance verification).
+6. Preserves separate artifacts (candidate_risk_model.pkl, preprocessing_pipeline.pkl, scaler.pkl) without overwriting legacy kidney_risk_model.pkl.
 """
 
 import sys
@@ -10,19 +14,30 @@ from pathlib import Path
 import json
 import logging
 import time
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
+from sklearn.pipeline import Pipeline
 from sklearn.model_selection import StratifiedKFold, GridSearchCV
-from sklearn.metrics import f1_score, roc_auc_score, matthews_corrcoef, precision_score, recall_score
+from sklearn.base import clone
 
-sys.path.append(str(Path(__file__).resolve().parents[1] / "preprocessing"))
+# Add paths for preprocessing and training modules
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(PROJECT_ROOT / "ml" / "preprocessing"))
+sys.path.append(str(PROJECT_ROOT / "ml" / "training"))
 
-from model import MODELS, PARAM_GRIDS
-from evaluate import evaluate_ml_model, evaluate_repeated_cv, evaluate_models_paired_cv, save_ml_charts
+from tabular_preprocessor import TabularPreprocessor, check_duplicate_rows, check_class_balance
+from model import MODELS, PARAM_GRIDS, MODEL_COMPLEXITY_ORDER
+from evaluate import (
+    evaluate_nested_cv,
+    compute_row_level_bootstrap_cis,
+    run_permutation_test,
+    select_model_1se_rule,
+    save_ml_charts
+)
 
 # Configure logging
 logging.basicConfig(
@@ -33,154 +48,226 @@ logger = logging.getLogger("MLRiskTrainer")
 
 
 class MLRiskTrainer:
-    """Trainer class for optimizing, comparing, and selecting tabular risk prediction models."""
+    """Trainer class for nested CV optimization, statistical comparison, and selection of risk models."""
 
     def __init__(
         self,
-        processed_dir: Path,
+        dataset_path: Path,
         artifacts_dir: Path,
         models_dir: Path,
         charts_dir: Path,
         reports_dir: Path
     ):
-        self.processed_dir = Path(processed_dir)
+        self.dataset_path = Path(dataset_path)
         self.artifacts_dir = Path(artifacts_dir)
         self.models_dir = Path(models_dir)
         self.charts_dir = Path(charts_dir)
         self.reports_dir = Path(reports_dir)
 
+        self.artifacts_dir.mkdir(parents=True, exist_ok=True)
         self.models_dir.mkdir(parents=True, exist_ok=True)
         self.charts_dir.mkdir(parents=True, exist_ok=True)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
 
-    def load_raw_splits(self) -> Tuple[pd.DataFrame, np.ndarray, pd.DataFrame, np.ndarray, pd.DataFrame, np.ndarray, List[str], str]:
-        """Loads split datasets without transforming features to prevent leakage."""
-        logger.info("Loading raw split datasets...")
-        train_df = pd.read_csv(self.processed_dir / "train.csv")
-        val_df = pd.read_csv(self.processed_dir / "validation.csv")
-        test_df = pd.read_csv(self.processed_dir / "test.csv")
+    def load_and_validate_dataset(self, drop_duplicates: bool = True) -> Tuple[pd.DataFrame, np.ndarray, List[str], str]:
+        """Loads dataset, executes strict data integrity checks, and prepares feature matrix."""
+        logger.info(f"Loading raw clinical dataset from {self.dataset_path}...")
+        if not self.dataset_path.exists():
+            raise FileNotFoundError(f"Dataset not found at {self.dataset_path}")
 
-        # Determine target column
+        raw_df = pd.read_csv(self.dataset_path)
+        if 'Unnamed: 0' in raw_df.columns:
+            raw_df = raw_df.drop(columns=['Unnamed: 0'])
+
         target_col = "target"
-        for col in ["Class", "target", "label"]:
-            if col in train_df.columns:
-                target_col = col
+        for candidate in ["Class", "target", "label"]:
+            if candidate in raw_df.columns:
+                target_col = candidate
                 break
 
-        # Separate features and labels
-        X_train_raw = train_df.drop(columns=[target_col])
-        y_train = train_df[target_col].values
+        # 1. Strict Duplicate Check (fails loudly if drop_duplicates=False)
+        cleaned_df = check_duplicate_rows(raw_df, drop_duplicates=drop_duplicates)
 
-        X_val_raw = val_df.drop(columns=[target_col])
-        y_val = val_df[target_col].values
+        # 2. Strict Class Balance Check (fails loudly if invalid)
+        check_class_balance(cleaned_df, target_column=target_col)
 
-        X_test_raw = test_df.drop(columns=[target_col])
-        y_test = test_df[target_col].values
+        X = cleaned_df.drop(columns=[target_col])
+        y = cleaned_df[target_col].values.astype(int)
 
-        # Retrieve feature names
-        num_cols = list(X_train_raw.select_dtypes(include=[np.number]).columns)
-        cat_cols = list(X_train_raw.select_dtypes(include=['object', 'category']).columns)
-        feature_names = num_cols + cat_cols
+        feature_names = list(X.columns)
+        logger.info(f"Dataset validated successfully: {len(cleaned_df)} observations, features: {feature_names}")
+        return X, y, feature_names, target_col
 
-        logger.info(f"Loaded raw splits - Train: {X_train_raw.shape}, Val: {X_val_raw.shape}, Test: {X_test_raw.shape}, features: {feature_names}")
-        return X_train_raw, y_train, X_val_raw, y_val, X_test_raw, y_test, feature_names, target_col
-
-    def train_and_compare(self) -> Dict[str, Any]:
-        """Runs hyperparameter search on all classifiers inside sklearn Pipelines and selects optimal model."""
-        from sklearn.pipeline import Pipeline
-        from tabular_preprocessor import TabularPreprocessor
-
-        X_train_raw, y_train, X_val_raw, y_val, X_test_raw, y_test, feature_names, target_col = self.load_raw_splits()
-
-        logger.info("Starting Cross-Validated Hyperparameter Search using sklearn Pipelines...")
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-        comparison_records: List[Dict[str, Any]] = []
-        trained_pipelines: Dict[str, Any] = {}
-
-        for mname, clf in MODELS.items():
-            if mname == "XGBoost":
-                class_counts = np.bincount(y_train.astype(int))
-                if len(class_counts) == 2 and class_counts[1] > 0:
-                    clf.set_params(scale_pos_weight=class_counts[0] / class_counts[1])
-
-            # Instantiate a fresh preprocessor ColumnTransformer for each model pipeline
+    def build_pipeline_factory(self, model_name: str, target_col: str, feature_names: List[str]):
+        """Returns a factory function creating an isolated sklearn Pipeline."""
+        def pipeline_factory():
             preprocessor = TabularPreprocessor(target_column=target_col)
-            preprocessor.numerical_cols = list(X_train_raw.select_dtypes(include=[np.number]).columns)
-            preprocessor.categorical_cols = list(X_train_raw.select_dtypes(include=['object', 'category']).columns)
-            preprocessor_transformer = preprocessor.build_pipeline()
+            preprocessor.numerical_cols = feature_names
+            preprocessor.categorical_cols = []
+            transformer = preprocessor.build_pipeline()
 
-            # Construct full pipeline: Preprocessing + Classifier
-            model_pipeline = Pipeline(steps=[
-                ('preprocessor', preprocessor_transformer),
+            clf = clone(MODELS[model_name])
+            return Pipeline(steps=[
+                ('preprocessor', transformer),
                 ('classifier', clf)
             ])
+        return pipeline_factory
 
-            # Prefix parameter grid keys for the pipeline's classifier step
-            grid = {f"classifier__{k}": v for k, v in PARAM_GRIDS[mname].items()}
-            logger.info(f"Tuning hyper-parameters for {mname} inside Pipeline...")
+    def run_nested_evaluation_and_comparison(self) -> Dict[str, Any]:
+        """Runs Nested Repeated Stratified CV, Bootstrap CIs, Permutation Tests, and 1-SE selection."""
+        X, y, feature_names, target_col = self.load_and_validate_dataset(drop_duplicates=True)
+        N = len(y)
 
-            start_time = time.time()
-            grid_search = GridSearchCV(
-                estimator=model_pipeline,
+        logger.info("=================================================================")
+        logger.info("Starting Phase 1 Tabular ML Rigorous Evaluation Protocol")
+        logger.info("Protocol: Nested RepeatedStratifiedKFold (5 splits x 10 repeats = 50 outer folds)")
+        logger.info("=================================================================")
+
+        nested_cv_results: Dict[str, Any] = {}
+        comparison_records: List[Dict[str, Any]] = []
+        all_fold_records: List[Dict[str, Any]] = []
+        best_hyperparams_per_model: Dict[str, Dict[str, Any]] = {}
+
+        for mname in MODELS.keys():
+            logger.info(f"--> Running Nested CV for {mname}...")
+            pipe_factory = self.build_pipeline_factory(mname, target_col, feature_names)
+            grid = PARAM_GRIDS[mname]
+
+            cv_summary, fold_df, oof_probs, oof_preds = evaluate_nested_cv(
+                model_factory_or_pipeline=pipe_factory,
                 param_grid=grid,
-                cv=cv,
+                X=X,
+                y=y,
+                n_splits=5,
+                n_repeats=10,
+                random_state=42,
+                scoring="roc_auc"
+            )
+
+            for rec in cv_summary["fold_results"]:
+                rec_copy = dict(rec)
+                rec_copy["model"] = mname
+                all_fold_records.append(rec_copy)
+
+            # Compute row-level bootstrap 95% CIs (averaging across repeats per row)
+            logger.info(f"Computing row-level Bootstrap 95% CIs (2,000 resamples) for {mname}...")
+            bootstrap_cis = compute_row_level_bootstrap_cis(
+                y_true=y,
+                oof_probs_matrix=oof_probs,
+                n_bootstraps=2000,
+                confidence_level=0.95,
+                random_state=42
+            )
+
+            # Find overall best hyperparameters on the full dataset for permutation testing and candidate fit
+            full_search = GridSearchCV(
+                estimator=pipe_factory(),
+                param_grid=grid,
+                cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
                 scoring="roc_auc",
                 n_jobs=1
             )
-            # Fits preprocessor strictly on each CV training fold
-            grid_search.fit(X_train_raw, y_train)
-            elapsed_time = time.time() - start_time
+            full_search.fit(X, y)
+            best_params = full_search.best_params_
+            best_hyperparams_per_model[mname] = best_params
 
-            best_pipeline = grid_search.best_estimator_
-            trained_pipelines[mname] = best_pipeline
+            # Permutation significance test (1000 permutations, fixed best params, n_jobs=-1)
+            best_fixed_pipe = full_search.best_estimator_
+            perm_result = run_permutation_test(
+                model_pipeline=best_fixed_pipe,
+                X=X,
+                y=y,
+                n_permutations=1000,
+                n_splits=5,
+                random_state=42,
+                n_jobs=-1,
+                scoring="roc_auc"
+            )
 
-            # Predict on validation split using the trained pipeline
-            val_preds = best_pipeline.predict(X_val_raw)
-            val_probs = best_pipeline.predict_proba(X_val_raw)[:, 1] if hasattr(best_pipeline, "predict_proba") else val_preds
-
-            # Metrics
-            roc_auc = float(roc_auc_score(y_val, val_probs))
-            f1 = float(f1_score(y_val, val_preds, zero_division=0))
-            mcc = float(matthews_corrcoef(y_val, val_preds))
-            acc = float(best_pipeline.score(X_val_raw, y_val))
-
-            record = {
+            # Record metrics
+            comp_record = {
                 "Model": mname,
-                "Accuracy": round(acc, 4),
-                "Precision": round(float(precision_score(y_val, val_preds, zero_division=0)), 4),
-                "Recall": round(float(recall_score(y_val, val_preds, zero_division=0)), 4),
-                "F1": round(f1, 4),
-                "ROC-AUC": round(roc_auc, 4),
-                "MCC": round(mcc, 4),
-                "Training Time": round(elapsed_time, 4)
+                "Complexity Rank": MODEL_COMPLEXITY_ORDER[mname],
+                "ROC-AUC Mean": cv_summary["auc_mean"],
+                "ROC-AUC SD": cv_summary["auc_std"],
+                "Nadeau-Bengio SE": cv_summary["auc_se_nadeau_bengio"],
+                "Repeat Means SE": cv_summary["auc_se_repeats"],
+                "ROC-AUC (Mean ± SD)": f"{cv_summary['auc_mean']:.4f} ± {cv_summary['auc_std']:.4f}",
+                "ROC-AUC 95% CI": bootstrap_cis["roc_auc"]["ci_str"],
+                "F1 (Mean ± SD)": f"{cv_summary['f1_mean']:.4f} ± {cv_summary['f1_std']:.4f}",
+                "F1 95% CI": bootstrap_cis["f1"]["ci_str"],
+                "MCC (Mean ± SD)": f"{cv_summary['mcc_mean']:.4f} ± {cv_summary['mcc_std']:.4f}",
+                "MCC 95% CI": bootstrap_cis["mcc"]["ci_str"],
+                "Sensitivity 95% CI": bootstrap_cis["sensitivity"]["ci_str"],
+                "Specificity 95% CI": bootstrap_cis["specificity"]["ci_str"],
+                "Accuracy (Mean ± SD)": f"{cv_summary['accuracy_mean'] * 100:.2f}% ± {cv_summary['accuracy_std'] * 100:.2f}%",
+                "Accuracy 95% CI": bootstrap_cis["accuracy"]["ci_str"],
+                "Permutation p-value": perm_result["p_value"],
+                "Permutation Runtime (s)": perm_result["runtime_seconds"],
+                "Best Hyperparameters": str(best_params)
             }
-            comparison_records.append(record)
-            logger.info(f"{mname} best validation performance: ROC-AUC={roc_auc:.4f}, F1={f1:.4f}, MCC={mcc:.4f}")
+            comparison_records.append(comp_record)
 
-        # Save comparison results CSV
+            nested_cv_results[mname] = {
+                "nested_cv_summary": cv_summary,
+                "bootstrap_95_ci": bootstrap_cis,
+                "permutation_test": perm_result,
+                "best_hyperparameters": best_params
+            }
+
+        # Apply 1-Standard-Error Selection Rule
+        selected_model_name, selection_diagnostics = select_model_1se_rule(
+            comparison_records=comparison_records,
+            primary_metric="ROC-AUC Mean",
+            se_metric="Nadeau-Bengio SE",
+            baseline_model="LogisticRegression"
+        )
+
+        for rec in comparison_records:
+            rec["1-SE Selected"] = (rec["Model"] == selected_model_name)
+
+        # Save comparison_results.csv
         comparison_df = pd.DataFrame(comparison_records)
-        comparison_csv_path = self.models_dir / "comparison_results.csv"
-        comparison_df.to_csv(comparison_csv_path, index=False)
-        logger.info(f"Saved model comparison table to {comparison_csv_path}")
+        comp_csv_path = self.models_dir / "comparison_results.csv"
+        comparison_df.to_csv(comp_csv_path, index=False)
+        logger.info(f"Saved comparison results CSV to {comp_csv_path}")
 
-        # Plot Model Comparison Bar Chart
-        self.plot_comparison_chart(comparison_df)
+        # Save fold metrics CSV
+        fold_df = pd.DataFrame(all_fold_records)
+        fold_csv_path = self.models_dir / "cv_fold_metrics.csv"
+        fold_df.to_csv(fold_csv_path, index=False)
+        logger.info(f"Saved 50-fold metrics CSV to {fold_csv_path}")
 
-        # Select Best Model based on ROC-AUC, F1, and MCC
-        comparison_df["rank_score"] = comparison_df["ROC-AUC"] + comparison_df["F1"] + comparison_df["MCC"]
-        best_row = comparison_df.sort_values(by="rank_score", ascending=False).iloc[0]
-        best_mname = best_row["Model"]
-        best_pipeline = trained_pipelines[best_mname]
-        best_classifier = best_pipeline.named_steps['classifier']
-        fitted_preprocessor = best_pipeline.named_steps['preprocessor']
+        # Save cv_results.json
+        cv_payload = {
+            "evaluation_protocol": "Nested RepeatedStratifiedKFold (5 splits x 10 repeats = 50 outer folds)",
+            "selection_rule": "1-Standard-Error Rule on ROC-AUC with Nadeau-Bengio corrected SE (Baseline: LogisticRegression)",
+            "selected_model": selected_model_name,
+            "selection_diagnostics": selection_diagnostics,
+            "models": nested_cv_results
+        }
+        cv_json_path = self.models_dir / "cv_results.json"
+        with open(cv_json_path, "w", encoding="utf-8") as f:
+            json.dump(cv_payload, f, indent=4)
+        logger.info(f"Saved full nested CV results to {cv_json_path}")
 
-        logger.info(f"--> Selected BEST model: {best_mname} with rank score sum: {best_row['rank_score']:.4f}")
+        # Train final candidate model on ALL observations (N=79)
+        logger.info(f"Fitting selected model '{selected_model_name}' on all {N} observations...")
+        selected_pipe_factory = self.build_pipeline_factory(selected_model_name, target_col, feature_names)
+        final_pipeline = selected_pipe_factory()
+        final_pipeline.set_params(**best_hyperparams_per_model[selected_model_name])
+        final_pipeline.fit(X, y)
 
-        # Save optimal preprocessing pipeline and model
-        best_model_path = self.models_dir / "kidney_risk_model.pkl"
-        joblib.dump(best_classifier, best_model_path)
-        logger.info(f"Saved optimal ML classifier pkl to {best_model_path}")
+        # Separate fitted preprocessor and classifier
+        fitted_preprocessor = final_pipeline.named_steps['preprocessor']
+        fitted_classifier = final_pipeline.named_steps['classifier']
 
+        # Save candidate model as candidate_risk_model.pkl (do NOT overwrite legacy kidney_risk_model.pkl)
+        candidate_model_path = self.models_dir / "candidate_risk_model.pkl"
+        joblib.dump(fitted_classifier, candidate_model_path)
+        logger.info(f"Saved selected candidate classifier to {candidate_model_path}")
+
+        # Save preprocessor artifacts
         pipe_path = self.artifacts_dir / "preprocessing_pipeline.pkl"
         joblib.dump(fitted_preprocessor, pipe_path)
         logger.info(f"Saved fitted preprocessing ColumnTransformer to {pipe_path}")
@@ -189,129 +276,45 @@ class MLRiskTrainer:
             scaler = fitted_preprocessor.named_transformers_['num'].named_steps.get('scaler')
             if scaler is not None:
                 joblib.dump(scaler, self.artifacts_dir / "scaler.pkl")
+                logger.info("Saved fitted StandardScaler to scaler.pkl")
 
-        # Primary Statistical Evaluation: RepeatedStratifiedKFold (5 splits, 10 repeats = 50 folds)
-        # Evaluating both XGBoost and plain Logistic Regression baseline on identical folds
-        logger.info("Executing 50-fold RepeatedStratifiedKFold Cross-Validation (5 splits, 10 repeats, seed=42) on identical folds...")
-        dataset_path = Path(__file__).resolve().parents[1] / "datasets" / "kidneyData.csv"
-        raw_full_df = pd.read_csv(dataset_path)
-        cleaner = TabularPreprocessor(target_column=target_col)
-        cleaned_full_df = cleaner.clean_data(raw_full_df)
-        X_full = cleaned_full_df.drop(columns=[target_col])
-        y_full = cleaned_full_df[target_col].values
+        # Save combined pipeline as extra file
+        combined_pipe_path = self.models_dir / "candidate_risk_pipeline.pkl"
+        joblib.dump(final_pipeline, combined_pipe_path)
+        logger.info(f"Saved combined candidate pipeline to {combined_pipe_path}")
 
-        def xgb_pipeline_factory():
-            p = TabularPreprocessor(target_column=target_col)
-            p.numerical_cols = list(X_full.select_dtypes(include=[np.number]).columns)
-            p.categorical_cols = list(X_full.select_dtypes(include=['object', 'category']).columns)
-            from sklearn.base import clone
-            return Pipeline(steps=[
-                ('preprocessor', p.build_pipeline()),
-                ('classifier', clone(best_classifier))
-            ])
+        # Generate diagnostic comparison charts
+        self.plot_comparison_chart(comparison_df)
+        self.save_feature_importance(fitted_classifier, feature_names)
 
-        def logreg_pipeline_factory():
-            p = TabularPreprocessor(target_column=target_col)
-            p.numerical_cols = list(X_full.select_dtypes(include=[np.number]).columns)
-            p.categorical_cols = list(X_full.select_dtypes(include=['object', 'category']).columns)
-            from sklearn.linear_model import LogisticRegression
-            return Pipeline(steps=[
-                ('preprocessor', p.build_pipeline()),  # StandardScaler included inside ColumnTransformer
-                ('classifier', LogisticRegression(max_iter=1000, random_state=42, class_weight="balanced"))
-            ])
+        # Write comprehensive model report
+        self.write_model_report(nested_cv_results, comparison_df, selection_diagnostics, feature_names)
 
-        cv_models = {
-            "XGBoost": xgb_pipeline_factory,
-            "LogisticRegression": logreg_pipeline_factory
-        }
-
-        cv_summaries, cv_comparison_df, fold_results_df = evaluate_models_paired_cv(
-            models_dict=cv_models,
-            X=X_full,
-            y=y_full,
-            n_splits=5,
-            n_repeats=10,
-            random_state=42
-        )
-
-        # Save fold-level results CSV (100 rows total: 50 folds x 2 models)
-        fold_csv_path = self.models_dir / "cv_fold_metrics.csv"
-        fold_results_df.to_csv(fold_csv_path, index=False)
-        logger.info(f"Saved fold-level metrics (50 folds x 2 models) to {fold_csv_path}")
-
-        # Save comparison results CSV
-        comparison_csv_path = self.models_dir / "comparison_results.csv"
-        cv_comparison_df.to_csv(comparison_csv_path, index=False)
-        baseline_comp_path = self.models_dir / "baseline_model_comparison.csv"
-        cv_comparison_df.to_csv(baseline_comp_path, index=False)
-        logger.info(f"Saved comparison results CSV to {comparison_csv_path} and {baseline_comp_path}")
-
-        # Save primary metrics JSON
-        metrics_payload = {
-            "evaluation_strategy": "RepeatedStratifiedKFold (5 splits, 10 repeats = 50 folds, seed=42)",
-            "total_folds": 50,
-            "models": cv_summaries,
-            # Top-level aliases pointing to primary model (XGBoost) for backward compatibility
-            **cv_summaries["XGBoost"]
-        }
-        metrics_path = self.models_dir / "metrics.json"
-        with open(metrics_path, "w", encoding="utf-8") as f:
-            json.dump(metrics_payload, f, indent=4)
-        logger.info(f"Saved primary 50-fold CV metrics to {metrics_path}")
-
-        for mname, msummary in cv_summaries.items():
-            logger.info(
-                f"Repeated CV (50 folds) Results for {mname}:\n"
-                f"  AUC:       {msummary['auc_mean']:.4f} ± {msummary['auc_std']:.4f}\n"
-                f"  Recall:    {msummary['recall_mean']:.4f} ± {msummary['recall_std']:.4f}\n"
-                f"  Precision: {msummary['precision_mean']:.4f} ± {msummary['precision_std']:.4f}\n"
-                f"  F1-Score:  {msummary['f1_mean']:.4f} ± {msummary['f1_std']:.4f}\n"
-                f"  Accuracy:  {msummary['accuracy_mean']:.4f} ± {msummary['accuracy_std']:.4f}"
-            )
-
-        # Save class mapping
-        mapping_path = self.models_dir / "class_mapping.json"
-        class_mapping = {0: "Low Risk", 1: "High Risk"}
-        with open(mapping_path, "w", encoding="utf-8") as f:
-            json.dump(class_mapping, f, indent=4)
-
-        # Generate and save diagnostic charts
-        X_test_trans = fitted_preprocessor.transform(X_test_raw)
-        _, test_preds, test_probs = evaluate_ml_model(best_classifier, X_test_trans, y_test, ["Low Risk", "High Risk"])
-        save_ml_charts(y_test, test_preds, test_probs, ["Low Risk", "High Risk"], self.charts_dir)
-
-        # Feature Importance for best model
-        self.save_feature_importance(best_classifier, feature_names)
-
-        # Write comprehensive model report with paired comparison without automatically declaring a winner
-        self.write_model_report(cv_summaries, cv_comparison_df, feature_names)
-
-        logger.info("ML Risk Model Pipeline completed successfully.")
-        return metrics_payload
+        logger.info("Phase 1 Tabular ML Evaluation & Model Selection completed successfully.")
+        return cv_payload
 
     def plot_comparison_chart(self, df: pd.DataFrame) -> None:
         """Plots and saves model comparison bar chart."""
         sns.set_theme(style="whitegrid")
-        df_melt = pd.melt(df, id_vars=["Model"], value_vars=["Accuracy", "F1", "ROC-AUC"], var_name="Metric", value_name="Score")
-
-        plt.figure(figsize=(8, 5))
-        sns.barplot(data=df_melt, x="Model", y="Score", hue="Metric", palette="muted")
-        plt.title("Kidney Stone Risk Model Validation Comparison", fontsize=13, fontweight="bold", pad=15)
-        plt.ylim(0, 1.1)
+        plt.figure(figsize=(9, 5))
+        sns.barplot(data=df, x="Model", y="ROC-AUC Mean", palette="Blues_d", hue="Model", legend=False)
+        plt.title("Kidney Stone Risk Model Nested CV Comparison (50 Folds ROC-AUC)", fontsize=13, fontweight="bold", pad=15)
+        plt.ylim(0, 1.05)
+        plt.ylabel("ROC-AUC (Nested CV Mean)")
         plt.tight_layout()
         chart_path = self.charts_dir / "model_comparison.png"
         plt.savefig(chart_path, dpi=300)
         plt.close()
 
     def save_feature_importance(self, model: Any, feature_names: List[str]) -> None:
-        """Computes and plots feature importances for the best model."""
+        """Computes and saves feature importances for the selected candidate model."""
         importances = []
         if hasattr(model, "feature_importances_"):
             importances = list(model.feature_importances_)
         elif hasattr(model, "coef_"):
             importances = list(np.abs(model.coef_[0]))
         else:
-            logger.warning("Selected model does not expose feature_importances_ or coef_")
+            logger.warning("Selected candidate model does not expose feature_importances_ or coef_")
             return
 
         feat_imp_df = pd.DataFrame({
@@ -319,16 +322,14 @@ class MLRiskTrainer:
             "importance": importances
         }).sort_values(by="importance", ascending=False).reset_index(drop=True)
 
-        # Save feature_importance.json
         feat_path = self.models_dir / "feature_importance.json"
         feat_imp_df.to_json(feat_path, orient="records", indent=4)
         logger.info(f"Saved feature importance JSON to {feat_path}")
 
-        # Plot feature_importance.png
         plt.figure(figsize=(8, 5))
-        sns.barplot(data=feat_imp_df.head(10), x="importance", y="feature", palette="viridis", hue="feature", legend=False)
-        plt.title("Urine Chemistry Feature Importance Ranking", fontweight="bold", fontsize=13, pad=15)
-        plt.xlabel("Importance Score", fontweight="bold")
+        sns.barplot(data=feat_imp_df, x="importance", y="feature", palette="viridis", hue="feature", legend=False)
+        plt.title("Candidate Model Feature Importance Ranking", fontweight="bold", fontsize=13, pad=15)
+        plt.xlabel("Importance / Absolute Coefficient", fontweight="bold")
         plt.ylabel("Feature", fontweight="bold")
         plt.tight_layout()
         plt.savefig(self.charts_dir / "feature_importance.png", dpi=300)
@@ -336,92 +337,109 @@ class MLRiskTrainer:
 
     def write_model_report(
         self,
-        cv_summaries: Dict[str, Any],
+        nested_results: Dict[str, Any],
         comparison_df: pd.DataFrame,
+        diagnostics: Dict[str, Any],
         features: List[str]
     ) -> None:
-        """Generates model_b_report.md comparing XGBoost and LogisticRegression baseline without automatically declaring a winner."""
+        """Generates comprehensive model_b_report.md with transparent statistical comparison."""
         report_path = self.reports_dir / "model_b_report.md"
-
         feature_summary = ", ".join(f"`{f}`" for f in features)
-        
-        xgb_summary = cv_summaries.get("XGBoost", {})
-        logreg_summary = cv_summaries.get("LogisticRegression", {})
-        
-        xgb_cm = xgb_summary.get("aggregated_confusion_matrix", [[0, 0], [0, 0]])
-        logreg_cm = logreg_summary.get("aggregated_confusion_matrix", [[0, 0], [0, 0]])
 
-        report_md = f"""# Phase 5 Report — Model B: Kidney Stone Risk Prediction (ML)
+        table_rows = []
+        for _, row in comparison_df.iterrows():
+            table_rows.append(
+                f"| **{row['Model']}** | {row['ROC-AUC (Mean ± SD)']} (`{row['ROC-AUC 95% CI']}`) | "
+                f"{row['F1 (Mean ± SD)']} (`{row['F1 95% CI']}`) | `{row['MCC 95% CI']}` | "
+                f"`{row['Sensitivity 95% CI']}` | `{row['Specificity 95% CI']}` | "
+                f"{row['Permutation p-value']:.4f} ({row['Permutation Runtime (s)']}s) | {'✅ Yes' if row['1-SE Selected'] else 'No'} |"
+            )
+        table_md = "\n".join(table_rows)
 
-**Models Evaluated:** XGBoost vs. Logistic Regression (Baseline with StandardScaler Pipeline)
-**Dataset:** Clinical Urine Analysis Dataset (79 observations)
-**Evaluation Protocol:** 50-Fold Repeated Stratified Cross-Validation (`RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=42)`) on Identical Folds
-**Statistical Uncertainty:** Non-Parametric Patient-Level (Cluster) Bootstrap (2,000 iterations, 95% CI)
-**Target Variable:** `target` (0: Low Risk, 1: High Risk)
+        selected_model = diagnostics["selected_model"]
+        is_complex_better = diagnostics["is_any_model_significantly_better_than_baseline"]
 
----
+        significance_summary = (
+            "No complex model (RandomForest or XGBoost) demonstrated statistically significant superiority over the "
+            "simpler Logistic Regression baseline beyond 1 Standard Error. Therefore, adhering to Occam's razor and the 1-SE "
+            "selection rule, **LogisticRegression** is selected as the robust, parsimonious model."
+            if not is_complex_better else
+            f"**{selected_model}** demonstrated superior performance exceeding the 1-Standard-Error threshold and was selected."
+        )
 
-## 📊 Cross-Validation Performance Comparison (50 Identical Folds with 95% Bootstrap CIs)
+        report_md = f"""# Phase 1 Evaluation Report — Model B: Kidney Stone Risk Prediction
 
-Both models were evaluated on the **exact same 50 cross-validation folds** with fold-level preprocessing (imputation + scaling fit strictly on each fold's training split):
-
-| Model | ROC-AUC (Mean ± SD [95% CI]) | Recall (Mean ± SD [95% CI]) | Precision (Mean ± SD) | F1-Score (Mean ± SD) | Accuracy (Mean ± SD) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **XGBoost** | **{xgb_summary.get('auc_mean', 0):.4f} ± {xgb_summary.get('auc_std', 0):.4f}** (`{xgb_summary.get('auc_ci_95', 'N/A')}`) | **{xgb_summary.get('recall_mean', 0):.4f} ± {xgb_summary.get('recall_std', 0):.4f}** (`{xgb_summary.get('recall_ci_95', 'N/A')}`) | **{xgb_summary.get('precision_mean', 0):.4f} ± {xgb_summary.get('precision_std', 0):.4f}** | **{xgb_summary.get('f1_mean', 0):.4f} ± {xgb_summary.get('f1_std', 0):.4f}** | **{xgb_summary.get('accuracy_mean', 0) * 100:.2f}% ± {xgb_summary.get('accuracy_std', 0) * 100:.2f}%** |
-| **Logistic Regression** | **{logreg_summary.get('auc_mean', 0):.4f} ± {logreg_summary.get('auc_std', 0):.4f}** (`{logreg_summary.get('auc_ci_95', 'N/A')}`) | **{logreg_summary.get('recall_mean', 0):.4f} ± {logreg_summary.get('recall_std', 0):.4f}** (`{logreg_summary.get('recall_ci_95', 'N/A')}`) | **{logreg_summary.get('precision_mean', 0):.4f} ± {logreg_summary.get('precision_std', 0):.4f}** | **{logreg_summary.get('f1_mean', 0):.4f} ± {logreg_summary.get('f1_std', 0):.4f}** | **{logreg_summary.get('accuracy_mean', 0) * 100:.2f}% ± {logreg_summary.get('accuracy_std', 0) * 100:.2f}%** |
-
-- **Total Folds:** 50 folds per model (100 fold evaluations total).
-- **Bootstrap Sampling Unit:** Individual patient/row ($N=79$). Repeated evaluations on the same patient across the 10 CV repeats are clustered and evaluated together per repeat rather than treated as independent observations.
-- **Fold-by-Fold Results:** Stored in `ml/models/cv_fold_metrics.csv`.
-- **Model Comparison Table:** Stored in `ml/models/comparison_results.csv` and `ml/models/baseline_model_comparison.csv`.
-
----
-
-## 🔍 Aggregated Confusion Matrices (50 Folds, Total Out-of-Fold Predictions = 790)
-
-*Note: The 790 predictions represent 10 repeated out-of-fold evaluations of the 79 clinical observations across 10 repeats.*
-
-### XGBoost Aggregated Confusion Matrix (Rows: True, Columns: Predicted)
-```
-{xgb_cm}
-```
-
-### Logistic Regression Aggregated Confusion Matrix (Rows: True, Columns: Predicted)
-```
-{logreg_cm}
-```
+**Dataset:** Clinical Urine Analysis Dataset (79 observations, 6 physiological features)  
+**Evaluation Protocol:** Nested Repeated Stratified Cross-Validation (`5 splits x 10 repeats = 50 outer folds`)  
+**Hyperparameter Search:** Inner 5-fold Stratified GridSearchCV fit strictly on outer training partitions  
+**Statistical Uncertainty:** Row-Level Non-Parametric Bootstrap (2,000 resamples, 95% CI)  
+**Significance Testing:** Non-Parametric Permutation Tests (1,000 permutations per model, `n_jobs=-1`)  
+**Selection Rule:** 1-Standard-Error Rule with Nadeau-Bengio Corrected Standard Error (Baseline: Logistic Regression)  
+**Selected Candidate Model:** `{selected_model}` (saved to `ml/models/candidate_risk_model.pkl`)  
 
 ---
 
-## 🧬 Feature Summary & Clinical Predictors
+## 📌 Critical Protocol & Dataset Assumptions
 
-The clinical urine chemistry features utilized for risk scoring:
+1. **Independent Patient Assumption**:
+   - Each row is treated as an independent patient because no patient identifier exists in the clinical dataset ($N=79$).
+   - Bootstrap confidence intervals are computed by first averaging out-of-fold predictions per row across the 10 CV repeats, followed by 2,000 row-level bootstrap resamples.
+
+2. **Final Model Training**:
+   - **The final candidate model is trained on all 79 rows and has no held-out test set.**
+   - Generalization performance is strictly estimated via the 50 outer folds of the nested cross-validation protocol.
+
+3. **Leakage & Synthetic Data Guardrails**:
+   - Feature engineering derives purely elementwise physiological ratios (`cond/osmo`, `urea/calc`) and computes no aggregate dataset statistics prior to splitting.
+   - Zero SMOTE or synthetic oversampling is applied; class balance is managed strictly via loss/sample weighting.
+
+---
+
+## 📊 Nested Cross-Validation Performance Comparison (50 Outer Folds)
+
+| Model | ROC-AUC (Mean ± SD [95% CI]) | F1-Score (Mean ± SD [95% CI]) | MCC 95% CI | Sensitivity 95% CI | Specificity 95% CI | Permutation $p$-value (Runtime) | 1-SE Selected |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+{table_md}
+
+---
+
+## 🎯 Model Selection & Statistical Significance
+
+- **Selection Metric:** ROC-AUC
+- **Best-Performing Model:** `{diagnostics['best_performing_model']}` (Mean ROC-AUC: `{diagnostics['best_model_mean_score']:.4f}`, Nadeau-Bengio SE: `{diagnostics['best_model_se']:.4f}`)
+- **1-SE Selection Threshold:** `{diagnostics['selection_threshold_1se']:.4f}`
+- **Qualifying Models within 1-SE:** {', '.join(f'`{m}`' for m in diagnostics['qualifying_models_within_1se'])}
+- **Selected Candidate:** **`{selected_model}`**
+
+### Honest Findings & Significance Summary:
+{significance_summary}
+
+---
+
+## 🧬 Physiological Features Utilized
 {feature_summary}
-
-- Key indicators such as calcium (`calc`), specific gravity (`gravity`), and pH play primary roles in scoring patient stone forming risk.
-- Feature importance visualization and ranking list are saved to `ml/outputs/charts/feature_importance.png` and `ml/models/feature_importance.json`.
 """
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(report_md)
-        logger.info(f"Generated Phase 5 report at {report_path}")
+        logger.info(f"Generated comprehensive Phase 1 evaluation report at {report_path}")
 
 
 def main():
     base_dir = Path(__file__).resolve().parents[1]
-    processed_dir = base_dir / "processed"
+    dataset_path = base_dir / "datasets" / "kidneyData.csv"
     artifacts_dir = base_dir / "artifacts"
     models_dir = base_dir / "models"
     charts_dir = base_dir / "outputs" / "charts"
     reports_dir = base_dir / "outputs" / "reports"
 
     trainer = MLRiskTrainer(
-        processed_dir=processed_dir,
+        dataset_path=dataset_path,
         artifacts_dir=artifacts_dir,
         models_dir=models_dir,
         charts_dir=charts_dir,
         reports_dir=reports_dir
     )
-    trainer.train_and_compare()
+    trainer.run_nested_evaluation_and_comparison()
 
 
 if __name__ == "__main__":
