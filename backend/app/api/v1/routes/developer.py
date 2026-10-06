@@ -21,7 +21,8 @@ from app.db.models import (
 )
 from app.schemas.dashboard import (
     ModelPerformanceOut, HospitalUpdateLogOut, SystemLogOut,
-    DriftPointOut, SystemMonitoringSummary, DeployModelRequest, MLTrainingResponse,
+    DriftPointOut, SystemMonitoringSummary, DeployModelRequest,
+    RollbackModelRequest, MLTrainingResponse,
 )
 from app.schemas.federated import (
     FederatedOverviewOut, FederatedRoundDetailOut, HospitalRunTelemetryOut,
@@ -38,15 +39,18 @@ router = APIRouter()
 def start_federated_round(payload: StartRoundRequest, db: Session = Depends(get_db)):
     """Initiates a real multi-hospital DL federated learning round."""
     try:
-        selected_ids = list(dict.fromkeys(payload.selected_hospital_ids))
-        hospitals = db.query(Hospital).filter(Hospital.id.in_(selected_ids)).all()
-        hospitals_by_id = {hospital.id: hospital for hospital in hospitals}
-        missing_ids = [hospital_id for hospital_id in selected_ids if hospital_id not in hospitals_by_id]
-        inactive_ids = [hospital.id for hospital in hospitals if not hospital.is_active]
-        if missing_ids:
-            raise HTTPException(status_code=422, detail=f"Unknown hospital IDs: {missing_ids}")
-        if inactive_ids:
-            raise HTTPException(status_code=422, detail=f"Inactive hospitals cannot participate: {inactive_ids}")
+        if payload.selected_hospital_ids is not None:
+            selected_ids = list(dict.fromkeys(payload.selected_hospital_ids))
+            hospitals = db.query(Hospital).filter(Hospital.id.in_(selected_ids)).all()
+            hospitals_by_id = {hospital.id: hospital for hospital in hospitals}
+            missing_ids = [hospital_id for hospital_id in selected_ids if hospital_id not in hospitals_by_id]
+            inactive_ids = [hospital.id for hospital in hospitals if not hospital.is_active]
+            if missing_ids:
+                raise HTTPException(status_code=422, detail=f"Unknown hospital IDs: {missing_ids}")
+            if inactive_ids:
+                raise HTTPException(status_code=422, detail=f"Inactive hospitals cannot participate: {inactive_ids}")
+        else:
+            selected_ids = None
 
         res = federated_coordinator.start_round(
             selected_hospital_ids=selected_ids,
@@ -56,7 +60,7 @@ def start_federated_round(payload: StartRoundRequest, db: Session = Depends(get_
             lr=payload.lr,
             mode=payload.mode
         )
-        res["selected_hospital_ids"] = selected_ids
+        res["selected_hospital_ids"] = selected_ids or res.get("selected_hospital_ids", [])
         return StartRoundResponse(**res)
     except HTTPException:
         raise
@@ -144,8 +148,8 @@ def start_ml_training(db: Session = Depends(get_db)):
             if key in metrics
         }
 
-        db.query(ModelVersion).filter(ModelVersion.model_family == model_family).update({ModelVersion.is_deployed: False})
-        db.add(ModelVersion(
+        # Register new model version as pending_review (strictly no auto-deployment)
+        new_version = ModelVersion(
             model_family=model_family,
             version_tag=version_tag,
             accuracy=scalar_metrics.get("accuracy"),
@@ -153,12 +157,13 @@ def start_ml_training(db: Session = Depends(get_db)):
             precision=scalar_metrics.get("precision"),
             recall=scalar_metrics.get("recall"),
             mcc=scalar_metrics.get("matthews_correlation_coefficient"),
-            is_deployed=True,
+            is_deployed=False,
+            status="pending_review",
             artifact_path=str(artifact_path.relative_to(project_root)),
             trained_at=datetime.utcnow(),
-        ))
+        )
+        db.add(new_version)
         db.commit()
-        model_loader.load_ml_model()
 
         duration_sec = round(time.perf_counter() - start_time, 3)
         return MLTrainingResponse(
@@ -169,7 +174,7 @@ def start_ml_training(db: Session = Depends(get_db)):
             artifact_path=str(artifact_path.relative_to(project_root)),
             metrics=scalar_metrics,
             duration_sec=duration_sec,
-            message=f"Centralized ML training completed with {model_name}.",
+            message=f"Centralized ML training completed with {model_name}. Version {version_tag} registered for review.",
         )
     except Exception as exc:
         db.rollback()
@@ -326,24 +331,162 @@ def model_versions(model_family: str | None = None, db: Session = Depends(get_db
 
 @router.post("/model-versions/deploy")
 def deploy_model(payload: DeployModelRequest, db: Session = Depends(get_db)):
-    """Marks one version as deployed and triggers runtime model reload."""
+    """Marks one version as deployed and triggers runtime model reload.
+    
+    Strict Safety Constraint: Only model versions with status == 'eligible' can be deployed.
+    No administrative override is permitted.
+    """
     version = db.query(ModelVersion).filter(ModelVersion.id == payload.model_version_id).first()
     if not version:
         raise HTTPException(status_code=404, detail="Unknown model_version_id")
 
-    db.query(ModelVersion).filter(
-        ModelVersion.model_family == version.model_family
-    ).update({ModelVersion.is_deployed: False})
-    version.is_deployed = True
+    if version.status != "eligible":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot deploy model '{version.version_tag}'. "
+                f"Its deployment status is '{version.status}'. "
+                f"Only versions passing all gate criteria with status 'eligible' may be promoted to production."
+            ),
+        )
 
-    # If DL model, trigger runtime reload
+    # Locate current active deployed model for this family
+    prev_deployed = (
+        db.query(ModelVersion)
+        .filter(ModelVersion.model_family == version.model_family, ModelVersion.is_deployed.is_(True))
+        .first()
+    )
+
+    now = datetime.utcnow()
+
+    # In a single atomic transaction:
+    # 1. Archive previously deployed model
+    db.query(ModelVersion).filter(
+        ModelVersion.model_family == version.model_family,
+        ModelVersion.is_deployed.is_(True),
+    ).update({
+        ModelVersion.is_deployed: False,
+        ModelVersion.status: "archived",
+    }, synchronize_session=False)
+
+    # 2. Promote target version
+    version.is_deployed = True
+    version.status = "deployed"
+    version.approved_by = payload.approved_by or "developer_admin"
+    version.approved_at = now
+    version.deployed_at = now
+    version.previous_deployed_version_id = prev_deployed.id if prev_deployed else None
+
+    # Synchronize active hospitals if DL model
     if version.model_family == "resnet18_ct":
-        model_loader.reload_dl_model(version.version_tag)
-        # Synchronize active hospitals
         db.query(Hospital).update({Hospital.current_model_version: version.version_tag})
 
     db.commit()
-    return {"deployed": version.version_tag, "model_family": version.model_family}
+    db.refresh(version)
+
+    # 3. Hot-reload runtime singleton
+    if version.model_family == "resnet18_ct":
+        model_loader.reload_dl_model(version.version_tag)
+    else:
+        model_loader.load_ml_model(version.version_tag)
+
+    return {
+        "status": "deployed",
+        "deployed": version.version_tag,
+        "model_family": version.model_family,
+        "approved_by": version.approved_by,
+        "approved_at": version.approved_at.isoformat() if version.approved_at else None,
+        "previous_deployed_version_id": version.previous_deployed_version_id,
+    }
+
+
+@router.post("/model-versions/rollback")
+def rollback_model(payload: RollbackModelRequest, db: Session = Depends(get_db)):
+    """Rolls back the active model to the most recent previously deployed version."""
+    currently_deployed = (
+        db.query(ModelVersion)
+        .filter(ModelVersion.model_family == payload.model_family, ModelVersion.is_deployed.is_(True))
+        .first()
+    )
+
+    target_version = None
+
+    if payload.target_version_id is not None:
+        target_version = (
+            db.query(ModelVersion)
+            .filter(ModelVersion.id == payload.target_version_id, ModelVersion.model_family == payload.model_family)
+            .first()
+        )
+        if not target_version:
+            raise HTTPException(status_code=404, detail=f"Rollback target ID {payload.target_version_id} not found.")
+    else:
+        # 1. Try explicit previous_deployed_version_id on current deployed model
+        if currently_deployed and currently_deployed.previous_deployed_version_id:
+            target_version = (
+                db.query(ModelVersion)
+                .filter(ModelVersion.id == currently_deployed.previous_deployed_version_id)
+                .first()
+            )
+
+        # 2. Try most recent model with deployed_at timestamp
+        if not target_version:
+            query = db.query(ModelVersion).filter(
+                ModelVersion.model_family == payload.model_family,
+                ModelVersion.deployed_at.isnot(None),
+            )
+            if currently_deployed:
+                query = query.filter(ModelVersion.id != currently_deployed.id)
+            target_version = query.order_by(ModelVersion.deployed_at.desc()).first()
+
+        # 3. Fallback to most recent archived model
+        if not target_version:
+            query = db.query(ModelVersion).filter(
+                ModelVersion.model_family == payload.model_family,
+                ModelVersion.status == "archived",
+            )
+            if currently_deployed:
+                query = query.filter(ModelVersion.id != currently_deployed.id)
+            target_version = query.order_by(ModelVersion.trained_at.desc()).first()
+
+    if not target_version:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No previous deployed or archived version available for rollback in family '{payload.model_family}'."
+        )
+
+    now = datetime.utcnow()
+
+    # Perform rollback in single atomic transaction
+    if currently_deployed:
+        currently_deployed.is_deployed = False
+        currently_deployed.status = "archived"
+
+    target_version.is_deployed = True
+    target_version.status = "deployed"
+    target_version.approved_by = payload.approved_by or "rollback_admin"
+    target_version.approved_at = now
+    target_version.deployed_at = now
+    target_version.previous_deployed_version_id = currently_deployed.id if currently_deployed else None
+
+    if target_version.model_family == "resnet18_ct":
+        db.query(Hospital).update({Hospital.current_model_version: target_version.version_tag})
+
+    db.commit()
+    db.refresh(target_version)
+
+    # Hot reload model
+    if target_version.model_family == "resnet18_ct":
+        model_loader.reload_dl_model(target_version.version_tag)
+    else:
+        model_loader.load_ml_model(target_version.version_tag)
+
+    return {
+        "status": "rolled_back",
+        "deployed": target_version.version_tag,
+        "model_family": target_version.model_family,
+        "approved_by": target_version.approved_by,
+        "rolled_back_from": currently_deployed.version_tag if currently_deployed else None,
+    }
 
 
 @router.get("/statistics")

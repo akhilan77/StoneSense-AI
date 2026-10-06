@@ -351,12 +351,25 @@ export const fetchModelVersions = async (modelFamily?: string): Promise<ModelPer
   }
 };
 
-export const deployModelVersion = async (modelVersionId: number) => {
-  try {
-    return (await client.post('/model-versions/deploy', { model_version_id: modelVersionId })).data;
-  } catch {
-    return { success: true, deployed_id: modelVersionId };
-  }
+export const deployModelVersion = async (modelVersionId: number, approvedBy = 'developer_admin') => {
+  const res = await client.post('/model-versions/deploy', {
+    model_version_id: modelVersionId,
+    approved_by: approvedBy,
+  });
+  return res.data;
+};
+
+export const rollbackModelVersion = async (
+  modelFamily = 'resnet18_ct',
+  targetVersionId?: number,
+  approvedBy = 'rollback_admin'
+) => {
+  const res = await client.post('/model-versions/rollback', {
+    model_family: modelFamily,
+    target_version_id: targetVersionId,
+    approved_by: approvedBy,
+  });
+  return res.data;
 };
 
 export const startMLTraining = async (): Promise<{

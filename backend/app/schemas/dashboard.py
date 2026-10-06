@@ -3,7 +3,7 @@ Pydantic v2 schemas for the two new dashboards.
 Drop at: backend/app/schemas/dashboard.py
 """
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
 
@@ -39,10 +39,18 @@ class ModelPerformanceOut(BaseModel):
     id: int
     model_family: str
     version_tag: str
-    accuracy: Optional[float]
-    f1_score: Optional[float]
-    mcc: Optional[float]
+    accuracy: Optional[float] = None
+    f1_score: Optional[float] = None
+    precision: Optional[float] = None
+    recall: Optional[float] = None
+    mcc: Optional[float] = None
     is_deployed: bool
+    status: str = "pending_review"
+    gate_report: Optional[Dict[str, Any]] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    deployed_at: Optional[datetime] = None
+    previous_deployed_version_id: Optional[int] = None
     trained_at: datetime
 
     class Config:
@@ -79,6 +87,13 @@ class SystemMonitoringSummary(BaseModel):
 
 class DeployModelRequest(BaseModel):
     model_version_id: int
+    approved_by: Optional[str] = "developer_admin"
+
+
+class RollbackModelRequest(BaseModel):
+    model_family: str = "resnet18_ct"
+    target_version_id: Optional[int] = None
+    approved_by: Optional[str] = "rollback_admin"
 
 
 class MLTrainingResponse(BaseModel):

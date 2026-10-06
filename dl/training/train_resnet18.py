@@ -191,7 +191,7 @@ def run_phase_4a_training(
 
 def main():
     base_dir = Path(__file__).resolve().parents[1]
-    processed_dir = base_dir / "processed"
+    processed_dir = base_dir / "processed_grouped"
     models_dir = base_dir / "models"
 
     run_phase_4a_training(
@@ -199,8 +199,8 @@ def main():
         models_dir=models_dir,
         batch_size=64,
         lr=0.001,
-        epochs=2,
-        patience=2
+        epochs=5,
+        patience=3
     )
 
 

@@ -96,7 +96,7 @@ def test_end_to_end_fl_execution_and_persistence():
         )
 
     # Wait for worker thread to complete execution
-    max_wait = 90
+    max_wait = 180
     start_t = time.time()
     while federated_coordinator.is_running and (time.time() - start_t < max_wait):
         time.sleep(1)
@@ -122,11 +122,13 @@ def test_end_to_end_fl_execution_and_persistence():
             assert run.sample_count > 0
             assert run.train_acc is not None
 
-        # Verify ModelVersion Checkpoint
+        # Verify ModelVersion Checkpoint (Under Phase 3: No auto-deploy; gate evaluated)
         tag = f"resnet18_fed_round_{target_round:03d}"
         mv = db.query(ModelVersion).filter_by(version_tag=tag).first()
         assert mv is not None
-        assert mv.is_deployed is True
+        assert mv.is_deployed is False
+        assert mv.status in ["eligible", "rejected", "pending_review"]
+        assert mv.gate_report is not None
 
         # Verify Checkpoint File on disk
         expected_ckpt = PROJECT_ROOT / "dl" / "models" / "federated" / f"{tag}.pth"

@@ -12,10 +12,14 @@ import joblib
 # Setup paths to import ML and DL training components
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 import sys
-sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
-sys.path.append(str(PROJECT_ROOT / "ml"))
-sys.path.append(str(PROJECT_ROOT / "ml" / "training"))
-sys.path.append(str(PROJECT_ROOT / "ml" / "models"))
+if str(PROJECT_ROOT / "ml") not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT / "ml"))
+if str(PROJECT_ROOT / "dl" / "preprocessing") not in sys.path:
+    sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
+if str(PROJECT_ROOT / "ml" / "training") not in sys.path:
+    sys.path.append(str(PROJECT_ROOT / "ml" / "training"))
+if str(PROJECT_ROOT / "ml" / "models") not in sys.path:
+    sys.path.append(str(PROJECT_ROOT / "ml" / "models"))
 
 logger = logging.getLogger("ModelLoader")
 
@@ -111,7 +115,10 @@ class ModelLoader:
         ml_pipeline_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
 
         try:
-            from models.registry import registry
+            try:
+                from ml.models.registry import registry
+            except ImportError:
+                from models.registry import registry
             active_model = registry.get_model(version_tag)
             self.ml_model = active_model
             self.active_ml_version_tag = active_model.version_tag

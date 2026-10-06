@@ -50,8 +50,16 @@ export interface ModelPerformance {
   version_tag: string;
   accuracy: number | null;
   f1_score: number | null;
+  precision?: number | null;
+  recall?: number | null;
   mcc: number | null;
   is_deployed: boolean;
+  status?: 'pending_review' | 'eligible' | 'rejected' | 'deployed' | 'archived';
+  gate_report?: Record<string, any> | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  deployed_at?: string | null;
+  previous_deployed_version_id?: number | null;
   trained_at: string;
   latency_ms?: number;
   environment?: 'production' | 'staging' | 'canary';

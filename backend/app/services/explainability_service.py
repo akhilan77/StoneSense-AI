@@ -53,6 +53,16 @@ def generate_shap_for_patient(patient_features: Dict[str, Any]) -> Dict[str, Any
     df_trans = pd.DataFrame(transformed, columns=columns)
     estimator = getattr(model_loader.ml_model, "estimator", model_loader.ml_model)
     
+    if shap is None:
+        logger.warning("SHAP library is not available in current environment; feature explanation is unavailable.")
+        return {
+            "top_features": columns,
+            "feature_contributions": {name: 0.0 for name in columns},
+            "feature_directions": {name: "neutral" for name in columns},
+            "explanation_available": False,
+            "summary": "SHAP library is not available in the current environment.",
+        }
+
     if hasattr(estimator, "coef_"):
         # Linear model -> LinearExplainer
         bg = np.zeros((1, len(columns)))
@@ -76,6 +86,7 @@ def generate_shap_for_patient(patient_features: Dict[str, Any]) -> Dict[str, Any
         "top_features": sorted(contributions, key=lambda name: abs(contributions[name]), reverse=True),
         "feature_contributions": contributions,
         "feature_directions": directions,
+        "explanation_available": True,
         "summary": "The strongest SHAP contributors influenced the model output for this request; they do not establish causation.",
     }
 

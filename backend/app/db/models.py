@@ -104,6 +104,12 @@ class ModelVersion(Base):
     recall = Column(Float, nullable=True)
     mcc = Column(Float, nullable=True)
     is_deployed = Column(Boolean, default=False)
+    status = Column(String(32), default="pending_review", nullable=False)  # pending_review | eligible | rejected | deployed | archived
+    gate_report = Column(JSON, nullable=True)
+    approved_by = Column(String(128), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    deployed_at = Column(DateTime, nullable=True)
+    previous_deployed_version_id = Column(Integer, ForeignKey("model_versions.id"), nullable=True)
     artifact_path = Column(String(255), nullable=False)
     trained_at = Column(DateTime, default=datetime.utcnow)
 

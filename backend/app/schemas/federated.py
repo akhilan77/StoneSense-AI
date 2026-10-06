@@ -122,7 +122,7 @@ class FederatedStatusOut(BaseModel):
 
 
 class StartRoundRequest(BaseModel):
-    selected_hospital_ids: List[int] = Field(min_length=1)
+    selected_hospital_ids: Optional[List[int]] = Field(default=None)
     num_rounds: int = 1
     local_epochs: int = 1
     batch_size: int = 32

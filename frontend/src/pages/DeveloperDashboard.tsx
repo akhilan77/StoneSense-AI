@@ -10,9 +10,11 @@ import {
   fetchHospitalLogs,
   fetchHospitalParticipation,
   fetchModelPerformance,
+  fetchModelVersions,
   fetchRoundHistory,
   fetchSystemLogs,
   fetchSystemMonitoring,
+  rollbackModelVersion,
   startMLTraining,
 } from '../services/developerApi';
 import {
@@ -105,6 +107,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
   // Modal states
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [isRollbackModalOpen, setIsRollbackModalOpen] = useState(false);
+  const [rollbackFamily, setRollbackFamily] = useState<'resnet18_ct' | 'xgboost_risk'>('resnet18_ct');
+  const [selectedGateReport, setSelectedGateReport] = useState<{ versionTag: string; report: any } | null>(null);
   const [selectedLogPayload, setSelectedLogPayload] = useState<HospitalUpdateLogEntry | null>(null);
 
   // New Version Form state
@@ -281,21 +286,32 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
   };
 
   const handleDeployVersion = async (v: ModelPerformance) => {
-    showToast(`Deploying ${v.model_family} (${v.version_tag}) to production...`);
-    await deployModelVersion(v.id);
-    setVersions((prev) =>
-      prev.map((item) => {
-        if (item.model_family === v.model_family) {
-          return {
-            ...item,
-            is_deployed: item.id === v.id,
-            rollout_pct: item.id === v.id ? 100 : 0,
-          };
-        }
-        return item;
-      })
-    );
-    showToast(`Successfully promoted ${v.version_tag} as active production model!`);
+    if (v.status && v.status !== 'eligible') {
+      showToast(`Cannot deploy: model status is '${v.status}'. Only 'eligible' models can be promoted.`);
+      return;
+    }
+    try {
+      showToast(`Deploying ${v.model_family} (${v.version_tag}) to production...`);
+      await deployModelVersion(v.id);
+      const updated = await fetchModelVersions();
+      setVersions(updated);
+      showToast(`Successfully promoted ${v.version_tag} as active production model!`);
+    } catch (err: any) {
+      showToast(err.response?.data?.detail || 'Deployment failed.');
+    }
+  };
+
+  const handleRollbackSubmit = async () => {
+    try {
+      showToast(`Executing rollback for ${rollbackFamily}...`);
+      const res = await rollbackModelVersion(rollbackFamily);
+      setIsRollbackModalOpen(false);
+      const updated = await fetchModelVersions();
+      setVersions(updated);
+      showToast(`Successfully rolled back to active model ${res.deployed}!`);
+    } catch (err: any) {
+      showToast(err.response?.data?.detail || 'Rollback failed.');
+    }
   };
 
   const handleRolloutChange = (id: number, pct: number) => {
@@ -1289,19 +1305,30 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-serif text-lg font-medium text-[#101B16]">
-                Model Versions & Deployment Rollout
+                Model Versions & Deployment Gate
               </h2>
               <p className="text-xs text-[#101B16]/60 mt-0.5">
-                Manage artifact deployments, canary rollout thresholds, and instant version
-                promotion or rollback.
+                Manage candidate checkpoints, inspect clinical safety gate reports, and perform
+                safe promotion or instant rollback.
               </p>
             </div>
-            <button
-              onClick={() => setIsDeployModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-[#3B3F8C] px-4 py-2 text-xs font-medium text-white hover:bg-[#2F3270] shadow-xs cursor-pointer"
-            >
-              + Deploy New Model Version
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setRollbackFamily('resnet18_ct');
+                  setIsRollbackModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-[#DDE3DC] bg-white px-3.5 py-2 text-xs font-medium text-[#C97A2B] hover:bg-[#FDF8F3] shadow-xs cursor-pointer"
+              >
+                ↺ Rollback DL Model
+              </button>
+              <button
+                onClick={() => setIsDeployModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-[#3B3F8C] px-4 py-2 text-xs font-medium text-white hover:bg-[#2F3270] shadow-xs cursor-pointer"
+              >
+                + Register Model Package
+              </button>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-xl border border-[#DDE3DC] bg-white shadow-xs">
@@ -1310,6 +1337,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 <tr className="border-b border-[#DDE3DC] bg-[#F7F9F6] text-[11px] font-semibold uppercase tracking-wider text-[#101B16]/50">
                   <th className="py-3.5 px-4 font-semibold">MODEL FAMILY</th>
                   <th className="py-3.5 px-4 font-semibold">VERSION TAG</th>
+                  <th className="py-3.5 px-4 font-semibold">GATE STATUS</th>
                   <th className="py-3.5 px-4 font-semibold">ACCURACY / F1</th>
                   <th className="py-3.5 px-4 font-semibold">TRAINED DATE</th>
                   <th className="py-3.5 px-4 font-semibold">ENVIRONMENT</th>
@@ -1318,75 +1346,126 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DDE3DC]/70">
-                {versions.map((v) => (
-                  <tr key={v.id} className="hover:bg-black/[0.015]">
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-[#101B16]">
-                        {v.model_family === 'xgboost_risk'
-                          ? 'XGBoost Clinical Risk'
-                          : 'ResNet18 CT Imaging'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono font-medium text-[#3B3F8C]">
-                      {v.version_tag}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-[#101B16]">
-                        {v.accuracy ? `${(v.accuracy * 100).toFixed(1)}%` : '—'}
-                      </span>
-                      <span className="text-[#101B16]/50 text-[11px] ml-1">
-                        (F1: {v.f1_score ? `${(v.f1_score * 100).toFixed(1)}%` : '—'})
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-[#101B16]/70">
-                      {new Date(v.trained_at).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold ${
-                          v.is_deployed
-                            ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
-                            : v.environment === 'canary'
-                              ? 'bg-[#C97A2B]/15 text-[#C97A2B]'
-                              : 'bg-[#101B16]/10 text-[#101B16]/70'
-                        }`}
-                      >
-                        {v.is_deployed ? 'Production (Active)' : (v.environment ?? 'Staging')}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={v.rollout_pct ?? (v.is_deployed ? 100 : 0)}
-                          onChange={(e) => handleRolloutChange(v.id, Number(e.target.value))}
-                          className="rounded border border-[#DDE3DC] bg-white px-2 py-1 text-[11px] text-[#101B16] outline-none cursor-pointer"
+                {versions.map((v) => {
+                  const status = v.is_deployed ? 'deployed' : (v.status ?? 'archived');
+                  const isEligible = status === 'eligible';
+
+                  return (
+                    <tr key={v.id} className="hover:bg-black/[0.015]">
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-[#101B16]">
+                          {v.model_family === 'xgboost_risk'
+                            ? 'XGBoost Clinical Risk'
+                            : 'ResNet18 CT Imaging'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-medium text-[#3B3F8C]">
+                        {v.version_tag}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                              status === 'deployed'
+                                ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                                : status === 'eligible'
+                                  ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                                  : status === 'rejected'
+                                    ? 'bg-[#B42318]/15 text-[#B42318]'
+                                    : status === 'pending_review'
+                                      ? 'bg-[#C97A2B]/15 text-[#C97A2B]'
+                                      : 'bg-[#101B16]/10 text-[#101B16]/70'
+                            }`}
+                          >
+                            {status === 'deployed' && '● Active Deployed'}
+                            {status === 'eligible' && '✓ Gate: Eligible'}
+                            {status === 'rejected' && '✕ Gate: Rejected'}
+                            {status === 'pending_review' && '⏳ Pending Review'}
+                            {status === 'archived' && 'Archived'}
+                          </span>
+                          {v.gate_report && (
+                            <button
+                              onClick={() =>
+                                setSelectedGateReport({
+                                  versionTag: v.version_tag,
+                                  report: v.gate_report,
+                                })
+                              }
+                              className="text-[11px] text-[#3B3F8C] underline hover:text-[#2F3270] cursor-pointer"
+                            >
+                              Report
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-[#101B16]">
+                          {v.accuracy ? `${(v.accuracy * 100).toFixed(1)}%` : '—'}
+                        </span>
+                        <span className="text-[#101B16]/50 text-[11px] ml-1">
+                          (F1: {v.f1_score ? `${(v.f1_score * 100).toFixed(1)}%` : '—'})
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-[#101B16]/70">
+                        {new Date(v.trained_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold ${
+                            v.is_deployed
+                              ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                              : v.environment === 'canary'
+                                ? 'bg-[#C97A2B]/15 text-[#C97A2B]'
+                                : 'bg-[#101B16]/10 text-[#101B16]/70'
+                          }`}
                         >
-                          <option value="0">0% (Idle)</option>
-                          <option value="10">10% Canary</option>
-                          <option value="25">25% Canary</option>
-                          <option value="50">50% Split</option>
-                          <option value="100">100% Full Prod</option>
-                        </select>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      {!v.is_deployed ? (
-                        <button
-                          onClick={() => handleDeployVersion(v)}
-                          className="rounded-md bg-[#1F6F5C] px-3 py-1 text-xs font-medium text-white hover:bg-[#185849] cursor-pointer shadow-xs"
-                        >
-                          Promote to Prod
-                        </button>
-                      ) : (
-                        <span className="text-xs text-[#1F6F5C] font-semibold">✓ Current Live</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                          {v.is_deployed ? 'Production (Active)' : (v.environment ?? 'Staging')}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={v.rollout_pct ?? (v.is_deployed ? 100 : 0)}
+                            onChange={(e) => handleRolloutChange(v.id, Number(e.target.value))}
+                            className="rounded border border-[#DDE3DC] bg-white px-2 py-1 text-[11px] text-[#101B16] outline-none cursor-pointer"
+                          >
+                            <option value="0">0% (Idle)</option>
+                            <option value="10">10% Canary</option>
+                            <option value="25">25% Canary</option>
+                            <option value="50">50% Split</option>
+                            <option value="100">100% Full Prod</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {!v.is_deployed ? (
+                          <button
+                            onClick={() => handleDeployVersion(v)}
+                            disabled={!isEligible}
+                            title={
+                              isEligible
+                                ? 'Deploy this eligible version to active production'
+                                : `Deployment disabled: status is '${status}'. Only versions passing the gate can be promoted.`
+                            }
+                            className={`rounded-md px-3 py-1 text-xs font-medium shadow-xs ${
+                              isEligible
+                                ? 'bg-[#1F6F5C] text-white hover:bg-[#185849] cursor-pointer'
+                                : 'bg-[#DDE3DC] text-[#101B16]/40 cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            Promote to Prod
+                          </button>
+                        ) : (
+                          <span className="text-xs text-[#1F6F5C] font-semibold">✓ Current Live</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -2330,6 +2409,180 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 className="rounded-md bg-[#1F6F5C] px-4 py-2 text-xs font-semibold text-white hover:bg-[#185849] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isStartingRound ? 'Starting...' : 'Start DL Federated Round'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* GATE REPORT MODAL */}
+      {/* ========================================================================= */}
+      {selectedGateReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-[#DDE3DC] bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#DDE3DC] pb-4">
+              <div>
+                <h3 className="font-serif text-lg font-medium text-[#101B16]">
+                  Deployment Gate Evaluation Report
+                </h3>
+                <p className="font-mono text-xs text-[#3B3F8C] mt-0.5">
+                  {selectedGateReport.versionTag}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedGateReport(null)}
+                className="rounded-full p-1.5 text-[#101B16]/50 hover:bg-[#F7F9F6] hover:text-[#101B16]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-xs">
+              <div className="flex items-center justify-between rounded-lg bg-[#F7F9F6] p-3 border border-[#DDE3DC]">
+                <div>
+                  <span className="text-[#101B16]/60">Gate Outcome:</span>{' '}
+                  <span
+                    className={`font-semibold uppercase tracking-wider ${
+                      selectedGateReport.report?.status === 'eligible'
+                        ? 'text-[#1F6F5C]'
+                        : selectedGateReport.report?.status === 'rejected'
+                          ? 'text-[#B42318]'
+                          : 'text-[#C97A2B]'
+                    }`}
+                  >
+                    {selectedGateReport.report?.status ?? 'Unknown'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#101B16]/60">Validation Signature:</span>{' '}
+                  <span className="font-mono text-[11px] text-[#101B16]">
+                    {selectedGateReport.report?.data_source ?? 'Standard Partition'}
+                  </span>
+                </div>
+              </div>
+
+              {selectedGateReport.report?.legacy ? (
+                <div className="p-4 rounded-lg bg-neutral-50 text-[#101B16]/70">
+                  This is a pre-existing legacy model recorded prior to automated gate enforcement.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-lg border border-[#DDE3DC]">
+                  <table className="w-full text-left">
+                    <thead className="bg-[#F7F9F6] text-[11px] font-semibold text-[#101B16]/60 border-b border-[#DDE3DC]">
+                      <tr>
+                        <th className="py-2.5 px-3">Check / Safety Metric</th>
+                        <th className="py-2.5 px-3">Observed Value</th>
+                        <th className="py-2.5 px-3">Threshold</th>
+                        <th className="py-2.5 px-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#DDE3DC]">
+                      {(selectedGateReport.report?.checks ?? []).map((c: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-black/[0.01]">
+                          <td className="py-2.5 px-3 font-medium text-[#101B16]">
+                            <div>{c.label || c.name}</div>
+                            {c.details && (
+                              <div className="text-[10.5px] text-[#101B16]/50 mt-0.5">{c.details}</div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono">
+                            {typeof c.value === 'object' && c.value !== null
+                              ? `Acc -${c.value.accuracy_drop}, F1 -${c.value.f1_drop}`
+                              : c.value !== null && c.value !== undefined
+                                ? `${(Number(c.value) * 100).toFixed(1)}%`
+                                : '—'}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-[#101B16]/70">
+                            {c.threshold !== null && c.threshold !== undefined
+                              ? `${c.operator || '>='} ${(Number(c.threshold) * 100).toFixed(1)}%`
+                              : '—'}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                c.status === 'passed'
+                                  ? 'bg-[#1F6F5C]/15 text-[#1F6F5C]'
+                                  : c.status === 'failed'
+                                    ? 'bg-[#B42318]/15 text-[#B42318]'
+                                    : 'bg-[#C97A2B]/15 text-[#C97A2B]'
+                              }`}
+                            >
+                              {c.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {selectedGateReport.report?.reasons?.length > 0 && (
+                <div className="rounded-lg bg-[#B42318]/10 p-3 border border-[#B42318]/20">
+                  <span className="font-semibold text-[#B42318]">Gate Failure / Review Notes:</span>
+                  <ul className="list-disc list-inside mt-1 text-[11px] text-[#B42318]/90 space-y-0.5">
+                    {selectedGateReport.report.reasons.map((r: string, idx: number) => (
+                      <li key={idx}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedGateReport(null)}
+                className="rounded-lg bg-[#101B16]/10 px-4 py-2 text-xs font-medium text-[#101B16] hover:bg-[#101B16]/15 cursor-pointer"
+              >
+                Close Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ROLLBACK CONFIRMATION MODAL */}
+      {/* ========================================================================= */}
+      {isRollbackModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#DDE3DC] bg-white p-6 shadow-xl">
+            <h3 className="font-serif text-lg font-medium text-[#101B16]">
+              Confirm Production Model Rollback
+            </h3>
+            <p className="text-xs text-[#101B16]/70 mt-2">
+              This action will immediately deactivate the current production checkpoint for{' '}
+              <strong className="font-mono text-[#3B3F8C]">{rollbackFamily}</strong> and restore
+              the most recent previous active version into runtime inference memory.
+            </p>
+
+            <div className="mt-4">
+              <label className="text-xs text-[#101B16]/70 block mb-1">Select Model Family</label>
+              <select
+                value={rollbackFamily}
+                onChange={(e) => setRollbackFamily(e.target.value as any)}
+                className="w-full rounded-lg border border-[#DDE3DC] bg-white px-3 py-2 text-xs text-[#101B16]"
+              >
+                <option value="resnet18_ct">ResNet18 CT Imaging (resnet18_ct)</option>
+                <option value="xgboost_risk">XGBoost Clinical Risk (xgboost_risk)</option>
+              </select>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3 border-t border-[#DDE3DC] pt-4">
+              <button
+                type="button"
+                onClick={() => setIsRollbackModalOpen(false)}
+                className="rounded-md px-3.5 py-2 text-xs text-[#101B16]/65 hover:text-[#101B16]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRollbackSubmit}
+                className="rounded-md bg-[#C97A2B] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A86420]"
+              >
+                Confirm & Rollback
               </button>
             </div>
           </div>

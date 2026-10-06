@@ -1,4 +1,4 @@
-﻿"""StoneSense-AI Custom Flower Strategy.
+"""StoneSense-AI Custom Flower Strategy.
 
 Extends FedAvg to:
 1. Aggregate custom training and evaluation metrics across hospital clients.
@@ -280,7 +280,7 @@ def persist_round_to_db(
             model_state_dict=model.state_dict(),
             round_number=round_number,
             metrics={"accuracy": val_acc, "f1_macro": val_f1, "val_loss": val_loss},
-            is_deployed=True
+            is_deployed=False
         )
 
         # 2. Check if round already in DB or update
@@ -313,12 +313,10 @@ def persist_round_to_db(
             fed_round.global_val_f1 = val_f1
             fed_round.duration_sec = duration_sec
 
-        # 3. ModelVersion Registry
+        # 3. ModelVersion Registry (Registered as pending_review; deployment is strictly gate-controlled)
         version_tag = f"resnet18_fed_round_{round_number:03d}"
         mv = db.query(ModelVersion).filter_by(version_tag=version_tag).first()
         if not mv:
-            # Undeploy older versions
-            db.query(ModelVersion).filter_by(model_family="resnet18_ct").update({ModelVersion.is_deployed: False})
             mv = ModelVersion(
                 model_family="resnet18_ct",
                 version_tag=version_tag,
@@ -327,7 +325,8 @@ def persist_round_to_db(
                 f1_score=val_f1,
                 precision=val_prec,
                 recall=val_rec,
-                is_deployed=True,
+                is_deployed=False,
+                status="pending_review",
                 artifact_path=str(checkpoint_path.relative_to(PROJECT_ROOT)),
                 trained_at=datetime.utcnow()
             )

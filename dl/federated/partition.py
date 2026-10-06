@@ -35,7 +35,7 @@ def partition_dataset(
     """Partitions images from source processed directory into isolated hospital directories.
 
     Args:
-        source_dir: Path to dl/processed containing train/validation/test.
+        source_dir: Path to dl/processed_grouped containing train/validation/test.
         output_dir: Path to dl/datasets/partitions where hospital_1/2/3 will be stored.
         mode: "iid" or "non-iid".
         seed: Random seed for reproducibility.
@@ -46,7 +46,6 @@ def partition_dataset(
     """
     source_dir = Path(source_dir)
     output_dir = Path(output_dir)
-    random.seed(seed)
 
     logger.info(f"Partitioning dataset from '{source_dir}' to '{output_dir}' [Mode: {mode.upper()}, Seed: {seed}]")
 
@@ -68,6 +67,13 @@ def partition_dataset(
         for h_id in HOSPITAL_IDS[:num_hospitals]
     }
 
+    # Split seeds to guarantee identical validation and test partitions across IID and non-IID modes
+    split_seeds = {
+        "train": seed,
+        "validation": seed + 1001,
+        "test": seed + 2002,
+    }
+
     # Partition each split
     for split in ["train", "validation", "test"]:
         split_src = source_dir / split
@@ -75,13 +81,15 @@ def partition_dataset(
             logger.warning(f"Split path {split_src} not found, skipping...")
             continue
 
+        split_rng = random.Random(split_seeds[split])
+
         for cls_name in CLASSES:
             cls_src = split_src / cls_name
             if not cls_src.exists():
                 continue
 
             images = sorted(list(cls_src.glob("*.*")))
-            random.shuffle(images)
+            split_rng.shuffle(images)
             n_images = len(images)
 
             if n_images == 0:
@@ -161,7 +169,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Partition CT dataset for Federated Learning.")
     parser.add_argument("--mode", type=str, default="iid", choices=["iid", "non-iid"], help="Distribution mode")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--src", type=str, default="dl/processed", help="Processed dataset root")
+    parser.add_argument("--src", type=str, default="dl/processed_grouped", help="Processed grouped dataset root")
     parser.add_argument("--dst", type=str, default="dl/datasets/partitions", help="Partitions destination directory")
 
     args = parser.parse_args()

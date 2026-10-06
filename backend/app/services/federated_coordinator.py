@@ -424,16 +424,32 @@ class FederatedCoordinator:
             set_model_parameters(global_model, global_weights)
             time.sleep(0.5)
 
-            # 7. Validation across hospital test partitions
-            total_eval_samples = 0
-            weighted_eval_loss = 0.0
-            weighted_eval_acc = 0.0
-            weighted_eval_f1 = 0.0
-            weighted_eval_prec = 0.0
-            weighted_eval_rec = 0.0
+            # 7. Validation across hospital test/val partitions with per-class recall
+            from torchvision import datasets, transforms
+            from torch.utils.data import DataLoader, ConcatDataset
+            from evaluate_helpers import evaluate_model
+            from app.services.deployment_gate import deployment_gate, compute_validation_dataset_hash
 
+            val_hash = compute_validation_dataset_hash(
+                [partitions_root / h_id / "validation" for h_id in HOSPITAL_IDS if (partitions_root / h_id / "validation").exists()]
+            )
+
+            transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            ])
+
+            val_datasets = []
             for h_id in HOSPITAL_IDS:
                 h_code = HOSPITAL_CODE_MAP.get(h_id, "HOSP-001")
+                val_dir = partitions_root / h_id / "val"
+                if not val_dir.exists():
+                    val_dir = partitions_root / h_id / "validation"
+                if val_dir.exists():
+                    val_datasets.append(datasets.ImageFolder(val_dir, transform=transform))
+
+                # Local client evaluation
                 client = StoneSenseFLClient(
                     hospital_id=h_code,
                     partition_dir=partitions_root / h_id,
@@ -443,18 +459,23 @@ class FederatedCoordinator:
                 loss, samples, eval_m = client.evaluate(global_weights, config)
                 client_eval_metrics[h_code] = eval_m
 
-                total_eval_samples += samples
-                weighted_eval_loss += loss * samples
-                weighted_eval_acc += float(eval_m.get("accuracy", 0.0)) * samples
-                weighted_eval_f1 += float(eval_m.get("f1_macro", 0.0)) * samples
-                weighted_eval_prec += float(eval_m.get("precision_macro", 0.0)) * samples
-                weighted_eval_rec += float(eval_m.get("recall_macro", 0.0)) * samples
-
-            global_val_loss = weighted_eval_loss / max(total_eval_samples, 1)
-            global_val_acc = weighted_eval_acc / max(total_eval_samples, 1)
-            global_val_f1 = weighted_eval_f1 / max(total_eval_samples, 1)
-            global_val_prec = weighted_eval_prec / max(total_eval_samples, 1)
-            global_val_rec = weighted_eval_rec / max(total_eval_samples, 1)
+            if val_datasets:
+                combined_val = ConcatDataset(val_datasets)
+                val_loader = DataLoader(combined_val, batch_size=batch_size, shuffle=False)
+                eval_metrics_full, _, _, _ = evaluate_model(global_model, val_loader, dev, class_names)
+                global_val_loss = float(eval_metrics_full.get("loss", 0.0))
+                global_val_acc = float(eval_metrics_full.get("accuracy", 0.0))
+                global_val_f1 = float(eval_metrics_full.get("f1_macro", 0.0))
+                global_val_prec = float(eval_metrics_full.get("precision_macro", 0.0))
+                global_val_rec = float(eval_metrics_full.get("recall_macro", 0.0))
+                per_class_metrics = eval_metrics_full.get("per_class_metrics", {})
+            else:
+                per_class_metrics = {}
+                global_val_loss = 0.0
+                global_val_acc = 0.0
+                global_val_f1 = 0.0
+                global_val_prec = 0.0
+                global_val_rec = 0.0
 
             tot_train_samples = sum(client_sample_counts)
             global_train_loss = sum(m["train_loss"] * client_sample_counts[i] for i, m in enumerate(client_fit_metrics)) / max(tot_train_samples, 1)
@@ -467,6 +488,7 @@ class FederatedCoordinator:
                 "f1_macro": global_val_f1,
                 "precision_macro": global_val_prec,
                 "recall_macro": global_val_rec,
+                "per_class_metrics": per_class_metrics,
             }
 
             self.latest_round_metrics = {
@@ -475,6 +497,8 @@ class FederatedCoordinator:
                 "loss": round(global_val_loss, 4),
                 "precision": round(global_val_prec, 4),
                 "recall": round(global_val_rec, 4),
+                "recall_stone": round(float(per_class_metrics.get("Stone", {}).get("recall", 0.0)), 4) if "Stone" in per_class_metrics else None,
+                "recall_tumor": round(float(per_class_metrics.get("Tumor", {}).get("recall", 0.0)), 4) if "Tumor" in per_class_metrics else None,
             }
 
             self._emit_event("FEDAVG_COMPLETED", data=self.latest_round_metrics)
@@ -484,7 +508,7 @@ class FederatedCoordinator:
             for i, h_id in enumerate(selected_partition_ids):
                 h_code = HOSPITAL_CODE_MAP.get(h_id, "HOSP-001")
                 fit_m = client_fit_metrics[i]
-                eval_m = client_eval_metrics[h_code]
+                eval_m = client_eval_metrics.get(h_code, {})
                 client_runs.append({
                     "hospital_code": h_code,
                     "train_loss": fit_m.get("train_loss"),
@@ -509,14 +533,43 @@ class FederatedCoordinator:
                 selected_hospital_ids=selected_hospital_ids,
             )
 
-            # Reload runtime DL model for real-time inference
+            # 8b. Deployment Gate Evaluation (No auto-deploy; sets eligible/rejected/pending_review)
+            gate_report = None
+            gate_db = SessionLocal()
             try:
-                from app.services.model_loader import model_loader
-                model_loader.reload_dl_model(self.global_model_version)
-            except Exception as e:
-                logger.warning(f"Could not trigger model_loader reload: {e}")
+                candidate_metrics = {
+                    "accuracy": global_val_acc,
+                    "f1": global_val_f1,
+                    "precision": global_val_prec,
+                    "recall": global_val_rec,
+                    "recall_stone": per_class_metrics.get("Stone", {}).get("recall"),
+                    "recall_tumor": per_class_metrics.get("Tumor", {}).get("recall"),
+                    "precision_stone": per_class_metrics.get("Stone", {}).get("precision"),
+                    "confusion_matrix": eval_metrics_full.get("confusion_matrix"),
+                    "per_class_metrics": per_class_metrics,
+                    "validation_data_source": val_hash,
+                    "validation_set_hash": val_hash,
+                    "is_central_eval": True,
+                }
+                gate_report = deployment_gate.evaluate_candidate(
+                    candidate_metrics=candidate_metrics,
+                    db=gate_db,
+                    model_family="resnet18_ct",
+                    validation_data_source=val_hash,
+                )
+                mv = gate_db.query(ModelVersion).filter_by(version_tag=self.global_model_version).first()
+                if mv:
+                    mv.gate_report = gate_report
+                    mv.status = gate_report["status"]
+                    gate_db.commit()
+            except Exception as gate_err:
+                logger.warning(f"Deployment gate evaluation error: {gate_err}")
+                gate_db.rollback()
+            finally:
+                gate_db.close()
 
-            self._emit_event("GLOBAL_MODEL_SAVED", data={"new_version": self.global_model_version})
+            self._emit_event("MODEL_GATE_EVALUATED", data={"gate_report": gate_report, "version_tag": self.global_model_version})
+            self._emit_event("GLOBAL_MODEL_SAVED", data={"new_version": self.global_model_version, "status": gate_report.get("status") if gate_report else "pending_review"})
             self._emit_event("MODEL_DISTRIBUTED", data={"new_version": self.global_model_version})
 
             for h_code in ["HOSP-001", "HOSP-002", "HOSP-003"]:

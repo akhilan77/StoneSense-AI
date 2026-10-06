@@ -13,8 +13,8 @@ sys.path.insert(0, str(PROJECT_ROOT / "ml"))
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
 from ml.models.registry import registry
-from backend.app.services.prediction_service import PredictionService
-from backend.app.services.model_loader import model_loader
+from app.services.prediction_service import PredictionService
+from app.services.model_loader import model_loader
 
 
 
