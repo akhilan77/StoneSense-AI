@@ -36,24 +36,49 @@ logger = logging.getLogger("ExplainabilityService")
 def generate_shap_for_patient(patient_features: Dict[str, Any]) -> Dict[str, Any]:
     """Return local SHAP values using the models already loaded for inference."""
     from app.services.model_loader import model_loader
-    from app.utils.preprocessing_utils import prepare_tabular_inputs
+    from app.utils.preprocessing_utils import prepare_tabular_inputs, get_expected_feature_columns
 
     if model_loader.ml_model is None or model_loader.ml_pipeline is None:
         raise RuntimeError("ML model or preprocessing pipeline is not loaded.")
+
     frame = prepare_tabular_inputs(patient_features)
     transformed = model_loader.ml_pipeline.transform(frame)
-    columns = ["gravity", "ph", "osmo", "cond", "urea", "calc"]
-    explanation = shap.TreeExplainer(model_loader.ml_model)(pd.DataFrame(transformed, columns=columns))[0]
-    contributions = {name: float(value) for name, value in zip(columns, explanation.values)}
+
+    # If model is a BaseRiskModel wrapper, use its built-in explain()
+    if hasattr(model_loader.ml_model, "explain"):
+        return model_loader.ml_model.explain(transformed)
+
+    # Fallback for raw estimators
+    columns = get_expected_feature_columns()
+    df_trans = pd.DataFrame(transformed, columns=columns)
+    estimator = getattr(model_loader.ml_model, "estimator", model_loader.ml_model)
+    
+    if hasattr(estimator, "coef_"):
+        # Linear model -> LinearExplainer
+        bg = np.zeros((1, len(columns)))
+        explainer = shap.LinearExplainer(estimator, bg)
+    else:
+        # Tree model -> TreeExplainer
+        explainer = shap.TreeExplainer(estimator)
+
+    explanation = explainer(df_trans)[0]
+    vals = explanation.values
+    if isinstance(vals, np.ndarray) and vals.ndim > 1:
+        vals = vals[:, 1] if vals.shape[1] == 2 else vals[:, 0]
+    vals = np.asarray(vals).flatten()
+
+    contributions = {name: float(value) for name, value in zip(columns, vals)}
+    directions = {
+        name: "increases" if value > 1e-6 else "decreases" if value < -1e-6 else "neutral"
+        for name, value in contributions.items()
+    }
     return {
         "top_features": sorted(contributions, key=lambda name: abs(contributions[name]), reverse=True),
         "feature_contributions": contributions,
-        "feature_directions": {
-            name: "increases" if value > 0 else "decreases" if value < 0 else "neutral"
-            for name, value in contributions.items()
-        },
+        "feature_directions": directions,
         "summary": "The strongest SHAP contributors influenced the model output for this request; they do not establish causation.",
     }
+
 
 
 def generate_gradcam_for_bytes(image_bytes: bytes, output_path: str, target_class: Optional[str] = None) -> Dict[str, Any]:
@@ -177,16 +202,25 @@ class ExplainabilityService:
             logger.warning(f"DL model checkpoint not found at {dl_model_path}")
 
         # Load ML Risk model and pipeline
-        ml_model_path = PROJECT_ROOT / "ml" / "models" / "kidney_risk_model.pkl"
-        ml_pipeline_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
-        if ml_model_path.exists() and ml_pipeline_path.exists():
-            self.ml_model = joblib.load(ml_model_path)
-            self.ml_pipeline = joblib.load(ml_pipeline_path)
-            self.ml_explainer = shap.TreeExplainer(self.ml_model)
-            logger.info("ML SHAP Risk model loaded in ExplainabilityService.")
-        else:
-            self.ml_model = None
-            logger.warning("ML model or preprocessor artifacts missing.")
+        try:
+            from models.registry import registry
+            self.ml_model = registry.get_active_model()
+            ml_pipeline_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
+            if ml_pipeline_path.exists():
+                self.ml_pipeline = joblib.load(ml_pipeline_path)
+            else:
+                self.ml_pipeline = None
+            logger.info(f"ML Risk model ({self.ml_model.version_tag}) loaded in ExplainabilityService.")
+        except Exception as exc:
+            logger.warning(f"Could not load active model from registry: {exc}")
+            ml_model_path = PROJECT_ROOT / "ml" / "models" / "candidate_risk_model.pkl"
+            ml_pipeline_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
+            if ml_model_path.exists() and ml_pipeline_path.exists():
+                self.ml_model = joblib.load(ml_model_path)
+                self.ml_pipeline = joblib.load(ml_pipeline_path)
+            else:
+                self.ml_model = None
+                self.ml_pipeline = None
 
     def generate_gradcam(self, image_path: str, output_path: Optional[str] = None) -> Dict[str, Any]:
         """Generates Grad-CAM activation heatmap overlay.
@@ -249,45 +283,28 @@ class ExplainabilityService:
         Returns:
             Dict: Predicted risk probability, level classification, and SHAP contributions.
         """
-        if self.ml_model is None:
+        if self.ml_model is None or self.ml_pipeline is None:
             return {"error": "ML Risk model or preprocessor not loaded in service."}
 
-        # Ensure correct key formats
-        feature_mapping = {
-            "urine_specific_gravity": "gravity",
-            "urine_ph": "ph",
-            "calcium": "calc"
-        }
-        mapped_features = {}
-        for k, v in patient_features.items():
-            mapped_key = feature_mapping.get(k, k)
-            mapped_features[mapped_key] = v
-
-        # Filter features expected by the pipeline
-        expected_cols = ["gravity", "ph", "osmo", "cond", "urea", "calc"]
-        df_input = pd.DataFrame([{col: mapped_features.get(col, 0.0) for col in expected_cols}])
-
-        # Transform features
+        from app.utils.preprocessing_utils import prepare_tabular_inputs
+        df_input = prepare_tabular_inputs(patient_features)
         X_trans = self.ml_pipeline.transform(df_input)
 
         # Predict
         prob = float(self.ml_model.predict_proba(X_trans)[0, 1])
         pred_label = int(self.ml_model.predict(X_trans)[0])
-        risk_level = "high" if pred_label == 1 else "low"
+        risk_level = "High" if pred_label == 1 else "Low"
 
-        # Calculate SHAP values
-        df_trans = pd.DataFrame(X_trans, columns=expected_cols)
-        shap_explanation = self.ml_explainer(df_trans)[0]
-
-        # Extract values
-        shap_values_dict = {}
-        for col, val in zip(expected_cols, shap_explanation.values):
-            shap_values_dict[col] = float(val)
+        # Generate SHAP
+        shap_data = generate_shap_for_patient(patient_features)
 
         return {
             "probability": round(prob, 4),
             "risk_level": risk_level,
-            "shap_values": shap_values_dict
+            "shap_values": shap_data.get("feature_contributions", {}),
+            "top_features": shap_data.get("top_features", []),
+            "feature_directions": shap_data.get("feature_directions", {}),
+            "summary": shap_data.get("summary", "")
         }
 
     def generate_explanation(self, image_path: str, patient_features: Dict[str, Any], gradcam_out_path: Optional[str] = None) -> Dict[str, Any]:

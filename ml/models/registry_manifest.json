@@ -1,0 +1,58 @@
+{
+    "active_model_version": "logistic_regression_v001",
+    "models": {
+        "logistic_regression_v001": {
+            "model_family": "logistic_regression",
+            "version_tag": "logistic_regression_v001",
+            "artifact_path": "ml/models/versions/logistic_regression_v001.pkl",
+            "absolute_artifact_path": "C:/Users/akhil/projects/StoneSense-AI/ml/models/versions/logistic_regression_v001.pkl",
+            "features": [
+                "gravity",
+                "ph",
+                "osmo",
+                "cond",
+                "urea",
+                "calc"
+            ],
+            "threshold": 0.5,
+            "metrics": {
+                "roc_auc_mean": 0.8387,
+                "roc_auc_std": 0.094,
+                "roc_auc_ci_95": "[0.7327, 0.9176]",
+                "f1_mean": 0.6937,
+                "f1_ci_95": "[0.5333, 0.7937]",
+                "accuracy_mean": 0.7467,
+                "mcc_mean": 0.4926,
+                "sensitivity_ci_95": "[0.4749, 0.8000]",
+                "specificity_ci_95": "[0.6842, 0.9091]",
+                "permutation_p_value": 0.001
+            },
+            "trained_at": "2026-10-06T12:45:00Z",
+            "is_deployed": true
+        },
+        "xgboost_v001": {
+            "model_family": "xgboost",
+            "version_tag": "xgboost_v001",
+            "artifact_path": "ml/models/versions/xgboost_v001.pkl",
+            "absolute_artifact_path": "C:/Users/akhil/projects/StoneSense-AI/ml/models/versions/xgboost_v001.pkl",
+            "features": [
+                "gravity",
+                "ph",
+                "osmo",
+                "cond",
+                "urea",
+                "calc"
+            ],
+            "threshold": 0.5,
+            "metrics": {
+                "roc_auc_mean": 0.8076,
+                "f1_mean": 0.7169,
+                "accuracy_mean": 0.7714,
+                "mcc_mean": 0.5505,
+                "roc_auc_ci_95": "[0.7080, 0.9156]"
+            },
+            "trained_at": "2026-10-06T12:45:00Z",
+            "is_deployed": false
+        }
+    }
+}

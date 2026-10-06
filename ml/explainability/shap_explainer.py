@@ -64,19 +64,31 @@ class SHAPRiskExplainer:
 
         self.X_trans = self.pipeline.transform(self.X_raw)
 
-        # Retrieve feature names
-        num_cols = list(self.X_raw.select_dtypes(include=[np.number]).columns)
-        cat_cols = list(self.X_raw.select_dtypes(include=['object', 'category']).columns)
-        self.feature_names = num_cols + cat_cols
+        # Retrieve feature names from authoritative feature_columns.pkl if available
+        feature_cols_path = self.pipeline_path.parent / "feature_columns.pkl"
+        if feature_cols_path.exists():
+            self.feature_names = list(joblib.load(feature_cols_path))
+        else:
+            num_cols = list(self.X_raw.select_dtypes(include=[np.number]).columns)
+            cat_cols = list(self.X_raw.select_dtypes(include=['object', 'category']).columns)
+            self.feature_names = num_cols + cat_cols
 
         # Wrap in DataFrame for SHAP explanation plotting
         self.X_df = pd.DataFrame(self.X_trans, columns=self.feature_names)
 
-        # Fit TreeExplainer
-        self.explainer = shap.TreeExplainer(self.model)
+        # Dynamic Explainer selection
+        estimator = getattr(self.model, "estimator", self.model)
+        if hasattr(estimator, "coef_"):
+            logger.info("Initializing shap.LinearExplainer for linear risk model...")
+            self.explainer = shap.LinearExplainer(estimator, self.X_df)
+        else:
+            logger.info("Initializing shap.TreeExplainer for tree risk model...")
+            self.explainer = shap.TreeExplainer(estimator)
+
         self.shap_values = self.explainer(self.X_df)
 
         logger.info("SHAPRiskExplainer initialized and fit successfully.")
+
 
     def generate_global_explanations(self) -> None:
         """Saves SHAP summary plot, bar plot, and dependence plot."""
@@ -201,8 +213,11 @@ By exposing direct additive calculations for clinical urine values, SHAP enables
 
 def main():
     base_dir = Path(__file__).resolve().parents[1]
-    model_path = base_dir / "models" / "kidney_risk_model.pkl"
+    model_path = base_dir / "models" / "candidate_risk_model.pkl"
+    if not model_path.exists():
+        model_path = base_dir / "models" / "kidney_risk_model.pkl"
     pipeline_path = base_dir / "artifacts" / "preprocessing_pipeline.pkl"
+
     test_csv = base_dir / "processed" / "test.csv"
     output_dir = base_dir / "outputs" / "shap"
     reports_dir = base_dir / "outputs" / "reports"

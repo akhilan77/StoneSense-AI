@@ -1,11 +1,23 @@
 """Preprocessing utilities for mapping and structuring tabular clinical inputs."""
 
 import logging
-from typing import Dict, Any
+from pathlib import Path
+from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
+import joblib
 
 logger = logging.getLogger("PreprocessingUtils")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+FEATURE_COLUMNS_PATH = PROJECT_ROOT / "ml" / "artifacts" / "feature_columns.pkl"
+
+
+def get_expected_feature_columns() -> List[str]:
+    """Retrieves authoritative feature columns from feature_columns.pkl."""
+    if FEATURE_COLUMNS_PATH.exists():
+        return list(joblib.load(FEATURE_COLUMNS_PATH))
+    return ["gravity", "ph", "osmo", "cond", "urea", "calc"]
 
 
 def prepare_tabular_inputs(patient_data: Dict[str, Any]) -> pd.DataFrame:
@@ -30,5 +42,6 @@ def prepare_tabular_inputs(patient_data: Dict[str, Any]) -> pd.DataFrame:
         mapped_key = feature_mapping.get(k, k)
         mapped_features[mapped_key] = v
 
-    expected_cols = ["gravity", "ph", "osmo", "cond", "urea", "calc"]
+    expected_cols = get_expected_feature_columns()
     return pd.DataFrame([{col: mapped_features.get(col, 0.0) for col in expected_cols}])
+

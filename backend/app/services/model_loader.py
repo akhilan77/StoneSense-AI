@@ -13,7 +13,9 @@ import joblib
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 import sys
 sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
+sys.path.append(str(PROJECT_ROOT / "ml"))
 sys.path.append(str(PROJECT_ROOT / "ml" / "training"))
+sys.path.append(str(PROJECT_ROOT / "ml" / "models"))
 
 logger = logging.getLogger("ModelLoader")
 
@@ -42,11 +44,13 @@ class ModelLoader:
         self.ml_model = None
         self.ml_pipeline = None
         self.active_dl_version_tag = "resnet18_centralized_v1"
+        self.active_ml_version_tag = "logistic_regression_v001"
+        self.active_ml_family = "logistic_regression"
 
         self._initialized = True
 
     def load_all_models(self) -> None:
-        """Loads the DL federated ResNet18 and centralized ML XGBoost models."""
+        """Loads the DL federated ResNet18 and centralized tabular risk models."""
         logger.info("Initializing StoneSense-AI Singleton Model Loader...")
         self.reload_dl_model()
         self.load_ml_model()
@@ -102,18 +106,41 @@ class ModelLoader:
             logger.warning(f"No ResNet18 checkpoint found at {target_path}")
             return False
 
-    def load_ml_model(self) -> None:
-        """Loads the centralized XGBoost model and preprocessing pipeline."""
-        ml_model_path = PROJECT_ROOT / "ml" / "models" / "kidney_risk_model.pkl"
+    def load_ml_model(self, version_tag: Optional[str] = None) -> bool:
+        """Loads the active tabular risk model from ModelRegistry and preprocessing pipeline."""
         ml_pipeline_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
 
-        if ml_model_path.exists() and ml_pipeline_path.exists():
-            logger.info("Loading XGBoost model and pipeline...")
-            self.ml_model = joblib.load(ml_model_path)
-            self.ml_pipeline = joblib.load(ml_pipeline_path)
-            logger.info("XGBoost and preprocessing pipeline loaded successfully.")
-        else:
-            logger.error("XGBoost or preprocessor pipeline artifacts missing.")
+        try:
+            from models.registry import registry
+            active_model = registry.get_model(version_tag)
+            self.ml_model = active_model
+            self.active_ml_version_tag = active_model.version_tag
+            self.active_ml_family = active_model.model_family
+
+            if ml_pipeline_path.exists():
+                self.ml_pipeline = joblib.load(ml_pipeline_path)
+            else:
+                logger.error(f"Preprocessing pipeline artifact missing at {ml_pipeline_path}")
+                return False
+
+            logger.info(
+                f"Tabular Risk Model loaded successfully from registry "
+                f"({self.active_ml_version_tag}, family: {self.active_ml_family})."
+            )
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to load risk model from registry: {exc}")
+            # Fallback to direct artifact load if registry fails unexpectedly
+            ml_model_path = PROJECT_ROOT / "ml" / "models" / "candidate_risk_model.pkl"
+            if not ml_model_path.exists():
+                ml_model_path = PROJECT_ROOT / "ml" / "models" / "kidney_risk_model.pkl"
+            if ml_model_path.exists() and ml_pipeline_path.exists():
+                self.ml_model = joblib.load(ml_model_path)
+                self.ml_pipeline = joblib.load(ml_pipeline_path)
+                self.active_ml_version_tag = ml_model_path.stem
+                logger.info(f"Fallback model loaded from {ml_model_path}")
+                return True
+            return False
 
 
 # Singleton helper access

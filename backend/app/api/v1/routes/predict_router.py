@@ -43,17 +43,31 @@ async def predict_risk(
     elapsed = time.time() - start_time
     confidence = max(res["probability"], 1 - res["probability"])
 
+    active_ml_ver = getattr(model_loader, "active_ml_version_tag", "logistic_regression_v001")
+    active_ml_fam = getattr(model_loader, "active_ml_family", "logistic_regression")
+
     try:
+        from app.db.models import InferenceLog
         prediction = Prediction(
             hospital_id=payload.hospital_id,
             patient_id=patient.id if patient else None,
             prediction_type="risk",
-            model_name="xgboost_risk_v1_1",
+            model_name=active_ml_ver,
+            result_label=str(res["risk"]),
+            confidence=confidence,
+            latency_ms=elapsed * 1000,
+        )
+        inf_log = InferenceLog(
+            hospital_id=payload.hospital_id,
+            prediction_type="risk",
+            model_name=active_ml_fam,
+            version_tag=active_ml_ver,
             result_label=str(res["risk"]),
             confidence=confidence,
             latency_ms=elapsed * 1000,
         )
         db.add(prediction)
+        db.add(inf_log)
         if patient:
             profile = dict(patient.urine_features or {})
             profile["clinical"] = payload.model_dump(exclude={"hospital_id", "patient_id"})
@@ -61,6 +75,7 @@ async def predict_risk(
         db.commit()
     except Exception:
         db.rollback()
+
 
     shap = generate_shap_for_patient(payload.model_dump())
     return RiskPredictionResponse(
