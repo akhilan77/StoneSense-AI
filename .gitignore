@@ -231,3 +231,7 @@ dl/processed/
 ml/outputs/
 dl/outputs/
 
+
+# Generated ML/DL artifacts
+backend/app/static/gradcam/
+dl/processed_grouped/
