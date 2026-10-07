@@ -22,10 +22,11 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, 
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
+from app.core.auth import get_current_user, require_hospital_scope, log_audit
 from app.db.database import get_db
 from app.db.models import (
     Hospital, Prediction, HospitalTrainingRun, FederatedRound,
-    ModelVersion, HospitalUpdateLog
+    ModelVersion, HospitalUpdateLog, User
 )
 from app.schemas.dashboard import HospitalOut, PatientHistoryItem
 from app.schemas.federated import (
@@ -52,42 +53,54 @@ def _get_hospital_or_404(hospital_id: int, db: Session) -> Hospital:
     return hospital
 
 
-def _require_hospital_scope(hospital_id: int, x_hospital_id: Optional[str]) -> None:
-    """Require the caller to identify the same hospital as the URL scope."""
-    if not x_hospital_id:
-        raise HTTPException(status_code=401, detail="Hospital identity is required.")
-
-    try:
-        requested_id = int(x_hospital_id)
-    except ValueError:
-        raise HTTPException(status_code=403, detail="Hospital identity does not match this resource.")
-
-    if requested_id != hospital_id:
-        raise HTTPException(status_code=403, detail="Hospital identity does not match this resource.")
-
-
 @router.get("/list", response_model=List[HospitalOut])
 def list_hospitals(db: Session = Depends(get_db)):
-    """Lists all active hospitals."""
+    """Lists all active hospitals (public metadata for network node selection)."""
     return db.query(Hospital).filter(Hospital.is_active.is_(True)).order_by(Hospital.id).all()
 
 
 @router.get("/{hospital_id}/detail", response_model=HospitalOut)
-def get_hospital_detail(hospital_id: int, db: Session = Depends(get_db)):
+def get_hospital_detail(
+    hospital_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Returns metadata for a specific hospital."""
+    require_hospital_scope(hospital_id, current_user)
     return _get_hospital_or_404(hospital_id, db)
 
 
 @router.get("/{hospital_id}/history", response_model=List[PatientHistoryItem])
-def get_history(hospital_id: int, limit: int = 25, db: Session = Depends(get_db)):
+def get_history(
+    hospital_id: int,
+    limit: int = 25,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Recent predictions for one hospital only."""
+    if current_user.role == "developer":
+        raise HTTPException(
+            status_code=403,
+            detail="Developers are not permitted to access patient PII endpoints.",
+        )
+    require_hospital_scope(hospital_id, current_user)
     _get_hospital_or_404(hospital_id, db)
+
     rows = (
         db.query(Prediction)
         .filter(Prediction.hospital_id == hospital_id)
         .order_by(Prediction.created_at.desc())
         .limit(limit)
         .all()
+    )
+    log_audit(
+        db=db,
+        action="PATIENT_READ",
+        resource_type="prediction_history",
+        hospital_id=hospital_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={"count": len(rows), "hospital_id": hospital_id},
     )
     return [
         PatientHistoryItem(
@@ -104,8 +117,14 @@ def get_history(hospital_id: int, limit: int = 25, db: Session = Depends(get_db)
 
 
 @router.get("/{hospital_id}/training-history", response_model=List[HospitalRunTelemetryOut])
-def get_training_history(hospital_id: int, limit: int = 20, db: Session = Depends(get_db)):
+def get_training_history(
+    hospital_id: int,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Returns history of local training runs per round for this hospital."""
+    require_hospital_scope(hospital_id, current_user)
     h = _get_hospital_or_404(hospital_id, db)
     runs = (
         db.query(HospitalTrainingRun, ModelVersion.version_tag)
@@ -138,8 +157,13 @@ def get_training_history(hospital_id: int, limit: int = 20, db: Session = Depend
 
 
 @router.get("/{hospital_id}/current-model")
-def get_current_model(hospital_id: int, db: Session = Depends(get_db)):
+def get_current_model(
+    hospital_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Returns the current active model version deployed for this hospital."""
+    require_hospital_scope(hospital_id, current_user)
     h = _get_hospital_or_404(hospital_id, db)
     latest_round = db.query(FederatedRound).order_by(desc(FederatedRound.round_number)).first()
     deployed_ver = db.query(ModelVersion).filter_by(is_deployed=True, model_family="resnet18_ct").first()
@@ -160,8 +184,13 @@ def get_current_model(hospital_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{hospital_id}/federated-status", response_model=FederatedStatusOut)
-def get_federated_status(hospital_id: int, db: Session = Depends(get_db)):
+def get_federated_status(
+    hospital_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Returns participation status of the hospital in federated learning."""
+    require_hospital_scope(hospital_id, current_user)
     h = _get_hospital_or_404(hospital_id, db)
     latest_round = db.query(FederatedRound).order_by(desc(FederatedRound.round_number)).first()
     latest_run = (
@@ -183,7 +212,11 @@ def get_federated_status(hospital_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{hospital_id}/federated-live-status", response_model=HospitalLiveStatusResponse)
-def get_federated_live_status(hospital_id: str, db: Session = Depends(get_db)):
+def get_federated_live_status(
+    hospital_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Returns real-time round and local client execution status for a specific hospital node."""
     # Support both numeric ID and hospital_code (e.g. 1 or HOSP-001)
     if hospital_id.isdigit():
@@ -191,17 +224,18 @@ def get_federated_live_status(hospital_id: str, db: Session = Depends(get_db)):
         if not h:
             raise HTTPException(status_code=404, detail=f"Hospital ID {hospital_id} not found")
         h_code = h.hospital_code
+        require_hospital_scope(h.id, current_user)
     else:
         h = db.query(Hospital).filter(Hospital.hospital_code == hospital_id).first()
         if not h:
             raise HTTPException(status_code=404, detail=f"Hospital code {hospital_id} not found")
         h_code = h.hospital_code
+        require_hospital_scope(h.id, current_user)
 
     try:
         return federated_coordinator.get_hospital_live_status(h_code)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Hospital {h_code} is not configured as an FL client")
-
 
 
 def _get_hospital_partition_dir(hospital_code: str) -> Path:
@@ -288,13 +322,12 @@ def _dataset_status(hospital: Hospital, inspection: Dict[str, Any]) -> DatasetSt
 @router.get("/{hospital_id}/dataset-status", response_model=DatasetStatusOut)
 def get_dataset_status(
     hospital_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    x_hospital_id: Optional[str] = Header(default=None, alias="X-Hospital-ID"),
 ):
     """Returns private dataset metadata for the requesting hospital only."""
+    require_hospital_scope(hospital_id, current_user)
     h = _get_hospital_or_404(hospital_id, db)
-    if x_hospital_id:
-        _require_hospital_scope(hospital_id, x_hospital_id)
     part_dir = _get_hospital_partition_dir(h.hospital_code)
     inspection = _inspect_dataset(part_dir) if part_dir.exists() else {
         "is_valid": False,
@@ -309,12 +342,12 @@ def get_dataset_status(
 @router.post("/{hospital_id}/dataset-validate", response_model=DatasetValidateResponse)
 def validate_dataset(
     hospital_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    x_hospital_id: Optional[str] = Header(default=None, alias="X-Hospital-ID"),
 ):
     """Validates the private dataset without exposing its files."""
+    require_hospital_scope(hospital_id, current_user)
     h = _get_hospital_or_404(hospital_id, db)
-    _require_hospital_scope(hospital_id, x_hospital_id)
     part_dir = _get_hospital_partition_dir(h.hospital_code)
 
     if not part_dir.exists():
@@ -335,6 +368,20 @@ def validate_dataset(
     h.dataset_validated_at = datetime.utcnow()
     db.commit()
 
+    log_audit(
+        db=db,
+        action="DATASET_VALIDATE",
+        resource_type="dataset",
+        hospital_id=hospital_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "hospital_code": h.hospital_code,
+            "is_valid": inspection["is_valid"],
+            "total": inspection["total"],
+        },
+    )
+
     return DatasetValidateResponse(
         hospital_code=h.hospital_code,
         is_valid=inspection["is_valid"],
@@ -349,12 +396,12 @@ def validate_dataset(
 def upload_dataset(
     hospital_id: int,
     dataset: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    x_hospital_id: Optional[str] = Header(default=None, alias="X-Hospital-ID"),
 ):
     """Replace one hospital's private ResNet18 dataset from a validated ZIP archive."""
+    require_hospital_scope(hospital_id, current_user)
     h = _get_hospital_or_404(hospital_id, db)
-    _require_hospital_scope(hospital_id, x_hospital_id)
     if not dataset.filename or not dataset.filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="Upload a ZIP containing train, validation, and test folders.")
 
@@ -430,18 +477,32 @@ def upload_dataset(
     h.dataset_validated_at = now
     db.commit()
 
+    log_audit(
+        db=db,
+        action="DATASET_UPLOAD",
+        resource_type="dataset",
+        hospital_id=hospital_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "hospital_code": h.hospital_code,
+            "version_tag": h.dataset_version,
+            "total_samples": inspection["total"],
+        },
+    )
+
     return _dataset_status(h, inspection)
 
 
 @router.post("/{hospital_id}/train-local", response_model=LocalTrainingTriggerResponse)
 def trigger_local_training(
     hospital_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    x_hospital_id: Optional[str] = Header(default=None, alias="X-Hospital-ID"),
 ):
     """Runs local DL training without creating a federated participation record."""
+    require_hospital_scope(hospital_id, current_user)
     h = _get_hospital_or_404(hospital_id, db)
-    _require_hospital_scope(hospital_id, x_hospital_id)
     part_dir = _get_hospital_partition_dir(h.hospital_code)
 
     if not part_dir.exists():
@@ -469,14 +530,28 @@ def trigger_local_training(
         _, samples, metrics = client.fit(
             initial_params,
             {
-            "local_epochs": local_epochs,
-            "lr": learning_rate,
-            "base_model_version": base_model_version,
+                "local_epochs": local_epochs,
+                "lr": learning_rate,
+                "base_model_version": base_model_version,
                 "current_round": 0,
                 "federated_round": False,
             },
         )
         duration_sec = round(time.perf_counter() - start_time, 3)
+
+        log_audit(
+            db=db,
+            action="TRAINING_TRIGGER",
+            resource_type="training",
+            hospital_id=hospital_id,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            details={
+                "hospital_code": h.hospital_code,
+                "samples": samples,
+                "base_model_version": base_model_version,
+            },
+        )
 
         return LocalTrainingTriggerResponse(
             hospital_code=h.hospital_code,

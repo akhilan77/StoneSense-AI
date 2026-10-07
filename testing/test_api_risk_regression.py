@@ -14,11 +14,16 @@ from app.main import app
 from app.services.model_loader import model_loader
 
 
+from app.core.security import create_access_token
+
+
 @pytest.fixture(scope="module")
 def api_client():
     model_loader.load_all_models()
-    with TestClient(app) as c:
+    token = create_access_token(data={"sub": "hospital1@stonesense.ai", "role": "hospital_user", "hospital_id": 1})
+    with TestClient(app, headers={"Authorization": f"Bearer {token}"}) as c:
         yield c
+
 
 
 def test_predict_risk_response_keys_regression(api_client):

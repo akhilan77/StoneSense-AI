@@ -41,6 +41,43 @@ class Hospital(Base):
     predictions = relationship("Prediction", back_populates="hospital")
     training_runs = relationship("HospitalTrainingRun", back_populates="hospital")
     update_logs = relationship("HospitalUpdateLog", back_populates="hospital")
+    users = relationship("User", back_populates="hospital")
+    audit_logs = relationship("AuditLog", back_populates="hospital")
+
+
+class User(Base):
+    """User account entity with role-based access control and hospital scoping."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(32), nullable=False)  # "hospital_user" | "developer" | "admin"
+    hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=True, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    hospital = relationship("Hospital", back_populates="users")
+    audit_logs = relationship("AuditLog", back_populates="user")
+
+
+class AuditLog(Base):
+    """Immutable audit trail for security, compliance, patient reads, inferences, and deployments."""
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    user_email = Column(String(255), nullable=True)
+    action = Column(String(64), nullable=False)  # e.g., "PATIENT_READ", "PREDICTION_RISK", "MODEL_DEPLOY"
+    resource_type = Column(String(64), nullable=False)  # "patient" | "prediction" | "model" | "dataset"
+    resource_id = Column(String(64), nullable=True)
+    hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=True, index=True)
+    ip_address = Column(String(64), nullable=True)
+    details = Column(JSON, nullable=True)  # IDs and metadata only, no raw PII/features
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="audit_logs")
+    hospital = relationship("Hospital", back_populates="audit_logs")
 
 
 class FederatedRound(Base):

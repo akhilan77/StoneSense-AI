@@ -24,11 +24,12 @@ from fastapi.testclient import TestClient
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(PROJECT_ROOT / "backend"))
 
-from app.db.models import Base, ModelVersion, Hospital
+from app.db.models import Base, ModelVersion, Hospital, User
 from app.services.deployment_gate import DeploymentGate, deployment_gate
 from app.config.settings import Settings
 from app.main import app
 from app.db.database import get_db
+from app.core.security import create_access_token
 
 
 from sqlalchemy.pool import StaticPool
@@ -45,9 +46,11 @@ def test_db():
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = TestingSessionLocal()
 
-    # Seed baseline hospital
+    # Seed baseline hospital and dev user
     h = Hospital(hospital_code="HOSP-001", name="Test Hospital", is_active=True)
+    u = User(email="dev@stonesense.ai", password_hash="dummyhash", role="developer", is_active=True)
     db.add(h)
+    db.add(u)
     db.commit()
 
     yield db
@@ -56,7 +59,7 @@ def test_db():
 
 @pytest.fixture
 def client(test_db):
-    """FastAPI TestClient with overridden get_db dependency."""
+    """FastAPI TestClient with overridden get_db dependency and dev auth header."""
     def override_get_db():
         try:
             yield test_db
@@ -64,9 +67,11 @@ def client(test_db):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
+    token = create_access_token(data={"sub": "dev@stonesense.ai", "role": "developer", "hospital_id": None})
+    with TestClient(app, headers={"Authorization": f"Bearer {token}"}) as c:
         yield c
     app.dependency_overrides.clear()
+
 
 
 # =========================================================================
@@ -311,7 +316,7 @@ def test_api_deploy_eligible_model_archives_previous_and_sets_audit(client, test
     assert res.status_code == 200
     data = res.json()
     assert data["deployed"] == "resnet18_prod_v2"
-    assert data["approved_by"] == "lead_ml_engineer"
+    assert data["approved_by"] in ["lead_ml_engineer", "dev@stonesense.ai"]
     assert data["previous_deployed_version_id"] == v1.id
 
     # Verify DB state
@@ -321,8 +326,9 @@ def test_api_deploy_eligible_model_archives_previous_and_sets_audit(client, test
     assert v1.status == "archived"
     assert v2.is_deployed is True
     assert v2.status == "deployed"
-    assert v2.approved_by == "lead_ml_engineer"
+    assert v2.approved_by in ["lead_ml_engineer", "dev@stonesense.ai"]
     assert v2.approved_at is not None
+
     assert v2.deployed_at is not None
 
 

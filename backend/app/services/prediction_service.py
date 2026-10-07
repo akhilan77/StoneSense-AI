@@ -41,7 +41,7 @@ class PredictionService:
             raise RuntimeError("DL ResNet18 model is not loaded in prediction service.")
 
         import torch
-        from model import CLASS_MAPPING as DL_CLASS_MAPPING
+        from dl.training.model import CLASS_MAPPING as DL_CLASS_MAPPING
         from transforms import get_val_test_transforms
 
         # Transform raw bytes to input tensor

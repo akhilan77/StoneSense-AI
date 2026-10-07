@@ -1,4 +1,4 @@
-﻿"""StoneSense-AI Flower Federated Learning Server.
+"""StoneSense-AI Flower Federated Learning Server.
 
 Launches the Flower gRPC aggregation server for multi-hospital decentralized training.
 Coordinates FedAvg aggregation across independent hospital client processes.
@@ -28,10 +28,20 @@ sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "training"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "federated"))
 
-from model import build_resnet18_classifier, CLASS_MAPPING
-from local_training import get_model_parameters
-from strategy import StoneSenseFedAvg
-from model_manager import model_manager
+try:
+    from dl.training.model import build_resnet18_classifier, CLASS_MAPPING
+except ImportError:
+    from model import build_resnet18_classifier, CLASS_MAPPING
+try:
+    from dl.federated.local_training import get_model_parameters
+except ImportError:
+    from local_training import get_model_parameters
+try:
+    from dl.federated.strategy import StoneSenseFedAvg
+    from dl.federated.model_manager import model_manager
+except ImportError:
+    from strategy import StoneSenseFedAvg
+    from model_manager import model_manager
 
 logging.basicConfig(
     level=logging.INFO,

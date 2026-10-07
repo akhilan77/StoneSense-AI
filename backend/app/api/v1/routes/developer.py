@@ -4,7 +4,7 @@ Provides aggregate cross-hospital monitoring, federated training metrics,
 model version registry, and system health without exposing raw patient data.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import csv
 import time
 from pathlib import Path
@@ -14,10 +14,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_role, log_audit
 from app.db.database import get_db
 from app.db.models import (
     ModelVersion, HospitalUpdateLog, SystemLog, DriftRecord,
-    Prediction, Hospital, FederatedRound, HospitalTrainingRun
+    Prediction, Hospital, FederatedRound, HospitalTrainingRun, User
 )
 from app.schemas.dashboard import (
     ModelPerformanceOut, HospitalUpdateLogOut, SystemLogOut,
@@ -32,7 +33,7 @@ from app.schemas.federated import (
 from app.services.model_loader import model_loader
 from app.services.federated_coordinator import federated_coordinator
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_role("developer", "admin"))])
 
 
 @router.post("/federated/rounds/start", response_model=StartRoundResponse)
@@ -58,7 +59,8 @@ def start_federated_round(payload: StartRoundRequest, db: Session = Depends(get_
             local_epochs=payload.local_epochs,
             batch_size=payload.batch_size,
             lr=payload.lr,
-            mode=payload.mode
+            mode=payload.mode,
+            max_batches=payload.max_batches,
         )
         res["selected_hospital_ids"] = selected_ids or res.get("selected_hospital_ids", [])
         return StartRoundResponse(**res)
@@ -182,7 +184,6 @@ def start_ml_training(db: Session = Depends(get_db)):
 
 
 @router.get("/federated-overview", response_model=FederatedOverviewOut)
-
 def get_federated_overview(db: Session = Depends(get_db)):
     """Summary metrics for the DL federated Developer Dashboard cards."""
     latest_round = db.query(FederatedRound).order_by(desc(FederatedRound.round_number)).first()
@@ -194,16 +195,18 @@ def get_federated_overview(db: Session = Depends(get_db)):
     if deployed_ver and deployed_ver.gate_report and isinstance(deployed_ver.gate_report, dict):
         is_unverified = bool(deployed_ver.gate_report.get("trained_on_leaky_partitions", False))
 
+    current_version = deployed_ver.version_tag if deployed_ver else "None (No approved model)"
+
     if latest_round:
         return FederatedOverviewOut(
             current_round=latest_round.round_number,
-            global_accuracy=latest_round.global_val_acc or 0.985,
-            global_f1=latest_round.global_val_f1 or 0.979,
-            global_loss=latest_round.global_val_loss or 0.052,
-            global_precision=latest_round.global_val_precision or 0.980,
-            global_recall=latest_round.global_val_recall or 0.978,
+            global_accuracy=deployed_ver.accuracy if deployed_ver else None,
+            global_f1=deployed_ver.f1_score if deployed_ver else None,
+            global_loss=latest_round.global_val_loss,
+            global_precision=deployed_ver.precision if deployed_ver else None,
+            global_recall=deployed_ver.recall if deployed_ver else None,
             active_hospitals_count=active_hospitals,
-            current_model_version=deployed_ver.version_tag if deployed_ver else f"resnet18_fed_round_{latest_round.round_number:03d}",
+            current_model_version=current_version,
             total_samples=int(total_samples) if total_samples else 10000,
             is_unverified_leaky=is_unverified,
             last_updated=latest_round.completed_at
@@ -211,17 +214,19 @@ def get_federated_overview(db: Session = Depends(get_db)):
     else:
         return FederatedOverviewOut(
             current_round=0,
-            global_accuracy=0.985,
-            global_f1=0.979,
-            global_loss=0.052,
-            global_precision=0.981,
-            global_recall=0.978,
+            global_accuracy=None,
+            global_f1=None,
+            global_loss=None,
+            global_precision=None,
+            global_recall=None,
             active_hospitals_count=active_hospitals or 3,
-            current_model_version=deployed_ver.version_tag if deployed_ver else "resnet18_centralized_v1",
+            current_model_version="None (No approved model)",
             total_samples=int(total_samples) if total_samples else 10000,
-            is_unverified_leaky=is_unverified,
-            last_updated=datetime.utcnow()
+            is_unverified_leaky=False,
+            last_updated=datetime.now(timezone.utc)
         )
+
+
 
 
 @router.get("/round-history", response_model=List[FederatedRoundDetailOut])
@@ -335,7 +340,11 @@ def model_versions(model_family: str | None = None, db: Session = Depends(get_db
 
 
 @router.post("/model-versions/deploy")
-def deploy_model(payload: DeployModelRequest, db: Session = Depends(get_db)):
+def deploy_model(
+    payload: DeployModelRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Marks one version as deployed and triggers runtime model reload.
     
     Strict Safety Constraint: Only model versions with status == 'eligible' can be deployed.
@@ -377,7 +386,7 @@ def deploy_model(payload: DeployModelRequest, db: Session = Depends(get_db)):
     # 2. Promote target version
     version.is_deployed = True
     version.status = "deployed"
-    version.approved_by = payload.approved_by or "developer_admin"
+    version.approved_by = current_user.email
     version.approved_at = now
     version.deployed_at = now
     version.previous_deployed_version_id = prev_deployed.id if prev_deployed else None
@@ -389,11 +398,25 @@ def deploy_model(payload: DeployModelRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(version)
 
-    # 3. Hot-reload runtime singleton
+    # Hot-reload runtime singleton
     if version.model_family == "resnet18_ct":
         model_loader.reload_dl_model(version.version_tag)
     else:
         model_loader.load_ml_model(version.version_tag)
+
+    log_audit(
+        db=db,
+        action="MODEL_DEPLOY",
+        resource_type="model_version",
+        resource_id=str(version.id),
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "version_tag": version.version_tag,
+            "model_family": version.model_family,
+            "previous_deployed_version_id": version.previous_deployed_version_id,
+        },
+    )
 
     return {
         "status": "deployed",
@@ -406,7 +429,11 @@ def deploy_model(payload: DeployModelRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/model-versions/rollback")
-def rollback_model(payload: RollbackModelRequest, db: Session = Depends(get_db)):
+def rollback_model(
+    payload: RollbackModelRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Rolls back the active model to the most recent previously deployed version."""
     currently_deployed = (
         db.query(ModelVersion)
@@ -468,7 +495,7 @@ def rollback_model(payload: RollbackModelRequest, db: Session = Depends(get_db))
 
     target_version.is_deployed = True
     target_version.status = "deployed"
-    target_version.approved_by = payload.approved_by or "rollback_admin"
+    target_version.approved_by = current_user.email
     target_version.approved_at = now
     target_version.deployed_at = now
     target_version.previous_deployed_version_id = currently_deployed.id if currently_deployed else None
@@ -485,6 +512,20 @@ def rollback_model(payload: RollbackModelRequest, db: Session = Depends(get_db))
     else:
         model_loader.load_ml_model(target_version.version_tag)
 
+    log_audit(
+        db=db,
+        action="MODEL_ROLLBACK",
+        resource_type="model_version",
+        resource_id=str(target_version.id),
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "version_tag": target_version.version_tag,
+            "model_family": target_version.model_family,
+            "rolled_back_from_id": currently_deployed.id if currently_deployed else None,
+        },
+    )
+
     return {
         "status": "rolled_back",
         "deployed": target_version.version_tag,
@@ -492,6 +533,7 @@ def rollback_model(payload: RollbackModelRequest, db: Session = Depends(get_db))
         "approved_by": target_version.approved_by,
         "rolled_back_from": currently_deployed.version_tag if currently_deployed else None,
     }
+
 
 
 @router.get("/statistics")

@@ -40,9 +40,18 @@ sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "training"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "federated"))
 
-from model import build_resnet18_classifier, CLASS_MAPPING
-from local_training import set_model_parameters
-from model_manager import model_manager
+try:
+    from dl.training.model import build_resnet18_classifier, CLASS_MAPPING
+except ImportError:
+    from model import build_resnet18_classifier, CLASS_MAPPING
+try:
+    from dl.federated.local_training import set_model_parameters
+except ImportError:
+    from local_training import set_model_parameters
+try:
+    from dl.federated.model_manager import model_manager
+except ImportError:
+    from model_manager import model_manager
 
 logger = logging.getLogger("StoneSenseFedAvg")
 

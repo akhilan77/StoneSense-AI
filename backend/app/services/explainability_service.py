@@ -10,7 +10,6 @@ import logging
 from typing import Dict, Any, Tuple, Optional
 import numpy as np
 from PIL import Image
-import torch
 import joblib
 
 # Setup paths to import ML and DL training components
@@ -21,9 +20,8 @@ sys.path.append(str(PROJECT_ROOT / "dl" / "explainability"))
 sys.path.append(str(PROJECT_ROOT / "ml" / "training"))
 sys.path.append(str(PROJECT_ROOT / "ml" / "explainability"))
 
-from model import build_resnet18_classifier as build_resnet18, CLASS_MAPPING as DL_CLASS_MAPPING
-from transforms import get_val_test_transforms
-from pytorch_grad_cam import GradCAM
+DL_CLASS_MAPPING = {0: "Cyst", 1: "Normal", 2: "Stone", 3: "Tumor"}
+
 try:
     import shap
 except ImportError:
@@ -33,13 +31,17 @@ import pandas as pd
 logger = logging.getLogger("ExplainabilityService")
 
 
+
 def generate_shap_for_patient(patient_features: Dict[str, Any]) -> Dict[str, Any]:
     """Return local SHAP values using the models already loaded for inference."""
     from app.services.model_loader import model_loader
     from app.utils.preprocessing_utils import prepare_tabular_inputs, get_expected_feature_columns
 
     if model_loader.ml_model is None or model_loader.ml_pipeline is None:
+        model_loader.load_ml_model()
+    if model_loader.ml_model is None or model_loader.ml_pipeline is None:
         raise RuntimeError("ML model or preprocessing pipeline is not loaded.")
+
 
     frame = prepare_tabular_inputs(patient_features)
     transformed = model_loader.ml_pipeline.transform(frame)
@@ -96,6 +98,10 @@ def generate_gradcam_for_bytes(image_bytes: bytes, output_path: str, target_clas
     """Generate a class-specific Grad-CAM overlay for an uploaded CT image."""
     from app.services.model_loader import model_loader
     from app.utils.image_utils import preprocess_ct_image
+    try:
+        from dl.preprocessing.transforms import get_val_test_transforms
+    except ImportError:
+        from transforms import get_val_test_transforms
     import io
     import cv2
     import torch
@@ -196,21 +202,35 @@ class ExplainabilityService:
     """Unified explainability manager exposing Grad-CAM and SHAP interface wrappers."""
 
     def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        try:
+            import torch
+            from model import build_resnet18_classifier as build_resnet18
+            from transforms import get_val_test_transforms
+            from pytorch_grad_cam import GradCAM
 
-        # Load DL ResNet18 model
-        dl_model_path = PROJECT_ROOT / "dl" / "models" / "kidney_resnet18.pth"
-        if dl_model_path.exists():
-            self.dl_model = build_resnet18(num_classes=4, freeze_backbone=False)
-            self.dl_model.load_state_dict(torch.load(dl_model_path, map_location=self.device))
-            self.dl_model.to(self.device)
-            self.dl_model.eval()
-            self.dl_cam = GradCAM(model=self.dl_model, target_layers=[self.dl_model.layer4[-1]])
-            self.dl_transform = get_val_test_transforms(image_size=(224, 224))
-            logger.info("DL Grad-CAM model loaded in ExplainabilityService.")
-        else:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            dl_model_path = PROJECT_ROOT / "dl" / "models" / "kidney_resnet18.pth"
+            if dl_model_path.exists():
+                self.dl_model = build_resnet18(num_classes=4, freeze_backbone=False)
+                ckpt = torch.load(dl_model_path, map_location=self.device)
+                state = ckpt["model_state_dict"] if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
+                self.dl_model.load_state_dict(state)
+                self.dl_model.to(self.device)
+                self.dl_model.eval()
+                self.dl_cam = GradCAM(model=self.dl_model, target_layers=[self.dl_model.layer4[-1]])
+                self.dl_transform = get_val_test_transforms(image_size=(224, 224))
+                logger.info("DL Grad-CAM model loaded in ExplainabilityService.")
+            else:
+                self.dl_model = None
+                self.dl_cam = None
+                self.dl_transform = None
+        except Exception as exc:
+            self.device = "cpu"
             self.dl_model = None
-            logger.warning(f"DL model checkpoint not found at {dl_model_path}")
+            self.dl_cam = None
+            self.dl_transform = None
+            logger.warning(f"DL Grad-CAM initialization skipped: {exc}")
+
 
         # Load ML Risk model and pipeline
         try:

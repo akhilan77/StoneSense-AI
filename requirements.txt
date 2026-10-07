@@ -39,3 +39,7 @@ sqlalchemy>=2.0.0
 # Federated Learning
 flwr>=1.15.0
 
+# Authentication and Security
+pyjwt>=2.8.0
+argon2-cffi>=23.1.0
+

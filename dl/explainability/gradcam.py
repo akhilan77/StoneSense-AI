@@ -25,8 +25,14 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 sys.path.append(str(Path(__file__).resolve().parents[1] / "training"))
 sys.path.append(str(Path(__file__).resolve().parents[1] / "preprocessing"))
 
-from model import build_resnet18_classifier, CLASS_MAPPING
-from transforms import get_val_test_transforms
+try:
+    from dl.training.model import build_resnet18_classifier, CLASS_MAPPING
+except ImportError:
+    from model import build_resnet18_classifier, CLASS_MAPPING
+try:
+    from dl.preprocessing.transforms import get_val_test_transforms
+except ImportError:
+    from transforms import get_val_test_transforms
 
 # Configure logging
 logging.basicConfig(

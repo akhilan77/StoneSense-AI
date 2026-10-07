@@ -62,7 +62,7 @@ class ModelLoader:
     def reload_dl_model(self, version_tag: Optional[str] = None) -> bool:
         """Dynamically loads or reloads the active ResNet18 DL model."""
         import torch
-        from model import build_resnet18_classifier
+        from dl.training.model import build_resnet18_classifier
 
         fed_dir = PROJECT_ROOT / "dl" / "models" / "federated"
         target_path = None

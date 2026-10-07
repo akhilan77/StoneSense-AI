@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { MainLayout } from './layouts/MainLayout';
 import DeveloperDashboard from './pages/DeveloperDashboard';
 import { HomePage } from './pages/HomePage';
@@ -6,6 +7,7 @@ import HospitalDashboard from './pages/HospitalDashboard';
 import HospitalFederatedLearning from './pages/HospitalFederatedLearning';
 import HospitalPrivateDataset from './pages/HospitalPrivateDataset';
 import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { RiskPredictionPage } from './pages/RiskPredictionPage';
@@ -14,35 +16,93 @@ import { StoneDetectionPage } from './pages/StoneDetectionPage';
 export function App() {
   return (
     <Routes>
-      {/* Root landing page */}
+      {/* Public landing and auth routes */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
-      <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route path="/login" element={<LoginPage />} />
 
-      {/* Hospital Console Routes (All use persistent left vertical sidebar) */}
-      <Route path="/hospital-dashboard" element={<HospitalDashboard />} />
-      <Route path="/hospital/federated-learning" element={<HospitalFederatedLearning />} />
-      <Route path="/hospital/private-dataset" element={<HospitalPrivateDataset />} />
-      <Route path="/risk-prediction/:patientId" element={<RiskPredictionPage />} />
-      <Route path="/stone-detection/:patientId" element={<StoneDetectionPage />} />
+      {/* Hospital Console Routes (Scoped to hospital_user, developer, admin) */}
+      <Route
+        path="/hospital-dashboard"
+        element={
+          <ProtectedRoute allowedRoles={['hospital_user', 'developer', 'admin']}>
+            <HospitalDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hospital/federated-learning"
+        element={
+          <ProtectedRoute allowedRoles={['hospital_user', 'developer', 'admin']}>
+            <HospitalFederatedLearning />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hospital/private-dataset"
+        element={
+          <ProtectedRoute allowedRoles={['hospital_user', 'developer', 'admin']}>
+            <HospitalPrivateDataset />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/risk-prediction/:patientId"
+        element={
+          <ProtectedRoute allowedRoles={['hospital_user', 'developer', 'admin']}>
+            <RiskPredictionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stone-detection/:patientId"
+        element={
+          <ProtectedRoute allowedRoles={['hospital_user', 'developer', 'admin']}>
+            <StoneDetectionPage />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Developer Console Routes (All use persistent left vertical sidebar) */}
-      <Route path="/developer-dashboard" element={<DeveloperDashboard initialTab="overview" />} />
+      {/* Developer Console Routes (Guarded strictly for developer and admin) */}
+      <Route
+        path="/developer-dashboard"
+        element={
+          <ProtectedRoute allowedRoles={['developer', 'admin']}>
+            <DeveloperDashboard initialTab="overview" />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/developer-dashboard/federated"
-        element={<DeveloperDashboard initialTab="federated" />}
+        element={
+          <ProtectedRoute allowedRoles={['developer', 'admin']}>
+            <DeveloperDashboard initialTab="federated" />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/developer-dashboard/versions"
-        element={<DeveloperDashboard initialTab="versions" />}
+        element={
+          <ProtectedRoute allowedRoles={['developer', 'admin']}>
+            <DeveloperDashboard initialTab="versions" />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/developer-dashboard/access"
-        element={<DeveloperDashboard initialTab="access" />}
+        element={
+          <ProtectedRoute allowedRoles={['developer', 'admin']}>
+            <DeveloperDashboard initialTab="access" />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/developer-dashboard/health"
-        element={<DeveloperDashboard initialTab="health" />}
+        element={
+          <ProtectedRoute allowedRoles={['developer', 'admin']}>
+            <DeveloperDashboard initialTab="health" />
+          </ProtectedRoute>
+        }
       />
 
       {/* Public Home / Marketing Layout */}

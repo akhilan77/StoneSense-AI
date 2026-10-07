@@ -29,11 +29,20 @@ sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "training"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "federated"))
 
-from model import build_resnet18_classifier, CLASS_MAPPING
-from partition import partition_dataset, HOSPITAL_IDS, HOSPITAL_NAMES
-from client import StoneSenseFLClient
-from strategy import persist_round_to_db
-from local_training import get_model_parameters, set_model_parameters
+try:
+    from dl.training.model import build_resnet18_classifier, CLASS_MAPPING
+except ImportError:
+    from model import build_resnet18_classifier, CLASS_MAPPING
+try:
+    from dl.preprocessing.partition import partition_dataset, HOSPITAL_IDS, HOSPITAL_NAMES
+    from dl.federated.client import StoneSenseFLClient
+    from dl.federated.strategy import persist_round_to_db
+    from dl.federated.local_training import get_model_parameters, set_model_parameters
+except ImportError:
+    from partition import partition_dataset, HOSPITAL_IDS, HOSPITAL_NAMES
+    from client import StoneSenseFLClient
+    from strategy import persist_round_to_db
+    from local_training import get_model_parameters, set_model_parameters
 
 logging.basicConfig(
     level=logging.INFO,

@@ -6,7 +6,7 @@ and saves evaluation charts (confusion matrix, ROC curve, Precision-Recall curve
 
 from pathlib import Path
 import logging
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -25,7 +25,8 @@ def evaluate_model(
     model: nn.Module,
     dataloader: DataLoader,
     device: torch.device,
-    class_names: List[str]
+    class_names: List[str],
+    max_batches: Optional[int] = None,
 ) -> Tuple[Dict[str, Any], np.ndarray, np.ndarray, np.ndarray]:
     """Evaluates model performance on test set and computes comprehensive metrics."""
     model.eval()
@@ -36,7 +37,9 @@ def evaluate_model(
     softmax = nn.Softmax(dim=1)
 
     with torch.no_grad():
-        for images, targets in dataloader:
+        for batch_idx, (images, targets) in enumerate(dataloader):
+            if max_batches is not None and batch_idx >= max_batches:
+                break
             images = images.to(device)
             outputs = model(images)
             probs = softmax(outputs).cpu().numpy()
@@ -56,7 +59,10 @@ def evaluate_model(
     p_weighted, r_weighted, f1_weighted, _ = precision_recall_fscore_support(all_targets_arr, all_preds_arr, average='weighted', zero_division=0)
 
     # Calculate per-class metrics
-    p_class, r_class, f1_class, support_class = precision_recall_fscore_support(all_targets_arr, all_preds_arr, average=None, zero_division=0)
+    class_indices = list(range(len(class_names)))
+    p_class, r_class, f1_class, support_class = precision_recall_fscore_support(
+        all_targets_arr, all_preds_arr, labels=class_indices, average=None, zero_division=0
+    )
 
     per_class_metrics = {}
     for idx, cname in enumerate(class_names):
@@ -67,8 +73,8 @@ def evaluate_model(
             "support": int(support_class[idx])
         }
 
-    cls_report = classification_report(all_targets_arr, all_preds_arr, target_names=class_names, output_dict=True, zero_division=0)
-    cm = confusion_matrix(all_targets_arr, all_preds_arr).tolist()
+    cls_report = classification_report(all_targets_arr, all_preds_arr, labels=class_indices, target_names=class_names, output_dict=True, zero_division=0)
+    cm = confusion_matrix(all_targets_arr, all_preds_arr, labels=class_indices).tolist()
 
     metrics = {
         "accuracy": float(acc),

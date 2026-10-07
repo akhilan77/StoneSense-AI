@@ -13,8 +13,11 @@ sys.path.append(str(PROJECT_ROOT / "backend"))
 
 from app.main import app
 from app.db.database import init_db
+from app.core.security import create_access_token
 
-client = TestClient(app)
+admin_token = create_access_token(data={"sub": "admin@stonesense.ai", "role": "admin", "hospital_id": None})
+client = TestClient(app, headers={"Authorization": f"Bearer {admin_token}"})
+
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -2,20 +2,26 @@
 
 import time
 from pathlib import Path
-from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Depends
-from sqlalchemy.orm import Session
+from typing import Optional
 from uuid import uuid4
 
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.orm import Session
+
+from app.core.auth import get_current_user, get_scoped_hospital_id, log_audit
 from app.db.database import get_db
-from app.db.models import Patient, Prediction
+from app.db.models import InferenceLog, Patient, Prediction, User
 from app.schemas.patient import PatientInformation
 from app.schemas.responses import (
     RiskPredictionResponse,
     StoneDetectionResponse,
 )
-from app.services.prediction_service import PredictionService
+from app.services.explainability_service import (
+    generate_gradcam_for_bytes,
+    generate_shap_for_patient,
+)
 from app.services.model_loader import model_loader
-from app.services.explainability_service import generate_shap_for_patient, generate_gradcam_for_bytes
+from app.services.prediction_service import PredictionService
 
 router = APIRouter(prefix="/predict", tags=["predict"])
 
@@ -23,17 +29,20 @@ router = APIRouter(prefix="/predict", tags=["predict"])
 @router.post("/risk", response_model=RiskPredictionResponse)
 async def predict_risk(
     payload: PatientInformation,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RiskPredictionResponse:
     """Classifies patient kidney stone risk from urine biochemistry parameters."""
     if model_loader.ml_model is None:
         raise HTTPException(status_code=503, detail="Risk prediction model not loaded.")
 
+    effective_hospital_id = get_scoped_hospital_id(current_user, payload.hospital_id)
+
     patient = None
     if payload.patient_id is not None:
         patient = db.query(Patient).filter(
             Patient.id == payload.patient_id,
-            Patient.hospital_id == payload.hospital_id,
+            Patient.hospital_id == effective_hospital_id,
         ).first()
         if patient is None:
             raise HTTPException(status_code=404, detail="Patient not found for this hospital.")
@@ -47,9 +56,8 @@ async def predict_risk(
     active_ml_fam = getattr(model_loader, "active_ml_family", "logistic_regression")
 
     try:
-        from app.db.models import InferenceLog
         prediction = Prediction(
-            hospital_id=payload.hospital_id,
+            hospital_id=effective_hospital_id,
             patient_id=patient.id if patient else None,
             prediction_type="risk",
             model_name=active_ml_ver,
@@ -58,7 +66,7 @@ async def predict_risk(
             latency_ms=elapsed * 1000,
         )
         inf_log = InferenceLog(
-            hospital_id=payload.hospital_id,
+            hospital_id=effective_hospital_id,
             prediction_type="risk",
             model_name=active_ml_fam,
             version_tag=active_ml_ver,
@@ -76,6 +84,20 @@ async def predict_risk(
     except Exception:
         db.rollback()
 
+    log_audit(
+        db=db,
+        action="PREDICTION_RISK",
+        resource_type="prediction",
+        hospital_id=effective_hospital_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "patient_id": patient.id if patient else None,
+            "result_label": str(res["risk"]),
+            "confidence": round(float(confidence), 4),
+            "model_version": active_ml_ver,
+        },
+    )
 
     shap = generate_shap_for_patient(payload.model_dump())
     return RiskPredictionResponse(
@@ -90,19 +112,22 @@ async def predict_risk(
 @router.post("/image", response_model=StoneDetectionResponse)
 async def predict_image(
     image: UploadFile = File(...),
-    hospital_id: int = Form(1),
-    patient_id: int | None = Form(None),
+    hospital_id: Optional[int] = Form(None),
+    patient_id: Optional[int] = Form(None),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> StoneDetectionResponse:
     """Classifies CT scan slice using trained ResNet18 model singleton."""
     if model_loader.dl_model is None:
         raise HTTPException(status_code=503, detail="ResNet18 CT classification model not loaded.")
 
+    effective_hospital_id = get_scoped_hospital_id(current_user, hospital_id)
+
     patient = None
     if patient_id is not None:
         patient = db.query(Patient).filter(
             Patient.id == patient_id,
-            Patient.hospital_id == hospital_id,
+            Patient.hospital_id == effective_hospital_id,
         ).first()
         if patient is None:
             raise HTTPException(status_code=404, detail="Patient not found for this hospital.")
@@ -132,9 +157,8 @@ async def predict_image(
     active_ver = getattr(model_loader, "active_dl_version_tag", "resnet18_ct_v2_1")
 
     try:
-        from app.db.models import InferenceLog
         prediction = Prediction(
-            hospital_id=hospital_id,
+            hospital_id=effective_hospital_id,
             patient_id=patient.id if patient else None,
             prediction_type="image",
             model_name=active_ver,
@@ -144,7 +168,7 @@ async def predict_image(
             explainability_ref=overlay_url,
         )
         inf_log = InferenceLog(
-            hospital_id=hospital_id,
+            hospital_id=effective_hospital_id,
             prediction_type="image",
             model_name="resnet18_ct",
             version_tag=active_ver,
@@ -157,6 +181,21 @@ async def predict_image(
         db.commit()
     except Exception:
         db.rollback()
+
+    log_audit(
+        db=db,
+        action="PREDICTION_CT",
+        resource_type="prediction",
+        hospital_id=effective_hospital_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "patient_id": patient.id if patient else None,
+            "result_label": str(res["class"]),
+            "confidence": round(float(res["confidence"]), 4),
+            "model_version": active_ver,
+        },
+    )
 
     payload = {
         "class_name": res["class"],
@@ -183,4 +222,3 @@ async def predict_image(
         }
 
     return StoneDetectionResponse(**payload)
-

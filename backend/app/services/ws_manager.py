@@ -26,6 +26,12 @@ class ConnectionManager:
             self.active_connections[websocket] = hospital_id
         logger.info(f"WebSocket connected. Total active connections: {len(self.active_connections)}")
 
+    async def register(self, websocket: WebSocket, hospital_id: str | None = None):
+        async with self._lock:
+            self.active_connections[websocket] = hospital_id
+        logger.info(f"WebSocket registered. Total active connections: {len(self.active_connections)}")
+
+
     async def disconnect(self, websocket: WebSocket):
         async with self._lock:
             self.active_connections.pop(websocket, None)

@@ -1,4 +1,4 @@
-﻿"""StoneSense-AI Hospital Federated Client (Flower NumPyClient).
+"""StoneSense-AI Hospital Federated Client (Flower NumPyClient).
 
 Runs on individual hospital infrastructure in a decentralized multi-tenant deployment.
 Trains ResNet18 locally on hospital CT partition and transmits ONLY model weights.
@@ -26,13 +26,24 @@ sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "training"))
 sys.path.append(str(PROJECT_ROOT / "dl" / "federated"))
 
-from model import build_resnet18_classifier, CLASS_MAPPING
-from local_training import (
-    get_model_parameters, set_model_parameters,
-    train_local, evaluate_local
-)
-from dataloaders import create_dataloaders
-from transforms import get_train_transforms, get_val_test_transforms
+try:
+    from dl.training.model import build_resnet18_classifier, CLASS_MAPPING
+except ImportError:
+    from model import build_resnet18_classifier, CLASS_MAPPING
+try:
+    from dl.federated.local_training import (
+        get_model_parameters, set_model_parameters,
+        train_local, evaluate_local
+    )
+    from dl.preprocessing.dataloaders import create_dataloaders
+    from dl.preprocessing.transforms import get_train_transforms, get_val_test_transforms
+except ImportError:
+    from local_training import (
+        get_model_parameters, set_model_parameters,
+        train_local, evaluate_local
+    )
+    from dataloaders import create_dataloaders
+    from transforms import get_train_transforms, get_val_test_transforms
 
 logger = logging.getLogger("StoneSenseFLClient")
 
@@ -118,6 +129,7 @@ class StoneSenseFLClient(_NumPyClientBase):
         print(f"[{h_label}] Privacy guarantee: RAW CT DATA REMAINS LOCAL (never transmitted)")
         print(f"[{h_label}] Local ResNet18 training started on {len(self.train_loader.dataset)} CT scans ({local_epochs} epoch(s))...")
 
+        max_batches = config.get("max_batches")
         self.model, metrics, sample_count = train_local(
             model=self.model,
             train_loader=self.train_loader,
@@ -125,8 +137,10 @@ class StoneSenseFLClient(_NumPyClientBase):
             epochs=local_epochs,
             lr=lr,
             device=self.device,
-            class_names=self.class_names
+            class_names=self.class_names,
+            max_batches=max_batches
         )
+
 
         print(f"[{h_label}] Local training completed:")
         print(f"  - Local Loss:     {metrics['train_loss']:.4f}")
@@ -154,10 +168,12 @@ class StoneSenseFLClient(_NumPyClientBase):
         """Evaluates global model on local hospital validation partition."""
         self.set_parameters(parameters)
 
+        max_batches = config.get("max_batches")
         metrics, sample_count = evaluate_local(
             model=self.model,
             val_loader=self.val_loader,
-            device=self.device
+            device=self.device,
+            max_batches=max_batches,
         )
 
         metrics["hospital_id"] = self.hospital_id

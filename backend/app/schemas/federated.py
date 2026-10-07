@@ -7,16 +7,17 @@ from pydantic import BaseModel, Field
 
 class FederatedOverviewOut(BaseModel):
     current_round: int
-    global_accuracy: float
-    global_f1: float
-    global_loss: float
-    global_precision: float
-    global_recall: float
+    global_accuracy: Optional[float] = None
+    global_f1: Optional[float] = None
+    global_loss: Optional[float] = None
+    global_precision: Optional[float] = None
+    global_recall: Optional[float] = None
     active_hospitals_count: int
-    current_model_version: str
+    current_model_version: str = "None (No approved model)"
     total_samples: int
     is_unverified_leaky: bool = False
     last_updated: Optional[datetime] = None
+
 
 
 class HospitalRunTelemetryOut(BaseModel):
@@ -129,6 +130,7 @@ class StartRoundRequest(BaseModel):
     batch_size: int = 32
     lr: float = 0.0005
     mode: str = "iid"
+    max_batches: Optional[int] = None
 
 
 class StartRoundResponse(BaseModel):

@@ -175,6 +175,7 @@ class FederatedCoordinator:
         lr: float = 0.0005,
         mode: str = "iid",
         device: str = "auto",
+        max_batches: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Validates and kicks off a live DL federated learning round in background."""
         with self._lock:
@@ -251,7 +252,7 @@ class FederatedCoordinator:
         # Spawn execution in background thread
         thread = threading.Thread(
             target=self._run_round_workflow,
-            args=(next_round, local_epochs, batch_size, lr, mode, device, list(self.selected_hospital_codes), list(self.selected_hospital_ids)),
+            args=(next_round, local_epochs, batch_size, lr, mode, device, list(self.selected_hospital_codes), list(self.selected_hospital_ids), max_batches),
             daemon=True,
             name=f"FL-Round-{next_round}-Worker",
         )
@@ -275,16 +276,17 @@ class FederatedCoordinator:
         device_str: str,
         selected_hospital_codes: List[str],
         selected_hospital_ids: List[int],
+        max_batches: Optional[int] = None,
     ):
         """Worker thread executing the real Flower / FedAvg training and aggregation."""
         try:
-            from model import build_resnet18_classifier, CLASS_MAPPING
-            from partition import partition_dataset, HOSPITAL_IDS
-            from client import StoneSenseFLClient
-            from local_training import get_model_parameters, set_model_parameters
-            from strategy import persist_round_to_db
-            from model_manager import model_manager
-            from simulate import aggregate_weights, sync_hospital_dataset_metadata
+            from dl.training.model import build_resnet18_classifier, CLASS_MAPPING
+            from dl.federated.partition import partition_dataset, HOSPITAL_IDS
+            from dl.federated.client import StoneSenseFLClient
+            from dl.federated.local_training import get_model_parameters, set_model_parameters
+            from dl.federated.strategy import persist_round_to_db
+            from dl.federated.model_manager import model_manager
+            from dl.federated.simulate import aggregate_weights, sync_hospital_dataset_metadata
 
             # 1. ROUND_STARTED Event
             self._emit_event("ROUND_STARTED", data={"message": f"Round {round_num} started across {len(selected_hospital_codes)} selected hospital nodes."})
@@ -361,6 +363,8 @@ class FederatedCoordinator:
                 if HOSPITAL_CODE_MAP.get(h_id) in selected_hospital_codes
             ]
             config = {"current_round": round_num, "local_epochs": local_epochs, "lr": lr, "federated_round": True}
+            if max_batches is not None:
+                config["max_batches"] = max_batches
 
             for h_id in selected_partition_ids:
                 h_code = HOSPITAL_CODE_MAP.get(h_id, "HOSP-001")
@@ -462,7 +466,7 @@ class FederatedCoordinator:
             if val_datasets:
                 combined_val = ConcatDataset(val_datasets)
                 val_loader = DataLoader(combined_val, batch_size=batch_size, shuffle=False)
-                eval_metrics_full, _, _, _ = evaluate_model(global_model, val_loader, dev, class_names)
+                eval_metrics_full, _, _, _ = evaluate_model(global_model, val_loader, dev, class_names, max_batches=max_batches)
                 global_val_loss = float(eval_metrics_full.get("loss", 0.0))
                 global_val_acc = float(eval_metrics_full.get("accuracy", 0.0))
                 global_val_f1 = float(eval_metrics_full.get("f1_macro", 0.0))

@@ -42,12 +42,23 @@ def init_db() -> None:
                     "dataset_validated_at": "DATETIME",
                     "current_model_version": "VARCHAR(64)",
                 },
+                "patients": {
+                    "name": "VARCHAR(255)",
+                    "phone": "VARCHAR(64)",
+                    "blood_group": "VARCHAR(8)",
+                    "admitted_date": "VARCHAR(32)",
+                    "last_inspected_date": "VARCHAR(32)",
+                },
             }
+            inspector = inspect(connection)
+            existing_tables = set(inspector.get_table_names())
             for table, table_columns in migrations.items():
-                columns = {column["name"] for column in inspect(connection).get_columns(table)}
-                for name, definition in table_columns.items():
-                    if name not in columns:
-                        connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
+                if table in existing_tables:
+                    columns = {column["name"] for column in inspector.get_columns(table)}
+                    for name, definition in table_columns.items():
+                        if name not in columns:
+                            connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
+
 
             # Legacy status migration and cleanup
             # 1. Update deployed rows to status='deployed'

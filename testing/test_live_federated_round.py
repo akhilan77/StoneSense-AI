@@ -19,8 +19,11 @@ from app.main import app
 from app.db.database import init_db, SessionLocal
 from app.db.models import FederatedRound, HospitalTrainingRun, ModelVersion, Hospital
 from app.services.federated_coordinator import federated_coordinator
+from app.core.security import create_access_token
 
-client = TestClient(app)
+admin_token = create_access_token(data={"sub": "admin@stonesense.ai", "role": "admin", "hospital_id": None})
+client = TestClient(app, headers={"Authorization": f"Bearer {admin_token}"})
+
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -30,7 +33,7 @@ def setup_test_environment():
 
 def test_start_federated_round_api():
     """Verify starting a round via API returns immediate 200 with round details."""
-    response = client.post("/api/v1/developer/federated/rounds/start", json={"num_rounds": 1})
+    response = client.post("/api/v1/developer/federated/rounds/start", json={"num_rounds": 1, "max_batches": 1})
     assert response.status_code in [200, 409]
     if response.status_code == 200:
         data = response.json()
@@ -92,7 +95,8 @@ def test_end_to_end_fl_execution_and_persistence():
             batch_size=32,
             lr=0.0005,
             mode="iid",
-            device="cpu"
+            device="cpu",
+            max_batches=1,
         )
 
     # Wait for worker thread to complete execution

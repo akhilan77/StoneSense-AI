@@ -8,14 +8,72 @@ Drop at: backend/app/db/seed.py
 from datetime import datetime, timedelta
 import random
 
+from app.config.settings import settings
+from app.core.security import hash_password
 from app.db.database import SessionLocal, init_db
-from app.db.models import Hospital, Patient, Prediction, ModelVersion, HospitalUpdateLog, SystemLog, DriftRecord
+from app.db.models import (
+    DriftRecord,
+    Hospital,
+    HospitalUpdateLog,
+    ModelVersion,
+    Patient,
+    Prediction,
+    SystemLog,
+    User,
+)
 
 
 def run():
     init_db()
     db = SessionLocal()
     try:
+        # Seed demo users only in non-production environments
+        if not settings.is_production:
+            demo_users = [
+                {
+                    "email": "admin@stonesense.ai",
+                    "password": "StoneSenseAdmin!2026",
+                    "role": "admin",
+                    "hospital_id": None,
+                },
+                {
+                    "email": "dev@stonesense.ai",
+                    "password": "StoneSenseDev!2026",
+                    "role": "developer",
+                    "hospital_id": None,
+                },
+                {
+                    "email": "hospital1@stonesense.ai",
+                    "password": "Hospital1!2026",
+                    "role": "hospital_user",
+                    "hospital_id": 1,
+                },
+                {
+                    "email": "hospital2@stonesense.ai",
+                    "password": "Hospital2!2026",
+                    "role": "hospital_user",
+                    "hospital_id": 2,
+                },
+                {
+                    "email": "hospital3@stonesense.ai",
+                    "password": "Hospital3!2026",
+                    "role": "hospital_user",
+                    "hospital_id": 3,
+                },
+            ]
+            for u in demo_users:
+                existing = db.query(User).filter(User.email == u["email"]).first()
+                if not existing:
+                    user = User(
+                        email=u["email"],
+                        password_hash=hash_password(u["password"]),
+                        role=u["role"],
+                        hospital_id=u["hospital_id"],
+                        is_active=True,
+                    )
+                    db.add(user)
+            db.commit()
+
         if db.query(Hospital).count() == 0:
             hospitals = [
                 Hospital(hospital_code="HOSP-001", name="Apollo Renal Care", region="Chennai"),

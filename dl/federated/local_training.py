@@ -36,7 +36,8 @@ def train_local(
     epochs: int = 1,
     lr: float = 0.001,
     device: Optional[torch.device] = None,
-    class_names: Optional[List[str]] = None
+    class_names: Optional[List[str]] = None,
+    max_batches: Optional[int] = None
 ) -> Tuple[nn.Module, Dict[str, float], int]:
     """Trains model on local data loader and computes evaluation metrics.
 
@@ -48,6 +49,7 @@ def train_local(
         lr: Learning rate for local Adam optimizer.
         device: PyTorch device (CPU or CUDA).
         class_names: Optional class names list.
+        max_batches: Optional limit on training batches for fast testing.
 
     Returns:
         Tuple containing (trained_model, metrics_dict, sample_count).
@@ -65,7 +67,9 @@ def train_local(
 
     # Compute class weights to handle non-IID class skew if needed
     train_targets = []
-    for _, targets in train_loader:
+    for batch_idx, (_, targets) in enumerate(train_loader):
+        if max_batches is not None and batch_idx >= max_batches:
+            break
         train_targets.extend(targets.tolist())
 
     sample_count = len(train_targets)
@@ -87,7 +91,9 @@ def train_local(
     all_train_targets = []
 
     for epoch in range(epochs):
-        for images, targets in train_loader:
+        for batch_idx, (images, targets) in enumerate(train_loader):
+            if max_batches is not None and batch_idx >= max_batches:
+                break
             images, targets = images.to(device), targets.to(device)
             optimizer.zero_grad()
 
@@ -108,11 +114,13 @@ def train_local(
             all_train_preds.extend(preds)
             all_train_targets.extend(targets.cpu().numpy())
 
-    avg_train_loss = running_loss / (sample_count * epochs)
+    total_evaluated_samples = max(len(all_train_targets), 1)
+    avg_train_loss = running_loss / total_evaluated_samples
     train_acc = float(accuracy_score(all_train_targets, all_train_preds))
     p_macro, r_macro, f1_macro, _ = precision_recall_fscore_support(
         all_train_targets, all_train_preds, average='macro', zero_division=0
     )
+
 
     metrics: Dict[str, float] = {
         "train_loss": float(avg_train_loss),
@@ -125,7 +133,7 @@ def train_local(
 
     # Evaluate on val_loader if provided
     if val_loader is not None and len(val_loader) > 0:
-        val_metrics, val_samples = evaluate_local(model, val_loader, device=device, criterion=criterion)
+        val_metrics, val_samples = evaluate_local(model, val_loader, device=device, criterion=criterion, max_batches=max_batches)
         metrics.update({
             "val_loss": val_metrics["loss"],
             "val_accuracy": val_metrics["accuracy"],
@@ -142,7 +150,8 @@ def evaluate_local(
     model: nn.Module,
     val_loader: DataLoader,
     device: Optional[torch.device] = None,
-    criterion: Optional[nn.Module] = None
+    criterion: Optional[nn.Module] = None,
+    max_batches: Optional[int] = None,
 ) -> Tuple[Dict[str, float], int]:
     """Evaluates the model on local validation/test data."""
     if device is None:
@@ -159,7 +168,9 @@ def evaluate_local(
     all_targets = []
 
     with torch.no_grad():
-        for images, targets in val_loader:
+        for batch_idx, (images, targets) in enumerate(val_loader):
+            if max_batches is not None and batch_idx >= max_batches:
+                break
             images, targets = images.to(device), targets.to(device)
             outputs = model(images)
             loss = criterion(outputs, targets)
