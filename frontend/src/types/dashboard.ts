@@ -61,6 +61,7 @@ export interface ModelPerformance {
   deployed_at?: string | null;
   previous_deployed_version_id?: number | null;
   trained_at: string;
+  is_unverified_leaky?: boolean;
   latency_ms?: number;
   environment?: 'production' | 'staging' | 'canary';
   rollout_pct?: number;

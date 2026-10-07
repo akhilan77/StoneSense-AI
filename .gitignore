@@ -235,3 +235,9 @@ dl/outputs/
 # Generated ML/DL artifacts
 backend/app/static/gradcam/
 dl/processed_grouped/
+
+# SQLite databases
+*.db
+*.sqlite3
+stonesense.db
+backend/stonesense.db

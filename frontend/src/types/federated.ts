@@ -10,6 +10,7 @@ export interface FederatedOverview {
   active_hospitals_count: number;
   current_model_version: string;
   total_samples: number;
+  is_unverified_leaky?: boolean;
   last_updated: string;
 }
 

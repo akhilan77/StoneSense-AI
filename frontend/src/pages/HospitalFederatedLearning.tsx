@@ -193,8 +193,22 @@ export default function HospitalFederatedLearning() {
               mono
             />
             <Metric label="Round" value={live?.round ? `#${live.round}` : '-'} />
-            <Metric label="Global accuracy" value={formatMetric(overview?.global_accuracy)} />
-            <Metric label="Global F1" value={formatMetric(overview?.global_f1)} />
+            <Metric 
+              label="Global accuracy" 
+              value={
+                overview?.is_unverified_leaky 
+                  ? `${formatMetric(overview?.global_accuracy)} (Unverified)` 
+                  : formatMetric(overview?.global_accuracy)
+              } 
+            />
+            <Metric 
+              label="Global F1" 
+              value={
+                overview?.is_unverified_leaky 
+                  ? `${formatMetric(overview?.global_f1)} (Unverified)` 
+                  : formatMetric(overview?.global_f1)
+              } 
+            />
           </div>
         </section>
 

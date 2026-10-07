@@ -190,6 +190,9 @@ def get_federated_overview(db: Session = Depends(get_db)):
     deployed_ver = db.query(ModelVersion).filter_by(is_deployed=True, model_family="resnet18_ct").first()
 
     total_samples = db.query(func.sum(Hospital.dataset_size)).scalar() or 0
+    is_unverified = False
+    if deployed_ver and deployed_ver.gate_report and isinstance(deployed_ver.gate_report, dict):
+        is_unverified = bool(deployed_ver.gate_report.get("trained_on_leaky_partitions", False))
 
     if latest_round:
         return FederatedOverviewOut(
@@ -202,6 +205,7 @@ def get_federated_overview(db: Session = Depends(get_db)):
             active_hospitals_count=active_hospitals,
             current_model_version=deployed_ver.version_tag if deployed_ver else f"resnet18_fed_round_{latest_round.round_number:03d}",
             total_samples=int(total_samples) if total_samples else 10000,
+            is_unverified_leaky=is_unverified,
             last_updated=latest_round.completed_at
         )
     else:
@@ -215,6 +219,7 @@ def get_federated_overview(db: Session = Depends(get_db)):
             active_hospitals_count=active_hospitals or 3,
             current_model_version=deployed_ver.version_tag if deployed_ver else "resnet18_centralized_v1",
             total_samples=int(total_samples) if total_samples else 10000,
+            is_unverified_leaky=is_unverified,
             last_updated=datetime.utcnow()
         )
 

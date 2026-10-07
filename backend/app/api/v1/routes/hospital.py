@@ -143,6 +143,9 @@ def get_current_model(hospital_id: int, db: Session = Depends(get_db)):
     h = _get_hospital_or_404(hospital_id, db)
     latest_round = db.query(FederatedRound).order_by(desc(FederatedRound.round_number)).first()
     deployed_ver = db.query(ModelVersion).filter_by(is_deployed=True, model_family="resnet18_ct").first()
+    is_unverified = False
+    if deployed_ver and deployed_ver.gate_report and isinstance(deployed_ver.gate_report, dict):
+        is_unverified = bool(deployed_ver.gate_report.get("trained_on_leaky_partitions", False))
 
     return {
         "hospital_id": h.id,
@@ -151,6 +154,7 @@ def get_current_model(hospital_id: int, db: Session = Depends(get_db)):
         "global_round": latest_round.round_number if latest_round else 0,
         "global_accuracy": latest_round.global_val_acc if latest_round else (deployed_ver.accuracy if deployed_ver else 0.985),
         "global_f1": latest_round.global_val_f1 if latest_round else (deployed_ver.f1_score if deployed_ver else 0.979),
+        "is_unverified_leaky": is_unverified,
         "deployed_at": deployed_ver.trained_at if deployed_ver else datetime.utcnow()
     }
 

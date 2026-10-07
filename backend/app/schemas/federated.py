@@ -15,6 +15,7 @@ class FederatedOverviewOut(BaseModel):
     active_hospitals_count: int
     current_model_version: str
     total_samples: int
+    is_unverified_leaky: bool = False
     last_updated: Optional[datetime] = None
 
 

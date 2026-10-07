@@ -1076,7 +1076,13 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   ? `${(fedOverview.global_f1 * 100).toFixed(1)}%`
                   : '-'}
               </p>
-              <p className="text-[11px] text-[#101B16]/45 mt-1">+1.8% vs Round 1</p>
+              {fedOverview?.is_unverified_leaky ? (
+                <span className="inline-flex items-center gap-1 rounded bg-[#B42318]/10 px-1.5 py-0.5 text-[9.5px] font-bold text-[#B42318] border border-[#B42318]/20 mt-1">
+                  ⚠️ Unverified (Leaky Partitions)
+                </span>
+              ) : (
+                <p className="text-[11px] text-[#101B16]/45 mt-1">+1.8% vs Round 1</p>
+              )}
             </div>
 
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
@@ -1088,9 +1094,15 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   ? `${(fedOverview.global_accuracy * 100).toFixed(1)}%`
                   : '-'}
               </p>
-              <p className="text-[11px] text-[#101B16]/45 mt-1">
-                Loss: {fedOverview?.global_loss != null ? fedOverview.global_loss.toFixed(4) : '-'}
-              </p>
+              {fedOverview?.is_unverified_leaky ? (
+                <span className="inline-flex items-center gap-1 rounded bg-[#B42318]/10 px-1.5 py-0.5 text-[9.5px] font-bold text-[#B42318] border border-[#B42318]/20 mt-1">
+                  ⚠️ Unverified (Leaky Partitions)
+                </span>
+              ) : (
+                <p className="text-[11px] text-[#101B16]/45 mt-1">
+                  Loss: {fedOverview?.global_loss != null ? fedOverview.global_loss.toFixed(4) : '-'}
+                </p>
+              )}
             </div>
 
             <div className="rounded-xl border border-[#DDE3DC] bg-white p-5 shadow-xs">
@@ -1360,7 +1372,14 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                         </span>
                       </td>
                       <td className="py-3.5 px-4 font-mono font-medium text-[#3B3F8C]">
-                        {v.version_tag}
+                        <div className="flex flex-col">
+                          <span>{v.version_tag}</span>
+                          {(v.is_unverified_leaky || v.gate_report?.trained_on_leaky_partitions) && (
+                            <span className="inline-flex items-center gap-1 mt-1 rounded bg-[#B42318]/10 px-1.5 py-0.5 text-[9.5px] font-bold text-[#B42318] border border-[#B42318]/20 w-fit">
+                              ⚠️ Unverified: Leaky Partitions
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
@@ -2461,6 +2480,16 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                   </span>
                 </div>
               </div>
+
+              {selectedGateReport.report?.trained_on_leaky_partitions && (
+                <div className="rounded-lg bg-[#B42318]/10 p-3 border border-[#B42318]/20 flex items-start gap-2">
+                  <span className="text-sm">⚠️</span>
+                  <div className="text-[11px] text-[#B42318]">
+                    <strong className="font-semibold block text-[11.5px]">Unverified Baseline: Trained on Leaky Partitions</strong>
+                    Metrics for this checkpoint were computed prior to Phase 3.5 grouped deduplication. All historical scores are void and non-comparable with clean partition candidates.
+                  </div>
+                </div>
+              )}
 
               {selectedGateReport.report?.legacy ? (
                 <div className="p-4 rounded-lg bg-neutral-50 text-[#101B16]/70">

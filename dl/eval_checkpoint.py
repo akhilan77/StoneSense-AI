@@ -12,6 +12,7 @@ import sys
 import json
 import logging
 import argparse
+import hashlib
 from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -158,8 +159,12 @@ def write_to_model_versions_db(
         mv = db.query(ModelVersion).filter_by(version_tag=tag, model_family=model_family).first()
         now_iso = datetime.utcnow().isoformat()
 
+        ckpt_path = Path(results["checkpoint_path"])
+        ckpt_sha256 = hashlib.sha256(ckpt_path.read_bytes()).hexdigest() if ckpt_path.exists() else None
+
         gate_payload = {
             "is_central_eval": True,
+            "checkpoint_sha256": ckpt_sha256,
             "validation_set_hash": results["data_source_hash"],
             "data_source": results["data_source_hash"],
             "accuracy": results["accuracy"],

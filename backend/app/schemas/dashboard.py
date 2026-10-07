@@ -4,7 +4,7 @@ Drop at: backend/app/schemas/dashboard.py
 """
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 
 # ---------- Hospital-scoped ----------
@@ -52,6 +52,13 @@ class ModelPerformanceOut(BaseModel):
     deployed_at: Optional[datetime] = None
     previous_deployed_version_id: Optional[int] = None
     trained_at: datetime
+
+    @computed_field
+    @property
+    def is_unverified_leaky(self) -> bool:
+        if self.gate_report and isinstance(self.gate_report, dict):
+            return bool(self.gate_report.get("trained_on_leaky_partitions", False))
+        return False
 
     class Config:
         from_attributes = True
