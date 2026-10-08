@@ -27,10 +27,10 @@ class GradCAMResponse(BaseModel):
 
 
 class StoneDetectionResponse(BaseModel):
-    """Independent CT image assessment output."""
+    """Independent CT image assessment output across multi-model DL architectures."""
     class_name: str = Field(..., description="CT Classification class label")
     confidence: float = Field(..., ge=0.0, le=1.0)
     inference_time_sec: float = Field(default=0.0)
+    model_id: Optional[str] = Field(default="resnet18", description="Identifier of the model that produced prediction")
+    model_name: Optional[str] = Field(default="ResNet18", description="Human-readable model name")
     gradcam: Optional[GradCAMResponse] = None
-
-

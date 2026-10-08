@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { PatientRecord } from '../types/dashboard';
+import type { DLModelListResponse, StoneDetection } from '../types/stoneDetection';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 export { API_BASE_URL };
@@ -52,18 +53,6 @@ export interface RiskPrediction {
   shap?: ShapExplanation;
 }
 
-export interface StoneDetection {
-  class_name: string;
-  confidence: number;
-  inference_time_sec: number;
-  gradcam?: {
-    overlay_url: string;
-    target_class?: string;
-    available?: boolean;
-    message?: string;
-  };
-}
-
 export interface ShapExplanation {
   top_features: string[];
   feature_contributions: Record<string, number>;
@@ -112,6 +101,11 @@ export async function predictImage(formData: FormData): Promise<StoneDetection> 
       'Content-Type': 'multipart/form-data',
     },
   });
+  return response.data;
+}
+
+export async function fetchDLModels(): Promise<DLModelListResponse> {
+  const response = await api.get<DLModelListResponse>('/api/v1/models/dl');
   return response.data;
 }
 

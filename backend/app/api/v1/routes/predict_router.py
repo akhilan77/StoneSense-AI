@@ -112,14 +112,36 @@ async def predict_risk(
 @router.post("/image", response_model=StoneDetectionResponse)
 async def predict_image(
     image: UploadFile = File(...),
+    model_family: Optional[str] = Form("resnet18"),
     hospital_id: Optional[int] = Form(None),
     patient_id: Optional[int] = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> StoneDetectionResponse:
-    """Classifies CT scan slice using trained ResNet18 model singleton."""
-    if model_loader.dl_model is None:
-        raise HTTPException(status_code=503, detail="ResNet18 CT classification model not loaded.")
+    """Classifies CT scan slice using selected DL model architecture (ResNet18, YOLO26, DINOv3, QKNN)."""
+    from dl.models.registry import dl_registry
+
+    selected_model_id = dl_registry.resolve_model_id(model_family or "resnet18")
+    try:
+        wrapper = dl_registry.get_model(selected_model_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown model_family '{model_family}'. Allowed: ['resnet18', 'yolo26', 'dinov3', 'qknn']"
+        )
+
+    if not wrapper.is_ready:
+        if wrapper.status.value == "PENDING_WEIGHTS":
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model '{wrapper.model_name}' is currently unavailable (status: PENDING_WEIGHTS). "
+                       f"{wrapper._error_message or 'Trained artifacts have not yet been deployed.'}"
+            )
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model '{wrapper.model_name}' is not ready ({wrapper.status.value}): {wrapper._error_message}"
+            )
 
     effective_hospital_id = get_scoped_hospital_id(current_user, hospital_id)
 
@@ -135,9 +157,9 @@ async def predict_image(
     start_time = time.time()
     try:
         content = await image.read()
-        res = PredictionService.predict_ct_image(content)
+        res = PredictionService.predict_ct_image(content, model_id=selected_model_id)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to process image file: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to process image with model '{wrapper.model_name}': {str(e)}")
 
     elapsed = time.time() - start_time
     output_dir = Path(__file__).resolve().parents[3] / "static" / "gradcam"
@@ -147,21 +169,28 @@ async def predict_image(
     overlay_url = None
     gradcam_error = None
     try:
-        overlay = generate_gradcam_for_bytes(content, str(output_dir / f"{uuid4().hex}_overlay.png"), target_class=res["class"])
-        overlay_url = f"/static/gradcam/{Path(overlay['overlay_path']).name}"
+        overlay = generate_gradcam_for_bytes(
+            content,
+            str(output_dir / f"{uuid4().hex}_overlay.png"),
+            target_class=res["class"],
+            model_id=selected_model_id
+        )
+        if overlay.get("overlay_path") and Path(overlay["overlay_path"]).exists():
+            overlay_url = f"/static/gradcam/{Path(overlay['overlay_path']).name}"
     except Exception as exc:
         gradcam_error = str(exc)
         import logging
-        logging.getLogger("predict_router").exception("Grad-CAM generation failed for CT upload")
+        logging.getLogger("predict_router").exception(f"Explainability generation failed for model '{wrapper.model_name}'")
 
-    active_ver = getattr(model_loader, "active_dl_version_tag", "resnet18_ct_v2_1")
+    model_display_tag = f"{res['model_id']}_{res['class']}"
+    recorded_family = res.get("model_family", f"{res['model_id']}_ct")
 
     try:
         prediction = Prediction(
             hospital_id=effective_hospital_id,
             patient_id=patient.id if patient else None,
             prediction_type="image",
-            model_name=active_ver,
+            model_name=res["model_name"],
             result_label=str(res["class"]),
             confidence=res["confidence"],
             latency_ms=elapsed * 1000,
@@ -170,8 +199,8 @@ async def predict_image(
         inf_log = InferenceLog(
             hospital_id=effective_hospital_id,
             prediction_type="image",
-            model_name="resnet18_ct",
-            version_tag=active_ver,
+            model_name=recorded_family,
+            version_tag=res["model_id"],
             result_label=str(res["class"]),
             confidence=res["confidence"],
             latency_ms=elapsed * 1000,
@@ -193,7 +222,8 @@ async def predict_image(
             "patient_id": patient.id if patient else None,
             "result_label": str(res["class"]),
             "confidence": round(float(res["confidence"]), 4),
-            "model_version": active_ver,
+            "model_id": res["model_id"],
+            "model_name": res["model_name"],
         },
     )
 
@@ -201,24 +231,22 @@ async def predict_image(
         "class_name": res["class"],
         "confidence": res["confidence"],
         "inference_time_sec": round(elapsed, 4),
+        "model_id": res["model_id"],
+        "model_name": res["model_name"],
     }
-    if overlay_url:
+    if overlay:
         payload["gradcam"] = {
-            "overlay_url": overlay_url if res["class"] != "Normal" else "",
+            "overlay_url": overlay_url if (overlay.get("available") and overlay_url) else "",
             "target_class": overlay.get("target_class", res["class"]),
-            "available": bool(res["class"] != "Normal") and bool(overlay.get("available", True)),
-            "message": (
-                "No stone-specific localization is shown because the model classified this scan as Normal."
-                if res["class"] == "Normal"
-                else overlay.get("message", "")
-            )
+            "available": bool(overlay.get("available", False)),
+            "message": overlay.get("message", "")
         }
     elif gradcam_error:
         payload["gradcam"] = {
             "overlay_url": "",
             "target_class": res["class"],
             "available": False,
-            "message": "Explanation unavailable for this scan."
+            "message": f"Explanation unavailable for {res['model_name']}."
         }
 
     return StoneDetectionResponse(**payload)

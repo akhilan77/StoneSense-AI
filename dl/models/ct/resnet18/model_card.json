@@ -1,0 +1,13 @@
+{
+  "model_id": "resnet18",
+  "display_name": "ResNet18",
+  "base_model": "torchvision.models.resnet18",
+  "version_tag": "resnet18_centralized_v1",
+  "family": "resnet18_ct",
+  "license": "BSD-3-Clause",
+  "trained_on": "dl/processed_grouped",
+  "class_names": ["Cyst", "Normal", "Stone", "Tumor"],
+  "input_size": [224, 224],
+  "created_at": "2026-10-01T00:00:00Z",
+  "is_approved": true
+}

@@ -9,7 +9,7 @@ export function StoneDetectionPage() {
     <AppLayout
       role="hospital"
       title="CT Stone Detection"
-      subtitle="Review ResNet18 imaging evidence and Grad-CAM explanation independently from clinical risk."
+      subtitle="Review AI-assisted CT imaging analysis and diagnostic evidence independently from clinical risk."
     >
       {Number.isInteger(parsedPatientId) ? (
         <ImageUpload patientId={parsedPatientId} />

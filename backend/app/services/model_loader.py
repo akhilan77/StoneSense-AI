@@ -1,7 +1,7 @@
 """Model loader startup service.
 
-Loads the centralized ML model and DL federated model once at startup and stores
-them as separate singletons. Supports DL checkpoint reloading when rounds complete.
+Loads the centralized ML model and DL models (via DLModelRegistry) once at startup
+and stores them as singletons. Supports DL checkpoint reloading when federated rounds complete.
 """
 
 from pathlib import Path
@@ -14,6 +14,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 import sys
 if str(PROJECT_ROOT / "ml") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "ml"))
+if str(PROJECT_ROOT / "dl") not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT / "dl"))
 if str(PROJECT_ROOT / "dl" / "preprocessing") not in sys.path:
     sys.path.append(str(PROJECT_ROOT / "dl" / "preprocessing"))
 if str(PROJECT_ROOT / "ml" / "training") not in sys.path:
@@ -25,7 +27,7 @@ logger = logging.getLogger("ModelLoader")
 
 
 class ModelLoader:
-    """Singleton loader for the centralized ML and DL federated models."""
+    """Singleton loader for ML Tabular and DL Multi-Model subsystems."""
 
     _instance: Optional["ModelLoader"] = None
 
@@ -54,10 +56,35 @@ class ModelLoader:
         self._initialized = True
 
     def load_all_models(self) -> None:
-        """Loads the DL federated ResNet18 and centralized tabular risk models."""
+        """Loads the DL Model Registry and centralized tabular risk models."""
         logger.info("Initializing StoneSense-AI Singleton Model Loader...")
-        self.reload_dl_model()
+        self.load_dl_registry()
         self.load_ml_model()
+
+    def load_dl_registry(self) -> None:
+        """Loads all available CT deep learning models via DLModelRegistry."""
+        try:
+            from dl.models.registry import dl_registry
+            dl_registry.load_all_models()
+            resnet_model = dl_registry.get_model("resnet18")
+            if resnet_model and resnet_model.is_ready:
+                # Maintain backward compatible pointer
+                self.dl_model = getattr(resnet_model, "model", None)
+            logger.info("DL Model Registry loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize DL Model Registry: {e}")
+            # Fallback direct ResNet18 load
+            self.reload_dl_model()
+
+    def get_dl_model(self, identifier: Optional[str] = "resnet18"):
+        """Returns the requested CT model wrapper from DLModelRegistry."""
+        from dl.models.registry import dl_registry
+        return dl_registry.get_model(identifier)
+
+    def list_dl_models(self):
+        """Returns metadata for all 4 DL models."""
+        from dl.models.registry import dl_registry
+        return dl_registry.list_models()
 
     def reload_dl_model(self, version_tag: Optional[str] = None) -> bool:
         """Dynamically loads or reloads the active ResNet18 DL model."""
@@ -101,6 +128,17 @@ class ModelLoader:
 
                 self.dl_model.to(self.device)
                 self.dl_model.eval()
+
+                # Sync back into dl_registry wrapper if present
+                try:
+                    from dl.models.registry import dl_registry
+                    r18 = dl_registry.get_model("resnet18")
+                    if r18:
+                        r18.model = self.dl_model
+                        r18._status = dl_registry.resolve_model_id("resnet18") and r18._status
+                except Exception:
+                    pass
+
                 logger.info(f"ResNet18 ({self.active_dl_version_tag}) loaded successfully.")
                 return True
             except Exception as exc:
@@ -134,7 +172,6 @@ class ModelLoader:
             return True
         except Exception as exc:
             logger.error(f"Failed to load risk model from registry: {exc}")
-            # Fallback to direct artifact load if registry fails unexpectedly
             ml_model_path = PROJECT_ROOT / "ml" / "models" / "candidate_risk_model.pkl"
             if not ml_model_path.exists():
                 ml_model_path = PROJECT_ROOT / "ml" / "models" / "kidney_risk_model.pkl"

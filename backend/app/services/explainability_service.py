@@ -104,8 +104,30 @@ def generate_shap_for_patient(patient_features: Dict[str, Any]) -> Dict[str, Any
 
 
 
-def generate_gradcam_for_bytes(image_bytes: bytes, output_path: str, target_class: Optional[str] = None) -> Dict[str, Any]:
+def generate_gradcam_for_bytes(
+    image_bytes: bytes,
+    output_path: str,
+    target_class: Optional[str] = None,
+    model_id: Optional[str] = "resnet18"
+) -> Dict[str, Any]:
     """Generate a class-specific Grad-CAM overlay for an uploaded CT image."""
+    # 1. Try delegating to DL Model Wrapper if available
+    try:
+        from dl.models.registry import dl_registry
+        wrapper = dl_registry.get_model(model_id or "resnet18")
+        if wrapper and wrapper.is_ready:
+            return wrapper.explain(image_bytes, target_class=target_class, output_path=output_path)
+        elif wrapper and not wrapper.is_ready:
+            return {
+                "available": False,
+                "overlay_path": "",
+                "target_class": target_class or "Unknown",
+                "message": f"Explainability unavailable: {wrapper.model_name} is not ready ({wrapper.status.value})."
+            }
+    except Exception as exc:
+        logger.debug(f"DLModelRegistry explain delegation skipped: {exc}")
+
+    # 2. ResNet18 legacy fallback
     from app.services.model_loader import model_loader
     from app.utils.image_utils import preprocess_ct_image
     try:
@@ -121,6 +143,14 @@ def generate_gradcam_for_bytes(image_bytes: bytes, output_path: str, target_clas
 
     model = model_loader.dl_model
     model.eval()
+
+    if not hasattr(model, "layer4"):
+        return {
+            "available": False,
+            "overlay_path": "",
+            "target_class": target_class or "Unknown",
+            "message": "Grad-CAM is only supported for convolutional ResNet architectures."
+        }
 
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     original_rgb = np.asarray(image, dtype=np.uint8)
