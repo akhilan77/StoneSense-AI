@@ -218,11 +218,11 @@ class StoneSenseFedAvg(_FedAvgBase):
         new_ver = f"v{server_round}"
         ckpt_file = f"resnet18_fed_round_{server_round:03d}.pth"
 
-        print(f"\nGlobal Model:")
+        print("\nGlobal Model:")
         print(f"  Previous: {prev_ver}")
         print(f"  New:      {new_ver}")
         print(f"\nSaving:\n  {ckpt_file}")
-        print(f"\nPersisting metrics to PostgreSQL...")
+        print("\nPersisting metrics to PostgreSQL...")
 
         # Persist to database if enabled
         if self.db_persist and round_data.get("parameters") is not None:

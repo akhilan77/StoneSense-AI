@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stonesense-ai"
+version = "1.0.0"
+description = "Explainable AI-Based Kidney Stone Detection & Risk Prediction System"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "StoneSense-AI Team" }]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*", "ml*", "dl*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "E402", "F401", "F841", "W291", "W293", "E722", "E741"]

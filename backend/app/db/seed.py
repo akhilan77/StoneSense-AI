@@ -27,7 +27,25 @@ def run():
     init_db()
     db = SessionLocal()
     try:
-        # Seed demo users only in non-production environments
+        # 1. Seed Hospitals first to satisfy Foreign Key constraints on users/patients
+        demo_hospitals = [
+            {"hospital_code": "HOSP-001", "name": "Apollo Renal Care", "region": "Chennai"},
+            {"hospital_code": "HOSP-002", "name": "Fortis Nephrology Wing", "region": "Bengaluru"},
+            {"hospital_code": "HOSP-003", "name": "AIIMS Urology Dept.", "region": "Delhi"},
+        ]
+        for h_data in demo_hospitals:
+            existing_h = db.query(Hospital).filter_by(hospital_code=h_data["hospital_code"]).first()
+            if not existing_h:
+                db.add(Hospital(**h_data))
+        db.commit()
+
+        # Build lookup mapping for hospital codes to primary key IDs
+        hosp_map = {h.hospital_code: h.id for h in db.query(Hospital).all()}
+        hosp1_id = hosp_map.get("HOSP-001")
+        hosp2_id = hosp_map.get("HOSP-002")
+        hosp3_id = hosp_map.get("HOSP-003")
+
+        # 2. Seed demo users only in non-production environments
         if not settings.is_production:
             demo_users = [
                 {
@@ -46,19 +64,19 @@ def run():
                     "email": "hospital1@stonesense.ai",
                     "password": "Hospital1!2026",
                     "role": "hospital_user",
-                    "hospital_id": 1,
+                    "hospital_id": hosp1_id,
                 },
                 {
                     "email": "hospital2@stonesense.ai",
                     "password": "Hospital2!2026",
                     "role": "hospital_user",
-                    "hospital_id": 2,
+                    "hospital_id": hosp2_id,
                 },
                 {
                     "email": "hospital3@stonesense.ai",
                     "password": "Hospital3!2026",
                     "role": "hospital_user",
-                    "hospital_id": 3,
+                    "hospital_id": hosp3_id,
                 },
             ]
             for u in demo_users:
@@ -74,36 +92,30 @@ def run():
                     db.add(user)
             db.commit()
 
-        if db.query(Hospital).count() == 0:
-            hospitals = [
-                Hospital(hospital_code="HOSP-001", name="Apollo Renal Care", region="Chennai"),
-                Hospital(hospital_code="HOSP-002", name="Fortis Nephrology Wing", region="Bengaluru"),
-                Hospital(hospital_code="HOSP-003", name="AIIMS Urology Dept.", region="Delhi"),
-            ]
-            db.add_all(hospitals)
-            db.commit()
-
-        if db.query(Patient).count() == 0:
+        # 3. Seed Patients
+        if hosp1_id and db.query(Patient).count() == 0:
             patients = [
-                Patient(hospital_id=1, reference_code="PT-2201", urine_features={}),
-                Patient(hospital_id=1, reference_code="PT-2198", urine_features={}),
-                Patient(hospital_id=1, reference_code="PT-2190", urine_features={}),
-                Patient(hospital_id=1, reference_code="PT-2183", urine_features={}),
+                Patient(hospital_id=hosp1_id, reference_code="PT-2201", urine_features={}),
+                Patient(hospital_id=hosp1_id, reference_code="PT-2198", urine_features={}),
+                Patient(hospital_id=hosp1_id, reference_code="PT-2190", urine_features={}),
+                Patient(hospital_id=hosp1_id, reference_code="PT-2183", urine_features={}),
             ]
             db.add_all(patients)
             db.commit()
 
-        if db.query(Prediction).count() == 0:
+        # 4. Seed Predictions
+        if hosp1_id and db.query(Prediction).count() == 0:
             patients = db.query(Patient).order_by(Patient.id.asc()).all()
             sample_predictions = [
-                Prediction(hospital_id=1, patient_id=patients[0].id if len(patients)>0 else None, prediction_type="image", model_name="resnet18_ct", result_label="Stone", confidence=0.942, latency_ms=64.0, created_at=datetime.utcnow() - timedelta(minutes=10)),
-                Prediction(hospital_id=1, patient_id=patients[1].id if len(patients)>1 else None, prediction_type="risk", model_name="xgboost_risk", result_label="Low", confidence=0.881, latency_ms=45.0, created_at=datetime.utcnow() - timedelta(minutes=45)),
-                Prediction(hospital_id=1, patient_id=patients[2].id if len(patients)>2 else None, prediction_type="image", model_name="resnet18_ct", result_label="Normal", confidence=0.974, latency_ms=58.0, created_at=datetime.utcnow() - timedelta(hours=2)),
-                Prediction(hospital_id=1, patient_id=patients[3].id if len(patients)>3 else None, prediction_type="risk", model_name="xgboost_risk", result_label="High", confidence=0.910, latency_ms=52.0, created_at=datetime.utcnow() - timedelta(hours=4)),
+                Prediction(hospital_id=hosp1_id, patient_id=patients[0].id if len(patients) > 0 else None, prediction_type="image", model_name="resnet18_ct", result_label="Stone", confidence=0.942, latency_ms=64.0, created_at=datetime.utcnow() - timedelta(minutes=10)),
+                Prediction(hospital_id=hosp1_id, patient_id=patients[1].id if len(patients) > 1 else None, prediction_type="risk", model_name="xgboost_risk", result_label="Low", confidence=0.881, latency_ms=45.0, created_at=datetime.utcnow() - timedelta(minutes=45)),
+                Prediction(hospital_id=hosp1_id, patient_id=patients[2].id if len(patients) > 2 else None, prediction_type="image", model_name="resnet18_ct", result_label="Normal", confidence=0.974, latency_ms=58.0, created_at=datetime.utcnow() - timedelta(hours=2)),
+                Prediction(hospital_id=hosp1_id, patient_id=patients[3].id if len(patients) > 3 else None, prediction_type="risk", model_name="xgboost_risk", result_label="High", confidence=0.910, latency_ms=52.0, created_at=datetime.utcnow() - timedelta(hours=4)),
             ]
             db.add_all(sample_predictions)
             db.commit()
 
+        # 5. Seed Model Versions
         if db.query(ModelVersion).count() == 0:
             versions = [
                 ModelVersion(model_family="xgboost_risk", version_tag="v1.0.0",
@@ -132,6 +144,7 @@ def run():
             db.add_all(versions)
             db.commit()
 
+        # 6. Seed Hospital Update Logs
         if db.query(HospitalUpdateLog).count() == 0:
             hospitals = db.query(Hospital).all()
             deployed = db.query(ModelVersion).filter_by(is_deployed=True).all()
@@ -144,10 +157,12 @@ def run():
                     ))
             db.commit()
 
+        # 7. Seed System Logs
         if db.query(SystemLog).count() == 0:
+            valid_hospital_ids = [None] + [h.id for h in db.query(Hospital).all()]
             for _ in range(15):
                 db.add(SystemLog(
-                    hospital_id=random.choice([None, 1, 2, 3]),
+                    hospital_id=random.choice(valid_hospital_ids),
                     level=random.choice(["info", "info", "warning", "error"]),
                     message=random.choice([
                         "Inference request completed",
@@ -159,6 +174,7 @@ def run():
                 ))
             db.commit()
 
+        # 8. Seed Drift Records
         if db.query(DriftRecord).count() == 0:
             for family in ["xgboost_risk", "resnet18_ct"]:
                 for i in range(6):

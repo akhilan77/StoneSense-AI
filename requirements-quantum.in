@@ -1,0 +1,7 @@
+# StoneSense-AI Optional Quantum Experimentation Extras (Phase 6 QKNN)
+-r requirements.in
+
+qiskit>=1.0.0
+qiskit-algorithms>=0.3.0
+qiskit-machine-learning>=0.7.0
+pennylane>=0.35.0

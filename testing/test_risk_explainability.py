@@ -9,15 +9,14 @@ import joblib
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "ml"))
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
-from ml.models.wrappers import (
+from ml.risk_models.wrappers import (
     LogisticRegressionRiskModel,
     RandomForestRiskModel,
     XGBoostRiskModel,
 )
-from ml.models.registry import registry
+from ml.risk_models.registry import registry
 from backend.app.services.explainability_service import generate_shap_for_patient
 from backend.app.services.model_loader import model_loader
 

@@ -1,13 +1,16 @@
-"""Model Abstraction and Registry Package for StoneSense-AI."""
+"""Backward-compatible re-exports from ml.risk_models for model code.
+Model weight artifacts and manifests reside in this directory.
+"""
 
-from .base import BaseRiskModel
-from .wrappers import (
+from ml.risk_models import (
+    BaseRiskModel,
     LogisticRegressionRiskModel,
     RandomForestRiskModel,
     XGBoostRiskModel,
     FAMILY_MODEL_MAP,
+    ModelRegistry,
+    registry,
 )
-from .registry import ModelRegistry, registry
 
 __all__ = [
     "BaseRiskModel",

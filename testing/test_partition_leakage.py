@@ -19,6 +19,11 @@ PARTITIONS_DIR = PROJECT_ROOT / "dl" / "datasets" / "partitions"
 PROCESSED_GROUPED = PROJECT_ROOT / "dl" / "processed_grouped"
 MANIFEST_PATH = PROJECT_ROOT / "dl" / "outputs" / "reports" / "grouped_split_manifest.csv"
 
+pytestmark = pytest.mark.skipif(
+    not PARTITIONS_DIR.exists(),
+    reason="Requires dl/datasets/partitions directory which is gitignored."
+)
+
 HOSPITALS = ["hospital_1", "hospital_2", "hospital_3"]
 SPLITS = ["train", "validation", "test"]
 CLASSES = ["Cyst", "Normal", "Stone", "Tumor"]

@@ -1,0 +1,80 @@
+# ==============================================================================
+# StoneSense-AI Container Orchestration
+# Note: Ensure .env is populated with required secrets before running:
+#   docker compose up --build
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL Database Service
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: stonesense-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # StoneSense-AI FastAPI Backend Service
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.backend
+    container_name: stonesense-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Secrets and Environment Settings strictly from .env
+      STONESENSE_ENV: ${STONESENSE_ENV:-production}
+      STONESENSE_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      STONESENSE_JWT_SECRET: ${STONESENSE_JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:80,http://localhost:5173}
+      GATE_MIN_ACCURACY: ${GATE_MIN_ACCURACY:-0.95}
+      GATE_MIN_F1: ${GATE_MIN_F1:-0.94}
+      GATE_MAX_REGRESSION_VS_CURRENT: ${GATE_MAX_REGRESSION_VS_CURRENT:-0.02}
+      GATE_MIN_RECALL_STONE: ${GATE_MIN_RECALL_STONE:-0.96}
+      GATE_MIN_RECALL_TUMOR: ${GATE_MIN_RECALL_TUMOR:-0.98}
+    volumes:
+      # Model checkpoints and datasets mounted via volumes (never baked into image)
+      - ./ml/models:/app/ml/models
+      - ./ml/artifacts:/app/ml/artifacts
+      - ./ml/datasets:/app/ml/datasets
+      - ./dl/models:/app/dl/models
+      - ./dl/artifacts:/app/dl/artifacts
+      - ./dl/datasets:/app/dl/datasets
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+
+  # ----------------------------------------------------------------------------
+  # StoneSense-AI React + Nginx Frontend Service
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.frontend
+    container_name: stonesense-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+    driver: local

@@ -7,11 +7,10 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "ml"))
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
 from ml.artifacts import get_feature_columns
-from ml.models.registry import registry
+from ml.risk_models.registry import registry
 from backend.app.utils.preprocessing_utils import prepare_tabular_inputs, get_expected_feature_columns
 
 

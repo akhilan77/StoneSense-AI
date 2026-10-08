@@ -85,7 +85,7 @@ def print_server_banner(
     print("[Flower Server] Federated Learning Server started.")
     print("[Flower Server] Base model: ResNet18")
     print(f"[Flower Server] Minimum clients required: {min_clients}")
-    print(f"[Flower Server] Strategy: StoneSenseFedAvg")
+    print("[Flower Server] Strategy: StoneSenseFedAvg")
     print("[Flower Server] Server waiting for hospital clients to connect...")
     print("")
 

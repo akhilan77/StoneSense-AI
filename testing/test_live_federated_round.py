@@ -21,6 +21,8 @@ from app.db.models import FederatedRound, HospitalTrainingRun, ModelVersion, Hos
 from app.services.federated_coordinator import federated_coordinator
 from app.core.security import create_access_token
 
+pytestmark = pytest.mark.slow
+
 admin_token = create_access_token(data={"sub": "admin@stonesense.ai", "role": "admin", "hospital_id": None})
 client = TestClient(app, headers={"Authorization": f"Bearer {admin_token}"})
 

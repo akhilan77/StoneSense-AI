@@ -241,3 +241,16 @@ dl/processed_grouped/
 *.sqlite3
 stonesense.db
 backend/stonesense.db
+
+# Nested backend artifacts
+backend/backend/
+
+dl/datasets/
+dl/processed/
+dl/processed_grouped/
+dl/models/**/*.pth
+dl/outputs/
+ml/datasets/
+**/.venv
+**/node_modules
+*.db

@@ -1,0 +1,52 @@
+# ==============================================================================
+# StoneSense-AI Backend Container (CPU Optimized)
+# ==============================================================================
+
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /build/
+RUN pip install --no-cache-dir --user -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+FROM python:3.12-slim AS runner
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    libgomp1 \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONPATH=/app:/app/backend:/app/ml:/app/dl
+ENV PYTHONUNBUFFERED=1
+
+COPY pyproject.toml pytest.ini alembic.ini /app/
+COPY backend/ /app/backend/
+COPY ml/ /app/ml/
+COPY dl/ /app/dl/
+
+RUN mkdir -p /app/backend/app/static/gradcam \
+    /app/logs \
+    /app/ml/models/versions \
+    /app/ml/artifacts \
+    /app/dl/models/federated \
+    /app/dl/artifacts
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v1/health || exit 1
+
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

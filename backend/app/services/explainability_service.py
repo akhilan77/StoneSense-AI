@@ -23,6 +23,16 @@ sys.path.append(str(PROJECT_ROOT / "ml" / "explainability"))
 DL_CLASS_MAPPING = {0: "Cyst", 1: "Normal", 2: "Stone", 3: "Tumor"}
 
 try:
+    import torch
+except ImportError:
+    torch = None
+
+try:
+    from pytorch_grad_cam.utils.image import show_cam_on_image
+except ImportError:
+    show_cam_on_image = None
+
+try:
     import shap
 except ImportError:
     shap = None
@@ -234,7 +244,7 @@ class ExplainabilityService:
 
         # Load ML Risk model and pipeline
         try:
-            from models.registry import registry
+            from ml.risk_models import registry
             self.ml_model = registry.get_active_model()
             ml_pipeline_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
             if ml_pipeline_path.exists():

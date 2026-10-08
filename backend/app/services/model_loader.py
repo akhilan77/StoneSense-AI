@@ -115,10 +115,7 @@ class ModelLoader:
         ml_pipeline_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
 
         try:
-            try:
-                from ml.models.registry import registry
-            except ImportError:
-                from models.registry import registry
+            from ml.risk_models import registry
             active_model = registry.get_model(version_tag)
             self.ml_model = active_model
             self.active_ml_version_tag = active_model.version_tag

@@ -9,31 +9,43 @@ import joblib
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "ml"))
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
-from ml.models.registry import registry
+from ml.risk_models.registry import registry
 from app.services.prediction_service import PredictionService
 from app.services.model_loader import model_loader
 
+DATASET_PATH = PROJECT_ROOT / "ml" / "datasets" / "kidneyData.csv"
 
 
 def test_prediction_numerical_parity():
     """Verifies that the registry LogisticRegression model matches candidate_risk_model.pkl within 1e-7 tolerance."""
     raw_model_path = PROJECT_ROOT / "ml" / "models" / "candidate_risk_model.pkl"
     pipe_path = PROJECT_ROOT / "ml" / "artifacts" / "preprocessing_pipeline.pkl"
-    dataset_path = PROJECT_ROOT / "ml" / "datasets" / "kidneyData.csv"
+    dataset_path = DATASET_PATH
 
     raw_model = joblib.load(raw_model_path)
     pipe = joblib.load(pipe_path)
     reg_model = registry.get_model("logistic_regression_v001")
 
-    df = pd.read_csv(dataset_path)
-    for c in ["Unnamed: 0", "target", "Class", "label"]:
-        if c in df.columns:
-            df = df.drop(columns=[c])
+    if dataset_path.exists():
+        df = pd.read_csv(dataset_path)
+        for c in ["Unnamed: 0", "target", "Class", "label"]:
+            if c in df.columns:
+                df = df.drop(columns=[c])
+        X = df[reg_model.feature_names]
+    else:
+        # Synthetic clinical fixture for CI environments where raw datasets are gitignored
+        X = pd.DataFrame({
+            "gravity": [1.010, 1.015, 1.020, 1.025, 1.030, 1.012, 1.018],
+            "ph": [5.5, 6.0, 6.5, 7.0, 7.5, 5.8, 6.8],
+            "osmo": [400, 500, 600, 700, 800, 450, 750],
+            "cond": [15.0, 20.0, 25.0, 30.0, 35.0, 18.0, 32.0],
+            "urea": [150, 250, 350, 450, 550, 200, 500],
+            "calc": [2.0, 4.0, 6.0, 8.0, 10.0, 3.0, 7.5],
+        })
 
-    X_trans = pipe.transform(df[reg_model.feature_names])
+    X_trans = pipe.transform(X)
 
     raw_probs = raw_model.predict_proba(X_trans)
     reg_probs = reg_model.predict_proba(X_trans)

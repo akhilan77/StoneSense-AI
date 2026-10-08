@@ -1,0 +1,56 @@
+# ==============================================================================
+# StoneSense-AI Docker Ignore File
+# Excludes heavy training datasets, model weights, local venvs, and build caches
+# ==============================================================================
+
+# Virtual environments
+.venv/
+**/.venv/
+env/
+venv/
+fresh/
+fresh_venv/
+
+# Node modules & build outputs
+node_modules/
+**/node_modules/
+frontend/dist/
+dist/
+build/
+
+# Version control, testing & cache
+.git/
+.gitignore
+.pytest_cache/
+.coverage
+htmlcov/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+stonesense.db
+backend/stonesense.db
+
+# Datasets and generated ML/DL processing outputs (mounted via Docker volumes)
+dl/datasets/
+dl/processed/
+dl/processed_grouped/
+dl/outputs/
+ml/datasets/
+ml/processed/
+ml/outputs/
+backend/app/static/gradcam/
+
+# Large Model weights (mounted via Docker volumes, never baked into images)
+*.pth
+**/*.pth
+
+# IDE & Editor files
+.vscode/
+.idea/
+.qodo/
+*.log
