@@ -1,7 +1,15 @@
+import sys
+from pathlib import Path
 from contextlib import asynccontextmanager
 import json
 import asyncio
-from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+if str(PROJECT_ROOT / "backend") not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT / "backend"))
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles

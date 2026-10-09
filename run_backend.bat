@@ -41,6 +41,10 @@ echo  - Service URL:     http://127.0.0.1:8000
 echo  - Swagger API Docs: http://127.0.0.1:8000/docs
 echo  - Redoc API Docs:   http://127.0.0.1:8000/redoc
 echo.
+
+:: Ensure port 8000 is available
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$conns = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue; if ($conns) { Write-Host '[INFO] Releasing existing process on port 8000...'; $conns | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 500 }"
+
 echo Press Ctrl+C to stop the server.
 echo =========================================================
 echo.

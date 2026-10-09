@@ -12,6 +12,8 @@ import joblib
 # Setup paths to import ML and DL training components
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 import sys
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 if str(PROJECT_ROOT / "ml") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "ml"))
 if str(PROJECT_ROOT / "dl") not in sys.path:

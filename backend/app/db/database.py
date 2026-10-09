@@ -7,7 +7,12 @@ from app.db.models import Base
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SQLITE_PATH = (PROJECT_ROOT / "stonesense.db").resolve()
-DATABASE_URL = os.getenv("STONESENSE_DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH}")
+_raw_db_url = os.getenv("STONESENSE_DATABASE_URL", "")
+
+if not _raw_db_url or ("@postgres:" in _raw_db_url and not os.path.exists("/.dockerenv") and not os.getenv("RUNNING_IN_DOCKER")):
+    DATABASE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+else:
+    DATABASE_URL = _raw_db_url
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)

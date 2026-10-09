@@ -240,6 +240,7 @@ def test_environment_defaults_to_production_and_fails_fast_without_secret(monkey
     monkeypatch.delenv("STONESENSE_ENV", raising=False)
     monkeypatch.delenv("ENVIRONMENT", raising=False)
     monkeypatch.delenv("STONESENSE_JWT_SECRET", raising=False)
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
 
     from app.config.settings import Settings
     prod_settings = Settings()

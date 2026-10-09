@@ -1,6 +1,16 @@
 import os
+from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+# Load .env from project root if present
+_env_path = PROJECT_ROOT / ".env"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path, override=False)
+else:
+    load_dotenv(override=False)
 
 
 def _parse_cors_origins() -> List[str]:

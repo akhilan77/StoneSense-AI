@@ -1,5 +1,6 @@
 // frontend/src/services/federatedApi.ts
-import axios from 'axios';
+import { apiClient } from './apiClient';
+import { getStoredToken } from './authApi';
 import {
   DatasetStatus,
   DatasetValidationResult,
@@ -13,25 +14,23 @@ import {
   StartRoundResponse,
 } from '../types/federated';
 
-const client = axios.create({ baseURL: '/api/v1' });
-
 export async function fetchFederatedOverview(): Promise<FederatedOverview> {
-  const { data } = await client.get<FederatedOverview>('/developer/federated-overview');
+  const { data } = await apiClient.get<FederatedOverview>('/developer/federated-overview');
   return data;
 }
 
 export async function fetchRoundHistory(): Promise<FederatedRoundDetail[]> {
-  const { data } = await client.get<FederatedRoundDetail[]>('/developer/round-history');
+  const { data } = await apiClient.get<FederatedRoundDetail[]>('/developer/round-history');
   return data;
 }
 
 export async function fetchHospitalParticipation(): Promise<HospitalParticipation[]> {
-  const { data } = await client.get<HospitalParticipation[]>('/developer/hospital-participation');
+  const { data } = await apiClient.get<HospitalParticipation[]>('/developer/hospital-participation');
   return data;
 }
 
 export async function fetchHospitalDatasetStatus(hospitalId: number): Promise<DatasetStatus> {
-  const { data } = await client.get<DatasetStatus>(`/hospital/${hospitalId}/dataset-status`, {
+  const { data } = await apiClient.get<DatasetStatus>(`/hospital/${hospitalId}/dataset-status`, {
     headers: { 'X-Hospital-ID': String(hospitalId) },
   });
   return data;
@@ -40,7 +39,7 @@ export async function fetchHospitalDatasetStatus(hospitalId: number): Promise<Da
 export async function validateHospitalDataset(
   hospitalId: number
 ): Promise<DatasetValidationResult> {
-  const { data } = await client.post<DatasetValidationResult>(
+  const { data } = await apiClient.post<DatasetValidationResult>(
     `/hospital/${hospitalId}/dataset-validate`,
     undefined,
     { headers: { 'X-Hospital-ID': String(hospitalId) } }
@@ -54,7 +53,7 @@ export async function uploadHospitalDataset(
 ): Promise<DatasetStatus> {
   const formData = new FormData();
   formData.append('dataset', file);
-  const { data } = await client.post<DatasetStatus>(
+  const { data } = await apiClient.post<DatasetStatus>(
     `/hospital/${hospitalId}/dataset-upload`,
     formData,
     {
@@ -68,14 +67,14 @@ export async function uploadHospitalDataset(
 }
 
 export async function fetchHospitalFederatedStatus(hospitalId: number): Promise<FederatedStatus> {
-  const { data } = await client.get<FederatedStatus>(`/hospital/${hospitalId}/federated-status`);
+  const { data } = await apiClient.get<FederatedStatus>(`/hospital/${hospitalId}/federated-status`);
   return data;
 }
 
 export async function fetchHospitalTrainingHistory(
   hospitalId: number
 ): Promise<FederatedRoundDetail['hospital_runs']> {
-  const { data } = await client.get<FederatedRoundDetail['hospital_runs']>(
+  const { data } = await apiClient.get<FederatedRoundDetail['hospital_runs']>(
     `/hospital/${hospitalId}/training-history`
   );
   return data;
@@ -90,7 +89,7 @@ export async function fetchHospitalCurrentModel(hospitalId: number): Promise<{
   global_f1: number | null;
   deployed_at: string;
 }> {
-  const { data } = await client.get(`/hospital/${hospitalId}/current-model`);
+  const { data } = await apiClient.get(`/hospital/${hospitalId}/current-model`);
   return data;
 }
 
@@ -107,7 +106,7 @@ export async function triggerLocalTraining(hospitalId: number): Promise<{
   learning_rate?: number;
   update_status?: string;
 }> {
-  const { data } = await client.post(`/hospital/${hospitalId}/train-local`, undefined, {
+  const { data } = await apiClient.post(`/hospital/${hospitalId}/train-local`, undefined, {
     headers: { 'X-Hospital-ID': String(hospitalId) },
   });
   return data;
@@ -121,7 +120,7 @@ export async function startFederatedRound(params?: {
   lr?: number;
   mode?: string;
 }): Promise<StartRoundResponse> {
-  const { data } = await client.post<StartRoundResponse>(
+  const { data } = await apiClient.post<StartRoundResponse>(
     '/developer/federated/rounds/start',
     params || {}
   );
@@ -129,12 +128,12 @@ export async function startFederatedRound(params?: {
 }
 
 export async function fetchCurrentRoundLiveStatus(): Promise<RoundLiveStatus> {
-  const { data } = await client.get<RoundLiveStatus>('/developer/federated/rounds/current/status');
+  const { data } = await apiClient.get<RoundLiveStatus>('/developer/federated/rounds/current/status');
   return data;
 }
 
 export async function fetchRoundStatusById(roundId: number): Promise<RoundLiveStatus> {
-  const { data } = await client.get<RoundLiveStatus>(
+  const { data } = await apiClient.get<RoundLiveStatus>(
     `/developer/federated/rounds/${roundId}/status`
   );
   return data;
@@ -143,7 +142,7 @@ export async function fetchRoundStatusById(roundId: number): Promise<RoundLiveSt
 export async function fetchHospitalLiveStatus(
   hospitalId: number | string
 ): Promise<HospitalLiveStatus> {
-  const { data } = await client.get<HospitalLiveStatus>(
+  const { data } = await apiClient.get<HospitalLiveStatus>(
     `/hospital/${hospitalId}/federated-live-status`
   );
   return data;
@@ -157,9 +156,11 @@ export function createFederatedWebSocket(
 ): () => void {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
+  const token = getStoredToken();
+  const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
   const wsUrl = hospitalCode
-    ? `${protocol}//${host}/api/v1/hospital/${encodeURIComponent(hospitalCode)}/federated/ws`
-    : `${protocol}//${host}/api/v1/developer/federated/ws`;
+    ? `${protocol}//${host}/api/v1/hospital/${encodeURIComponent(hospitalCode)}/federated/ws${tokenQuery}`
+    : `${protocol}//${host}/api/v1/developer/federated/ws${tokenQuery}`;
 
   let ws: WebSocket | null = null;
   let keepAliveInterval: any = null;

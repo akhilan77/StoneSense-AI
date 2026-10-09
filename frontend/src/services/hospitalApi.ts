@@ -1,16 +1,13 @@
-// Drop at: frontend/src/services/hospitalApi.ts
-import axios from "axios";
 import { Hospital, PatientHistoryItem } from "../types/dashboard";
-
-const client = axios.create({ baseURL: "/api/v1/hospital" });
+import { apiClient } from "./apiClient";
 
 export async function fetchHospitals(): Promise<Hospital[]> {
-  const { data } = await client.get<Hospital[]>("/list");
+  const { data } = await apiClient.get<Hospital[]>("/api/v1/hospital/list");
   return data;
 }
 
 export async function fetchHistory(hospitalId: number, limit = 25): Promise<PatientHistoryItem[]> {
-  const { data } = await client.get<PatientHistoryItem[]>(`/${hospitalId}/history`, {
+  const { data } = await apiClient.get<PatientHistoryItem[]>(`/api/v1/hospital/${hospitalId}/history`, {
     params: { limit },
   });
   return data;
