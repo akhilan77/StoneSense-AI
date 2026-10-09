@@ -1,0 +1,15 @@
+{
+  "model_name": "QKNN",
+  "model_family": "qknn",
+  "embedding_backbone": "DINOv3",
+  "task": "4-class kidney CT classification",
+  "test_accuracy": 0.41947565543071164,
+  "test_f1_macro": 0.35890078748637244,
+  "stone_recall": 0.2560386473429952,
+  "tumor_recall": 0.27696793002915454,
+  "n_qubits": 4,
+  "pca_components": 4,
+  "prototype_count": 40,
+  "test_samples": 1869,
+  "evaluated_at_utc": "2026-10-09T04:30:45.795114+00:00"
+}

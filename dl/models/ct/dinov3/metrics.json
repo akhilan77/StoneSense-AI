@@ -1,0 +1,14 @@
+{
+  "model_name": "DINOv3",
+  "model_family": "dinov3",
+  "backbone": "facebook/dinov3-vits16-pretrain-lvd1689m",
+  "classifier": "mlp",
+  "test_accuracy": 0.8742643124665597,
+  "test_f1_macro": 0.8281434414359818,
+  "stone_recall": 0.6183574879227053,
+  "tumor_recall": 0.8979591836734694,
+  "train_samples": 8708,
+  "validation_samples": 1869,
+  "test_samples": 1869,
+  "evaluated_at_utc": "2026-10-09T04:18:57.804435+00:00"
+}

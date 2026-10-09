@@ -50,6 +50,11 @@ class BaseCTModel(ABC):
         return self._status
 
     @property
+    def error_message(self) -> Optional[str]:
+        """Current error or pending reason message."""
+        return self._error_message
+
+    @property
     def is_ready(self) -> bool:
         """True if model artifacts exist and weights are loaded into memory."""
         return self._status == DLModelStatus.READY
@@ -129,9 +134,14 @@ class BaseCTModel(ABC):
 
     def get_metadata(self) -> Dict[str, Any]:
         """Returns standard metadata dictionary for UI inspection and API responses."""
-        acc = self._metrics.get("accuracy") or self._metrics.get("test", {}).get("slice_accuracy")
+        acc = (
+            self._metrics.get("accuracy")
+            or self._metrics.get("test_accuracy")
+            or self._metrics.get("test", {}).get("slice_accuracy")
+        )
         macro_f1 = (
             self._metrics.get("f1_macro")
+            or self._metrics.get("test_f1_macro")
             or self._metrics.get("test", {}).get("slice_macro_f1")
             or self._metrics.get("macro_f1")
         )
@@ -142,6 +152,9 @@ class BaseCTModel(ABC):
         if isinstance(per_class, dict):
             stone_rec = per_class.get("Stone", {}).get("recall") or self._metrics.get("stone_recall")
             tumor_rec = per_class.get("Tumor", {}).get("recall") or self._metrics.get("tumor_recall")
+        else:
+            stone_rec = self._metrics.get("stone_recall")
+            tumor_rec = self._metrics.get("tumor_recall")
 
         return {
             "id": self.model_id,

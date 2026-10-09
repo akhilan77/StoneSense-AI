@@ -53,11 +53,13 @@ class DLModelRegistry:
         self._models["yolo26"] = YOLO26Wrapper(
             artifact_dir=ct_models_dir / "yolo26",
         )
-        self._models["dinov3"] = DINOv3Wrapper(
+        dino_wrapper = DINOv3Wrapper(
             artifact_dir=ct_models_dir / "dinov3",
         )
+        self._models["dinov3"] = dino_wrapper
         self._models["qknn"] = QKNNWrapper(
             artifact_dir=ct_models_dir / "qknn",
+            dinov3_wrapper=dino_wrapper,
         )
 
     def load_all_models(self) -> Dict[str, bool]:

@@ -4,6 +4,7 @@ Encapsulates Meta DINOv3 Vision Transformer backbone feature extraction and
 trained champion classification head.
 """
 
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 import io
@@ -26,6 +27,7 @@ class DINOv3Wrapper(BaseCTModel):
     def __init__(
         self,
         artifact_dir: Optional[Path] = None,
+        backbone_dir: Optional[Path] = None,
     ):
         super().__init__(
             model_id="dinov3",
@@ -33,6 +35,7 @@ class DINOv3Wrapper(BaseCTModel):
             model_family="dinov3_ct",
             artifact_dir=artifact_dir or (PROJECT_ROOT / "dl" / "models" / "ct" / "dinov3"),
         )
+        self.backbone_dir = backbone_dir or (self.artifact_dir / "backbone" if self.artifact_dir else None)
         self.backbone = None
         self.processor = None
         self.classifier_head = None
@@ -56,26 +59,58 @@ class DINOv3Wrapper(BaseCTModel):
             self._error_message = f"DINOv3 head checkpoint missing at {head_path}."
             return False
 
+        # Load trained MLP champion head
+        try:
+            self.classifier_head = joblib.load(head_path)
+        except Exception as e:
+            self._status = DLModelStatus.PENDING_WEIGHTS
+            self._error_message = f"Failed to load DINOv3 head checkpoint: {e}"
+            return False
+
+        # Determine backbone identifier / path
+        model_name = "facebook/dinov3-vits16-pretrain-lvd1689m"
+        if cfg_path.exists():
+            import json
+            try:
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    self.config = json.load(f)
+                    model_name = self.config.get("model_id") or self.config.get("model_name", model_name)
+            except Exception as e:
+                logger.warning(f"Could not parse dino_backbone_config.json: {e}")
+
+        # Check for local backbone directory to avoid unauthenticated/offline HF downloads
+        env_backbone = os.environ.get("DINOV3_BACKBONE_DIR")
+        target_backbone_path = None
+        if env_backbone and Path(env_backbone).exists():
+            target_backbone_path = Path(env_backbone)
+        elif self.backbone_dir and self.backbone_dir.exists():
+            target_backbone_path = self.backbone_dir
+        elif (self.artifact_dir / "dinov3_backbone").exists():
+            target_backbone_path = self.artifact_dir / "dinov3_backbone"
+
         try:
             import torch
             from transformers import AutoImageProcessor, AutoModel
 
-            self.classifier_head = joblib.load(head_path)
-            model_name = "facebook/dinov3-vits16-pretrain-lvd1689m"
-            if cfg_path.exists():
-                import json
-                with open(cfg_path, "r", encoding="utf-8") as f:
-                    self.config = json.load(f)
-                    model_name = self.config.get("model_name", model_name)
-
-            self.processor = AutoImageProcessor.from_pretrained(model_name)
-            self.backbone = AutoModel.from_pretrained(model_name)
-            self.backbone.eval()
-
-            self._status = DLModelStatus.READY
-            self._error_message = None
-            logger.info("DINOv3Wrapper loaded successfully.")
-            return True
+            if target_backbone_path:
+                logger.info(f"Loading DINOv3 backbone locally from {target_backbone_path}")
+                self.processor = AutoImageProcessor.from_pretrained(str(target_backbone_path), local_files_only=True)
+                self.backbone = AutoModel.from_pretrained(str(target_backbone_path), local_files_only=True)
+                self.backbone.eval()
+                self._status = DLModelStatus.READY
+                self._error_message = None
+                logger.info("DINOv3Wrapper loaded successfully from local backbone.")
+                return True
+            else:
+                # In production/air-gapped environments without local backbone files,
+                # mark status as PENDING_WEIGHTS rather than failing or blocking
+                self._status = DLModelStatus.PENDING_WEIGHTS
+                self._error_message = (
+                    f"DINOv3 backbone weights missing locally (expected at '{self.artifact_dir / 'backbone'}' "
+                    f"or via DINOV3_BACKBONE_DIR). Classifier head is verified."
+                )
+                logger.info(self._error_message)
+                return False
         except ImportError:
             self._status = DLModelStatus.PENDING_WEIGHTS
             self._error_message = "transformers/torch dependencies missing for DINOv3."
@@ -85,9 +120,39 @@ class DINOv3Wrapper(BaseCTModel):
             self._error_message = f"DINOv3 backbone loading pending: {exc}"
             return False
 
+    def predict_embedding(self, embedding: np.ndarray) -> Dict[str, Any]:
+        """Runs classifier head inference directly on a 384-dimensional DINOv3 feature vector."""
+        if self.classifier_head is None:
+            head_path = self.artifact_dir / "champion_head.pkl" if self.artifact_dir else None
+            if head_path and head_path.exists():
+                self.classifier_head = joblib.load(head_path)
+            else:
+                raise RuntimeError("DINOv3 classifier head is not loaded.")
+
+        start_t = time.perf_counter()
+        emb_2d = np.asarray(embedding, dtype=np.float32).reshape(1, -1)
+        probs = self.classifier_head.predict_proba(emb_2d)[0]
+        pred_idx = int(np.argmax(probs))
+        predicted_class = CLASS_MAPPING.get(pred_idx, "Unknown")
+        confidence = float(probs[pred_idx])
+
+        elapsed = time.perf_counter() - start_t
+        probabilities = {CLASS_MAPPING[i]: float(probs[i]) for i in range(len(CLASS_NAMES))}
+
+        return {
+            "model_id": self.model_id,
+            "model_name": self.model_name,
+            "model_family": self.model_family,
+            "class_name": predicted_class,
+            "predicted_class": predicted_class,
+            "confidence": round(confidence, 4),
+            "probabilities": {k: round(v, 4) for k, v in probabilities.items()},
+            "inference_time_sec": round(elapsed, 4),
+        }
+
     def predict(self, image_bytes: bytes) -> Dict[str, Any]:
         """Extracts DINOv3 CLS embeddings and executes classifier head forward pass."""
-        if not self.is_ready or self.classifier_head is None:
+        if not self.is_ready or self.backbone is None or self.processor is None or self.classifier_head is None:
             raise RuntimeError(f"DINOv3 model is not available ({self._error_message}).")
 
         import torch

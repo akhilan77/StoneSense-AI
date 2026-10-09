@@ -63,26 +63,41 @@ def test_yolo26_wrapper_discovery_and_metadata():
     assert meta["tumor_recall"] == pytest.approx(0.991253, abs=1e-3)
 
 
-def test_dinov3_reports_pending_weights():
-    """Verify that DINOv3 reports PENDING_WEIGHTS when artifact weights are absent."""
+def test_dinov3_wrapper_discovery_and_metadata():
+    """Verify that DINOv3 wrapper resolves metadata and handles status correctly based on backbone presence."""
     reg = DLModelRegistry()
     reg.load_all_models()
     dino = reg.get_model("dinov3")
     assert isinstance(dino, DINOv3Wrapper)
     assert dino.model_id == "dinov3"
-    assert dino.status == DLModelStatus.PENDING_WEIGHTS
-    assert dino.is_ready is False
+    assert dino.model_family == "dinov3_ct"
+
+    backbone_dir = Path("dl/models/ct/dinov3/backbone")
+    if (backbone_dir / "config.json").exists() and (backbone_dir / "model.safetensors").exists():
+        assert dino.status == DLModelStatus.READY
+        assert dino.is_ready is True
+    else:
+        assert dino.status == DLModelStatus.PENDING_WEIGHTS
+        assert dino.is_ready is False
 
 
-def test_qknn_reports_pending_weights():
-    """Verify that QKNN reports PENDING_WEIGHTS when artifact weights are absent."""
+def test_qknn_wrapper_discovery_and_metadata():
+    """Verify that QKNN wrapper resolves metadata and handles status correctly based on dependencies."""
     reg = DLModelRegistry()
     reg.load_all_models()
     qknn = reg.get_model("qknn")
     assert isinstance(qknn, QKNNWrapper)
     assert qknn.model_id == "qknn"
-    assert qknn.status == DLModelStatus.PENDING_WEIGHTS
-    assert qknn.is_ready is False
+    assert qknn.model_family == "qknn_ct"
+
+    backbone_dir = Path("dl/models/ct/dinov3/backbone")
+    dino = reg.get_model("dinov3")
+    if dino.is_ready and Path("dl/models/ct/qknn/qknn_model.pkl").exists():
+        assert qknn.status == DLModelStatus.READY
+        assert qknn.is_ready is True
+    else:
+        assert qknn.status == DLModelStatus.PENDING_WEIGHTS
+        assert qknn.is_ready is False
 
 
 def test_alias_resolution():
