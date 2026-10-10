@@ -466,3 +466,38 @@ def test_centralized_ml_training_registers_as_pending_review_without_autodeploy(
     test_db.refresh(current)
     assert current.is_deployed is True
     assert current.status == "deployed"
+
+
+def test_gate_candidate_unverified_patient_separation_prevents_eligibility(test_db):
+    """Candidate with unverified patient-level separation is marked pending_review and not eligible."""
+    gate = DeploymentGate(Settings(gate_min_accuracy=0.80, gate_min_f1=0.80, gate_min_recall_stone=0.60, gate_min_recall_tumor=0.90))
+    metrics = {
+        "accuracy": 0.8694,
+        "f1": 0.8251,
+        "recall_stone": 0.6570,
+        "recall_tumor": 1.0,
+        "patient_level_separation_verified": False,
+        "validation_data_source": "dataset_hash_val_abc",
+    }
+    report = gate.evaluate_candidate(metrics, test_db, model_family="resnet18_ct")
+    assert report["passed"] is False
+    assert report["status"] == "pending_review"
+    assert any("Patient-level separation remains unverified" in r for r in report["reasons"])
+
+
+def test_gate_candidate_trained_on_leaky_partitions_rejected(test_db):
+    """Candidate flagged as trained on leaky partitions is explicitly rejected."""
+    gate = DeploymentGate(Settings())
+    metrics = {
+        "accuracy": 0.9963,
+        "f1": 0.9947,
+        "recall_stone": 0.9712,
+        "recall_tumor": 0.9971,
+        "trained_on_leaky_partitions": True,
+        "validation_data_source": "dataset_hash_val_abc",
+    }
+    report = gate.evaluate_candidate(metrics, test_db, model_family="resnet18_ct")
+    assert report["passed"] is False
+    assert report["status"] == "rejected"
+    assert any("leaky partitions" in r for r in report["reasons"])
+

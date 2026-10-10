@@ -83,15 +83,19 @@ async def get_models_info(
     else:
         dl_info = {
             "name": "CT-KIDNEY-CLASSIFIER (ResNet18)",
-            "version_tag": getattr(model_loader, "active_dl_version_tag", "resnet18_ct_v2_1"),
+            "version_tag": getattr(model_loader, "active_dl_version_tag", "resnet18_grouped_audit_v1"),
             "status": "active" if (r18_wrapper and r18_wrapper.is_ready) else "no_approved_model",
-            "message": "Model loaded in active runtime." if (r18_wrapper and r18_wrapper.is_ready) else "No approved model currently deployed",
+            "message": "Audited benchmark model loaded in runtime." if (r18_wrapper and r18_wrapper.is_ready) else "No approved model currently deployed",
             "classes": ["Cyst", "Normal", "Stone", "Tumor"],
-            "accuracy": r18_meta.get("accuracy") or 0.9963,
-            "f1_macro": r18_meta.get("macro_f1") or 0.9947,
-            "precision": 0.9974,
-            "recall": r18_meta.get("stone_recall") or 0.9712,
+            "accuracy": r18_meta.get("accuracy"),
+            "f1_macro": r18_meta.get("macro_f1"),
+            "precision": r18_meta.get("precision_macro"),
+            "recall": r18_meta.get("stone_recall"),
+            "stone_recall": r18_meta.get("stone_recall"),
+            "tumor_recall": r18_meta.get("tumor_recall"),
             "loaded": r18_wrapper.is_ready if r18_wrapper else False,
+            "disclaimer": "Research Prototype Only — Not for Clinical Diagnosis or Treatment Planning.",
+            "patient_level_separation_verified": False,
         }
 
     # ML Tabular model metadata

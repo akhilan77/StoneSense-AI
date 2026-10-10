@@ -322,6 +322,47 @@ class DeploymentGate:
                         f"(Acc drop: {acc_drop:.4f}, F1 drop: {f1_drop:.4f}, limit: {max_reg:.4f})."
                     )
 
+        # 7. Verification & Data Leakage Audit Check
+        is_leaky = candidate_metrics.get("trained_on_leaky_partitions", False)
+        metrics_void = candidate_metrics.get("metrics_void", False)
+        patient_verified = candidate_metrics.get("patient_level_separation_verified", True)
+        is_unverified = candidate_metrics.get("is_unverified", False)
+
+        if is_leaky or metrics_void:
+            checks.append({
+                "name": "data_leakage_audit",
+                "label": "Data Leakage & Integrity Audit",
+                "value": "leaky_partitions",
+                "threshold": "zero_leakage",
+                "operator": "==",
+                "status": "failed",
+                "details": "Candidate trained on unverified or leaky partitions; promotion rejected.",
+            })
+            has_failure = True
+            reasons.append("Model trained on unverified or leaky partitions cannot be promoted as validated.")
+        elif not patient_verified or is_unverified:
+            checks.append({
+                "name": "patient_level_verification",
+                "label": "Patient-Level Verification",
+                "value": "unverified",
+                "threshold": "verified",
+                "operator": "==",
+                "status": "pending_review",
+                "details": "Patient-level separation remains unverified (no patient IDs); requires manual clinical review.",
+            })
+            has_pending_review = True
+            reasons.append("Patient-level separation remains unverified; manual review required before eligibility.")
+        else:
+            checks.append({
+                "name": "audit_verification",
+                "label": "Integrity & Patient Separation Audit",
+                "value": "verified",
+                "threshold": "verified",
+                "operator": "==",
+                "status": "passed",
+                "details": "Audit integrity and split isolation verified.",
+            })
+
         # Determine overall gate status
         if has_failure:
             final_status = "rejected"

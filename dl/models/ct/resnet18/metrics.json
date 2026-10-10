@@ -1,0 +1,348 @@
+{
+    "model_architecture": "ResNet18",
+    "pretrained_weights": "ResNet18_Weights.IMAGENET1K_V1 (ImageNet-1K)",
+    "split_protocol": "Perceptual Cluster Grouping (pHash Hamming distance <= 2)",
+    "dataset_sample_counts": {
+        "train": 8708,
+        "validation": 1869,
+        "test": 1869,
+        "total": 12446
+    },
+    "dataset_cluster_counts": {
+        "train": 699,
+        "validation": 138,
+        "test": 142,
+        "total": 979
+    },
+    "historical_leaky_baseline": {
+        "split_type": "Random slice-level shuffle (LEAKY - Discredited)",
+        "test_accuracy": 0.9962586851950829,
+        "test_macro_f1": 0.9946514637789549,
+        "test_stone_recall": 0.9711538461538461,
+        "test_tumor_recall": 0.9970845481049563,
+        "test_samples": 1871,
+        "duplicate_cross_split_pairs": 227,
+        "note": "Artificially inflated due to 227 exact duplicate pairs and 703 pHash clusters crossing train/test splits."
+    },
+    "validation_selection_metrics": {
+        "best_epoch": 3,
+        "slice_accuracy": 0.9555912252541466,
+        "slice_macro_f1": 0.9496852412702759,
+        "slice_per_class": {
+            "Cyst": {
+                "precision": 0.9611992945326279,
+                "recall": 0.9784560143626571,
+                "f1_score": 0.9697508896797153,
+                "support": 557
+            },
+            "Normal": {
+                "precision": 0.9669749009247027,
+                "recall": 0.9606299212598425,
+                "f1_score": 0.9637919684002634,
+                "support": 762
+            },
+            "Stone": {
+                "precision": 0.9380952380952381,
+                "recall": 0.9516908212560387,
+                "f1_score": 0.9448441247002398,
+                "support": 207
+            },
+            "Tumor": {
+                "precision": 0.9313432835820895,
+                "recall": 0.9096209912536443,
+                "f1_score": 0.9203539823008849,
+                "support": 343
+            }
+        },
+        "slice_confusion_matrix": [
+            [
+                545,
+                0,
+                10,
+                2
+            ],
+            [
+                6,
+                732,
+                3,
+                21
+            ],
+            [
+                8,
+                2,
+                197,
+                0
+            ],
+            [
+                8,
+                23,
+                0,
+                312
+            ]
+        ],
+        "cluster_accuracy": 0.9492753623188406,
+        "cluster_macro_f1": 0.9353591439382881,
+        "cluster_per_class": {
+            "Cyst": {
+                "precision": 0.8863636363636364,
+                "recall": 1.0,
+                "f1_score": 0.9397590361445783,
+                "support": 39
+            },
+            "Normal": {
+                "precision": 0.9827586206896551,
+                "recall": 0.9827586206896551,
+                "f1_score": 0.9827586206896551,
+                "support": 58
+            },
+            "Stone": {
+                "precision": 1.0,
+                "recall": 0.85,
+                "f1_score": 0.918918918918919,
+                "support": 20
+            },
+            "Tumor": {
+                "precision": 0.9473684210526315,
+                "recall": 0.8571428571428571,
+                "f1_score": 0.9,
+                "support": 21
+            }
+        },
+        "sample_count": 1869,
+        "cluster_count": 138
+    },
+    "held_out_test_metrics": {
+        "slice_accuracy": 0.8694489031567684,
+        "slice_precision_macro": 0.8318564478073681,
+        "slice_recall_macro": 0.8378105832743119,
+        "slice_f1_macro": 0.8250912626774993,
+        "slice_f1_weighted": 0.8737379568862791,
+        "slice_per_class": {
+            "Cyst": {
+                "precision": 0.9680589680589681,
+                "recall": 0.7073608617594255,
+                "f1_score": 0.8174273858921162,
+                "support": 557
+            },
+            "Normal": {
+                "precision": 0.9226993865030675,
+                "recall": 0.9868766404199475,
+                "f1_score": 0.953709575142676,
+                "support": 762
+            },
+            "Stone": {
+                "precision": 0.4594594594594595,
+                "recall": 0.6570048309178744,
+                "f1_score": 0.5407554671968191,
+                "support": 207
+            },
+            "Tumor": {
+                "precision": 0.9772079772079773,
+                "recall": 1.0,
+                "f1_score": 0.9884726224783862,
+                "support": 343
+            }
+        },
+        "slice_confusion_matrix": [
+            [
+                394,
+                5,
+                158,
+                0
+            ],
+            [
+                0,
+                752,
+                2,
+                8
+            ],
+            [
+                13,
+                58,
+                136,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                343
+            ]
+        ],
+        "cluster_accuracy": 0.9647887323943662,
+        "cluster_precision_macro": 0.9658730158730158,
+        "cluster_recall_macro": 0.9462833914053426,
+        "cluster_f1_macro": 0.9546752852348115,
+        "cluster_per_class": {
+            "Cyst": {
+                "precision": 0.9523809523809523,
+                "recall": 0.975609756097561,
+                "f1_score": 0.963855421686747,
+                "support": 41
+            },
+            "Normal": {
+                "precision": 0.9666666666666667,
+                "recall": 1.0,
+                "f1_score": 0.9830508474576272,
+                "support": 58
+            },
+            "Stone": {
+                "precision": 0.9444444444444444,
+                "recall": 0.8095238095238095,
+                "f1_score": 0.8717948717948718,
+                "support": 21
+            },
+            "Tumor": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1_score": 1.0,
+                "support": 22
+            }
+        },
+        "cluster_confusion_matrix": [
+            [
+                40,
+                0,
+                1,
+                0
+            ],
+            [
+                0,
+                58,
+                0,
+                0
+            ],
+            [
+                2,
+                2,
+                17,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                22
+            ]
+        ],
+        "sample_count": 1869,
+        "cluster_count": 142
+    },
+    "bootstrap_95_ci": {
+        "slice_level": {
+            "accuracy": {
+                "mean": 0.8761974659842114,
+                "std": 0.07673586331181326,
+                "ci_95_lower": 0.7124398532362445,
+                "ci_95_upper": 0.9930129139136454
+            },
+            "macro_f1": {
+                "mean": 0.8438426120392034,
+                "std": 0.07994820499124448,
+                "ci_95_lower": 0.7048894645210521,
+                "ci_95_upper": 0.9901234052746053
+            },
+            "stone_recall": {
+                "mean": 0.7008895387723441,
+                "std": 0.16543375392522225,
+                "ci_95_lower": 0.4257974425630577,
+                "ci_95_upper": 0.9936046511627907
+            },
+            "tumor_recall": {
+                "mean": 1.0,
+                "std": 0.0,
+                "ci_95_lower": 1.0,
+                "ci_95_upper": 1.0
+            }
+        },
+        "cluster_level": {
+            "accuracy": {
+                "mean": 0.9645211267605633,
+                "std": 0.015716309378478913,
+                "ci_95_lower": 0.9295774647887324,
+                "ci_95_upper": 0.9929577464788732
+            },
+            "macro_f1": {
+                "mean": 0.953586193783918,
+                "std": 0.020347766263772767,
+                "ci_95_lower": 0.9102603756262464,
+                "ci_95_upper": 0.989234288385761
+            },
+            "stone_recall": {
+                "mean": 0.8080431630923568,
+                "std": 0.09013991353154355,
+                "ci_95_lower": 0.625,
+                "ci_95_upper": 0.9583333333333334
+            },
+            "tumor_recall": {
+                "mean": 1.0,
+                "std": 0.0,
+                "ci_95_lower": 1.0,
+                "ci_95_upper": 1.0
+            }
+        }
+    },
+    "accuracy": 0.8694489031567684,
+    "f1_macro": 0.8250912626774993,
+    "precision_macro": 0.8318564478073681,
+    "recall_macro": 0.8378105832743119,
+    "per_class_metrics": {
+        "Cyst": {
+            "precision": 0.9680589680589681,
+            "recall": 0.7073608617594255,
+            "f1_score": 0.8174273858921162,
+            "support": 557
+        },
+        "Normal": {
+            "precision": 0.9226993865030675,
+            "recall": 0.9868766404199475,
+            "f1_score": 0.953709575142676,
+            "support": 762
+        },
+        "Stone": {
+            "precision": 0.4594594594594595,
+            "recall": 0.6570048309178744,
+            "f1_score": 0.5407554671968191,
+            "support": 207
+        },
+        "Tumor": {
+            "precision": 0.9772079772079773,
+            "recall": 1.0,
+            "f1_score": 0.9884726224783862,
+            "support": 343
+        }
+    },
+    "confusion_matrix": [
+        [
+            394,
+            5,
+            158,
+            0
+        ],
+        [
+            0,
+            752,
+            2,
+            8
+        ],
+        [
+            13,
+            58,
+            136,
+            0
+        ],
+        [
+            0,
+            0,
+            0,
+            343
+        ]
+    ],
+    "stone_recall": 0.6570048309178744,
+    "tumor_recall": 1.0,
+    "evaluated_at": "2026-10-10T02:02:10Z",
+    "audit_status": "audited_grouped_benchmark",
+    "patient_level_separation_verified": false,
+    "patient_level_limitation": "Patient IDs unavailable in source dataset; clustering based on perceptual similarity (pHash <= 2).",
+    "disclaimer": "Research Prototype Only \u2014 Not for Clinical Diagnosis or Treatment Planning."
+}

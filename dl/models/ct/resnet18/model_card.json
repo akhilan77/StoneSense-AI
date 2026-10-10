@@ -1,13 +1,31 @@
 {
   "model_id": "resnet18",
-  "display_name": "ResNet18",
+  "display_name": "ResNet18 (Grouped Audit Benchmark)",
   "base_model": "torchvision.models.resnet18",
-  "version_tag": "resnet18_centralized_v1",
+  "pretrained_weights": "IMAGENET1K_V1",
+  "version_tag": "resnet18_grouped_audit_v1",
   "family": "resnet18_ct",
   "license": "BSD-3-Clause",
-  "trained_on": "dl/processed_grouped",
-  "class_names": ["Cyst", "Normal", "Stone", "Tumor"],
-  "input_size": [224, 224],
-  "created_at": "2026-10-01T00:00:00Z",
-  "is_approved": true
+  "trained_on": "dl/processed_grouped/train (8,708 images, 699 perceptual groups)",
+  "validated_on": "dl/processed_grouped/validation (1,869 images, 138 perceptual groups)",
+  "tested_on": "dl/processed_grouped/test (1,869 images, 142 perceptual groups)",
+  "class_names": [
+    "Cyst",
+    "Normal",
+    "Stone",
+    "Tumor"
+  ],
+  "input_size": [
+    224,
+    224
+  ],
+  "test_accuracy": 0.8694489031567684,
+  "test_macro_f1": 0.8250912626774993,
+  "test_stone_recall": 0.6570048309178744,
+  "test_tumor_recall": 1.0,
+  "created_at": "2026-10-10T02:02:10Z",
+  "is_approved": false,
+  "audit_verified": true,
+  "patient_level_verified": false,
+  "clinical_validity": "UNVALIDATED_RESEARCH_PROTOTYPE"
 }
