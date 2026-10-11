@@ -90,8 +90,12 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     metrics: Record<string, number>;
   } | null>(null);
   const currentMLVersion =
-    versions.find((version) => version.model_family === 'xgboost_risk' && version.is_deployed) ??
-    versions.find((version) => version.model_family === 'xgboost_risk');
+    (Array.isArray(versions) ? versions : []).find(
+      (version) => version.model_family === 'xgboost_risk' && version.is_deployed
+    ) ??
+    (Array.isArray(versions) ? versions : []).find(
+      (version) => version.model_family === 'xgboost_risk'
+    );
   const [selectedHospitalIds, setSelectedHospitalIds] = useState<number[]>([]);
   const [roundConfig, setRoundConfig] = useState({
     localEpochs: 1,
@@ -138,37 +142,38 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
 
   const loadAllData = () => {
     fetchModelPerformance()
-      .then(setVersions)
+      .then((data) => setVersions(Array.isArray(data) ? data : []))
       .catch(() => {});
     fetchHospitalLogs()
-      .then(setHospitalLogs)
+      .then((data) => setHospitalLogs(Array.isArray(data) ? data : []))
       .catch(() => {});
     fetchSystemMonitoring()
-      .then(setMonitoring)
+      .then((data) => setMonitoring(data && typeof data === 'object' && !Array.isArray(data) ? data : null))
       .catch(() => {});
     fetchSystemLogs()
-      .then(setLogs)
+      .then((data) => setLogs(Array.isArray(data) ? data : []))
       .catch(() => {});
     fetchDriftAnalysis()
-      .then(setDrift)
+      .then((data) => setDrift(Array.isArray(data) ? data : []))
       .catch(() => {});
     fetchAllEnrolledHospitals()
-      .then(setHospitals)
+      .then((data) => setHospitals(Array.isArray(data) ? data : []))
       .catch(() => {});
     fetchFederatedOverview()
-      .then(setFedOverview)
+      .then((data) => setFedOverview(data && typeof data === 'object' && !Array.isArray(data) ? data : null))
       .catch(() => {});
     fetchRoundHistory()
       .then((data) => {
-        setRoundHistory(data);
-        if (data.length > 0) setSelectedRoundDetail(data[data.length - 1]);
+        const safe = Array.isArray(data) ? data : [];
+        setRoundHistory(safe);
+        if (safe.length > 0) setSelectedRoundDetail(safe[safe.length - 1]);
       })
       .catch(() => {});
     fetchHospitalParticipation()
-      .then(setParticipation)
+      .then((data) => setParticipation(Array.isArray(data) ? data : []))
       .catch(() => {});
     fetchCurrentRoundLiveStatus()
-      .then(setLiveRoundStatus)
+      .then((data) => setLiveRoundStatus(data && typeof data === 'object' && !Array.isArray(data) ? data : null))
       .catch(() => {});
   };
 
@@ -594,8 +599,9 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                 </span>
                 <p className="mt-1 truncate font-mono text-xs font-bold text-[#101B16]">
                   {mlTrainingResult?.version_tag ??
-                    versions.find((version) => version.model_family === 'xgboost_risk')
-                      ?.version_tag ??
+                    (Array.isArray(versions) ? versions : []).find(
+                      (version) => version.model_family === 'xgboost_risk'
+                    )?.version_tag ??
                     'kidney_risk_model.pkl'}
                 </p>
               </div>

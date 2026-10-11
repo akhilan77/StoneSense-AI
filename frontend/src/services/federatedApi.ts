@@ -15,22 +15,22 @@ import {
 } from '../types/federated';
 
 export async function fetchFederatedOverview(): Promise<FederatedOverview> {
-  const { data } = await apiClient.get<FederatedOverview>('/developer/federated-overview');
+  const { data } = await apiClient.get<FederatedOverview>('/api/v1/developer/federated-overview');
   return data;
 }
 
 export async function fetchRoundHistory(): Promise<FederatedRoundDetail[]> {
-  const { data } = await apiClient.get<FederatedRoundDetail[]>('/developer/round-history');
+  const { data } = await apiClient.get<FederatedRoundDetail[]>('/api/v1/developer/round-history');
   return data;
 }
 
 export async function fetchHospitalParticipation(): Promise<HospitalParticipation[]> {
-  const { data } = await apiClient.get<HospitalParticipation[]>('/developer/hospital-participation');
+  const { data } = await apiClient.get<HospitalParticipation[]>('/api/v1/developer/hospital-participation');
   return data;
 }
 
 export async function fetchHospitalDatasetStatus(hospitalId: number): Promise<DatasetStatus> {
-  const { data } = await apiClient.get<DatasetStatus>(`/hospital/${hospitalId}/dataset-status`, {
+  const { data } = await apiClient.get<DatasetStatus>(`/api/v1/hospital/${hospitalId}/dataset-status`, {
     headers: { 'X-Hospital-ID': String(hospitalId) },
   });
   return data;
@@ -40,7 +40,7 @@ export async function validateHospitalDataset(
   hospitalId: number
 ): Promise<DatasetValidationResult> {
   const { data } = await apiClient.post<DatasetValidationResult>(
-    `/hospital/${hospitalId}/dataset-validate`,
+    `/api/v1/hospital/${hospitalId}/dataset-validate`,
     undefined,
     { headers: { 'X-Hospital-ID': String(hospitalId) } }
   );
@@ -54,7 +54,7 @@ export async function uploadHospitalDataset(
   const formData = new FormData();
   formData.append('dataset', file);
   const { data } = await apiClient.post<DatasetStatus>(
-    `/hospital/${hospitalId}/dataset-upload`,
+    `/api/v1/hospital/${hospitalId}/dataset-upload`,
     formData,
     {
       headers: {
@@ -67,7 +67,7 @@ export async function uploadHospitalDataset(
 }
 
 export async function fetchHospitalFederatedStatus(hospitalId: number): Promise<FederatedStatus> {
-  const { data } = await apiClient.get<FederatedStatus>(`/hospital/${hospitalId}/federated-status`);
+  const { data } = await apiClient.get<FederatedStatus>(`/api/v1/hospital/${hospitalId}/federated-status`);
   return data;
 }
 
@@ -75,7 +75,7 @@ export async function fetchHospitalTrainingHistory(
   hospitalId: number
 ): Promise<FederatedRoundDetail['hospital_runs']> {
   const { data } = await apiClient.get<FederatedRoundDetail['hospital_runs']>(
-    `/hospital/${hospitalId}/training-history`
+    `/api/v1/hospital/${hospitalId}/training-history`
   );
   return data;
 }
@@ -89,7 +89,7 @@ export async function fetchHospitalCurrentModel(hospitalId: number): Promise<{
   global_f1: number | null;
   deployed_at: string;
 }> {
-  const { data } = await apiClient.get(`/hospital/${hospitalId}/current-model`);
+  const { data } = await apiClient.get(`/api/v1/hospital/${hospitalId}/current-model`);
   return data;
 }
 
@@ -106,7 +106,7 @@ export async function triggerLocalTraining(hospitalId: number): Promise<{
   learning_rate?: number;
   update_status?: string;
 }> {
-  const { data } = await apiClient.post(`/hospital/${hospitalId}/train-local`, undefined, {
+  const { data } = await apiClient.post(`/api/v1/hospital/${hospitalId}/train-local`, undefined, {
     headers: { 'X-Hospital-ID': String(hospitalId) },
   });
   return data;
@@ -121,20 +121,20 @@ export async function startFederatedRound(params?: {
   mode?: string;
 }): Promise<StartRoundResponse> {
   const { data } = await apiClient.post<StartRoundResponse>(
-    '/developer/federated/rounds/start',
+    '/api/v1/developer/federated/rounds/start',
     params || {}
   );
   return data;
 }
 
 export async function fetchCurrentRoundLiveStatus(): Promise<RoundLiveStatus> {
-  const { data } = await apiClient.get<RoundLiveStatus>('/developer/federated/rounds/current/status');
+  const { data } = await apiClient.get<RoundLiveStatus>('/api/v1/developer/federated/rounds/current/status');
   return data;
 }
 
 export async function fetchRoundStatusById(roundId: number): Promise<RoundLiveStatus> {
   const { data } = await apiClient.get<RoundLiveStatus>(
-    `/developer/federated/rounds/${roundId}/status`
+    `/api/v1/developer/federated/rounds/${roundId}/status`
   );
   return data;
 }
@@ -143,7 +143,7 @@ export async function fetchHospitalLiveStatus(
   hospitalId: number | string
 ): Promise<HospitalLiveStatus> {
   const { data } = await apiClient.get<HospitalLiveStatus>(
-    `/hospital/${hospitalId}/federated-live-status`
+    `/api/v1/hospital/${hospitalId}/federated-live-status`
   );
   return data;
 }

@@ -331,8 +331,8 @@ export const fallbackHospitalsList: Hospital[] = [
 
 export const fetchModelPerformance = async (): Promise<ModelPerformance[]> => {
   try {
-    const res = await apiClient.get<ModelPerformance[]>('/developer/model-performance');
-    return res.data && res.data.length > 0 ? res.data : fallbackModelVersions;
+    const res = await apiClient.get<ModelPerformance[]>('/api/v1/developer/model-performance');
+    return Array.isArray(res.data) && res.data.length > 0 ? res.data : fallbackModelVersions;
   } catch {
     return fallbackModelVersions;
   }
@@ -340,17 +340,17 @@ export const fetchModelPerformance = async (): Promise<ModelPerformance[]> => {
 
 export const fetchModelVersions = async (modelFamily?: string): Promise<ModelPerformance[]> => {
   try {
-    const res = await apiClient.get<ModelPerformance[]>('/developer/model-versions', {
+    const res = await apiClient.get<ModelPerformance[]>('/api/v1/developer/model-versions', {
       params: { model_family: modelFamily },
     });
-    return res.data && res.data.length > 0 ? res.data : fallbackModelVersions;
+    return Array.isArray(res.data) && res.data.length > 0 ? res.data : fallbackModelVersions;
   } catch {
     return fallbackModelVersions;
   }
 };
 
 export const deployModelVersion = async (modelVersionId: number, approvedBy = 'developer_admin') => {
-  const res = await apiClient.post('/developer/model-versions/deploy', {
+  const res = await apiClient.post('/api/v1/developer/model-versions/deploy', {
     model_version_id: modelVersionId,
     approved_by: approvedBy,
   });
@@ -362,7 +362,7 @@ export const rollbackModelVersion = async (
   targetVersionId?: number,
   approvedBy = 'rollback_admin'
 ) => {
-  const res = await apiClient.post('/developer/model-versions/rollback', {
+  const res = await apiClient.post('/api/v1/developer/model-versions/rollback', {
     model_family: modelFamily,
     target_version_id: targetVersionId,
     approved_by: approvedBy,
@@ -380,14 +380,14 @@ export const startMLTraining = async (): Promise<{
   duration_sec: number;
   message: string;
 }> => {
-  const res = await apiClient.post('/developer/ml/training/start');
+  const res = await apiClient.post('/api/v1/developer/ml/training/start');
   return res.data;
 };
 
 export const fetchHospitalLogs = async (): Promise<HospitalUpdateLogEntry[]> => {
   try {
-    const res = await apiClient.get<HospitalUpdateLogEntry[]>('/developer/hospital-logs');
-    return res.data && res.data.length > 0 ? res.data : fallbackHospitalLogs;
+    const res = await apiClient.get<HospitalUpdateLogEntry[]>('/api/v1/developer/hospital-logs');
+    return Array.isArray(res.data) && res.data.length > 0 ? res.data : fallbackHospitalLogs;
   } catch {
     return fallbackHospitalLogs;
   }
@@ -395,8 +395,8 @@ export const fetchHospitalLogs = async (): Promise<HospitalUpdateLogEntry[]> => 
 
 export const fetchSystemMonitoring = async (): Promise<SystemMonitoringSummary> => {
   try {
-    const res = await apiClient.get<SystemMonitoringSummary>('/developer/system-monitoring');
-    return res.data ?? fallbackMonitoring;
+    const res = await apiClient.get<SystemMonitoringSummary>('/api/v1/developer/system-monitoring');
+    return res.data && typeof res.data === 'object' && !Array.isArray(res.data) ? res.data : fallbackMonitoring;
   } catch {
     return fallbackMonitoring;
   }
@@ -404,8 +404,8 @@ export const fetchSystemMonitoring = async (): Promise<SystemMonitoringSummary> 
 
 export const fetchSystemLogs = async (limit = 30): Promise<SystemLogEntry[]> => {
   try {
-    const res = await apiClient.get<SystemLogEntry[]>('/developer/system-logs', { params: { limit } });
-    return res.data && res.data.length > 0 ? res.data : fallbackSystemLogs;
+    const res = await apiClient.get<SystemLogEntry[]>('/api/v1/developer/system-logs', { params: { limit } });
+    return Array.isArray(res.data) && res.data.length > 0 ? res.data : fallbackSystemLogs;
   } catch {
     return fallbackSystemLogs;
   }
@@ -413,10 +413,10 @@ export const fetchSystemLogs = async (limit = 30): Promise<SystemLogEntry[]> => 
 
 export const fetchDriftAnalysis = async (modelFamily?: string): Promise<DriftPoint[]> => {
   try {
-    const res = await apiClient.get<DriftPoint[]>('/developer/drift-analysis', {
+    const res = await apiClient.get<DriftPoint[]>('/api/v1/developer/drift-analysis', {
       params: { model_family: modelFamily },
     });
-    return res.data && res.data.length > 0 ? res.data : fallbackDriftPoints;
+    return Array.isArray(res.data) && res.data.length > 0 ? res.data : fallbackDriftPoints;
   } catch {
     return fallbackDriftPoints;
   }
@@ -424,8 +424,8 @@ export const fetchDriftAnalysis = async (modelFamily?: string): Promise<DriftPoi
 
 export const fetchAllEnrolledHospitals = async (): Promise<Hospital[]> => {
   try {
-    const res = await apiClient.get<Hospital[]>('/hospital/list');
-    return res.data && res.data.length > 0 ? res.data : fallbackHospitalsList;
+    const res = await apiClient.get<Hospital[]>('/api/v1/hospital/list');
+    return Array.isArray(res.data) && res.data.length > 0 ? res.data : fallbackHospitalsList;
   } catch {
     return fallbackHospitalsList;
   }

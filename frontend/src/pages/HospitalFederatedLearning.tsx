@@ -80,7 +80,7 @@ export default function HospitalFederatedLearning() {
       setOverview(globalOverview);
       setCurrentModel(model);
       setDataset(localDataset);
-      setHistory(trainingHistory);
+      setHistory(Array.isArray(trainingHistory) ? trainingHistory : []);
       setError(null);
     } catch (loadError) {
       setError(
@@ -336,7 +336,7 @@ export default function HospitalFederatedLearning() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((run) => (
+                  {(Array.isArray(history) ? history : []).map((run) => (
                     <tr key={run.id} className="border-b border-[#DDE3DC]/60">
                       <td className="px-3 py-3 font-semibold">#{run.round_number}</td>
                       <td className="px-3 py-3 font-mono text-[10px]">
