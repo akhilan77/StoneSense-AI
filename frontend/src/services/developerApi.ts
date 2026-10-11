@@ -60,7 +60,8 @@ const fallbackModelVersions: ModelPerformance[] = [
     is_deployed: false,
     trained_at: '2026-09-07T18:45:00Z',
     latency_ms: 76.1,
-    environment: 'archived',
+    status: 'archived',
+    environment: 'staging',
     rollout_pct: 0,
   },
   {
