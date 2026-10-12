@@ -1082,7 +1082,7 @@ export default function HospitalDashboard() {
                   </div>
                   <div className="rounded-lg border border-[#DDE3DC] p-4 bg-[#F9FAF8]">
                     <h3 className="font-serif text-base font-medium text-[#101B16] mb-2">
-                      Grad-CAM++ — CT heatmap
+                      Grad-CAM — CT heatmap
                     </h3>
                     <div className="h-48 rounded-md bg-[#101B16] border border-[#DDE3DC] flex flex-col items-center justify-center text-xs text-white/70 relative overflow-hidden">
                       <div className="absolute inset-0 bg-radial from-[#C97A2B]/40 via-transparent to-transparent flex items-center justify-center">
@@ -1091,7 +1091,7 @@ export default function HospitalDashboard() {
                         </span>
                       </div>
                       <p className="mt-auto mb-2 text-[10px] text-white/50">
-                        Grad-CAM++ attention layer
+                        Grad-CAM attention layer
                       </p>
                     </div>
                   </div>

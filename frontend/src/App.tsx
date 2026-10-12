@@ -55,12 +55,20 @@ export function App() {
         }
       />
       <Route
+        path="/risk-prediction"
+        element={<Navigate to="/hospital-dashboard" replace />}
+      />
+      <Route
         path="/stone-detection/:patientId"
         element={
           <ProtectedRoute allowedRoles={['hospital_user', 'developer', 'admin']}>
             <StoneDetectionPage />
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/stone-detection"
+        element={<Navigate to="/hospital-dashboard" replace />}
       />
 
       {/* Developer Console Routes (Guarded strictly for developer and admin) */}

@@ -16,14 +16,14 @@ const summaryCards = [
     description: 'Monitor aggregate system health, model deployments, logs, and drift analysis.',
   },
   {
-    route: '/risk-prediction',
-    title: 'Risk Prediction',
-    description: 'Submit patient measurements to receive risk classification scoring.',
+    route: '/hospital/federated-learning',
+    title: 'Federated Learning',
+    description: 'Participate in decentralized model training rounds across partner hospitals.',
   },
   {
-    route: '/stone-detection',
-    title: 'Stone Detection',
-    description: 'Upload a CT scan image and inspect the detection details with Grad-CAM.',
+    route: '/hospital/private-dataset',
+    title: 'Private Dataset Management',
+    description: 'Manage local hospital patient cohorts and validate data partitions safely.',
   },
 ];
 
