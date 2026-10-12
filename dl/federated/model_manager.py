@@ -12,6 +12,8 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 import torch
 
+import os
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MODELS_DIR = PROJECT_ROOT / "dl" / "models"
 FED_MODELS_DIR = MODELS_DIR / "federated"
@@ -22,7 +24,16 @@ logger = logging.getLogger("StoneSenseModelManager")
 class ModelManager:
     """Manages model checkpoints, version tags, and deployment pointers."""
 
-    def __init__(self, models_dir: Path = MODELS_DIR):
+    def __init__(self, models_dir: Optional[Path] = None):
+        if models_dir is None:
+            env_dir = os.getenv("STONESENSE_MODELS_DIR")
+            models_dir = Path(env_dir) if env_dir else MODELS_DIR
+        self.models_dir = Path(models_dir)
+        self.fed_dir = self.models_dir / "federated"
+        self.fed_dir.mkdir(parents=True, exist_ok=True)
+
+    def set_models_dir(self, models_dir: Path) -> None:
+        """Dynamically re-points the model directories (used in testing)."""
         self.models_dir = Path(models_dir)
         self.fed_dir = self.models_dir / "federated"
         self.fed_dir.mkdir(parents=True, exist_ok=True)
@@ -78,23 +89,39 @@ class ModelManager:
         if latest_path.exists():
             return latest_path
         active_path = self.models_dir / "kidney_resnet18.pth"
-        return active_path if active_path.exists() else None
+        if active_path.exists():
+            return active_path
+        # Fallback to repo models if running in redirected test directory
+        repo_latest = FED_MODELS_DIR / "latest.pth"
+        if repo_latest.exists():
+            return repo_latest
+        repo_active = MODELS_DIR / "kidney_resnet18.pth"
+        return repo_active if repo_active.exists() else None
 
     def list_checkpoints(self) -> List[Dict[str, Any]]:
         """Lists all available federated model checkpoints."""
         checkpoints = []
-        for file in sorted(self.fed_dir.glob("resnet18_fed_round_*.pth")):
-            try:
-                data = torch.load(file, map_location="cpu", weights_only=False)
-                checkpoints.append({
-                    "version_tag": data.get("version_tag", file.stem),
-                    "round_number": data.get("round_number"),
-                    "metrics": data.get("metrics", {}),
-                    "saved_at": data.get("saved_at"),
-                    "file_path": str(file.relative_to(PROJECT_ROOT)),
-                })
-            except Exception as e:
-                logger.warning(f"Could not inspect {file}: {e}")
+        search_dirs = [self.fed_dir]
+        if self.fed_dir != FED_MODELS_DIR and FED_MODELS_DIR.exists():
+            search_dirs.append(FED_MODELS_DIR)
+
+        seen_tags = set()
+        for sdir in search_dirs:
+            for file in sorted(sdir.glob("resnet18_fed_round_*.pth")):
+                if file.stem in seen_tags:
+                    continue
+                seen_tags.add(file.stem)
+                try:
+                    data = torch.load(file, map_location="cpu", weights_only=False)
+                    checkpoints.append({
+                        "version_tag": data.get("version_tag", file.stem),
+                        "round_number": data.get("round_number"),
+                        "metrics": data.get("metrics", {}),
+                        "saved_at": data.get("saved_at"),
+                        "file_path": str(file.relative_to(PROJECT_ROOT)) if str(file).startswith(str(PROJECT_ROOT)) else str(file),
+                    })
+                except Exception as e:
+                    logger.warning(f"Could not inspect {file}: {e}")
         return checkpoints
 
 

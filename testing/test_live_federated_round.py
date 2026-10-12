@@ -29,7 +29,10 @@ client = TestClient(app, headers={"Authorization": f"Bearer {admin_token}"})
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_test_environment():
+def setup_test_environment(tmp_path_factory):
+    from dl.federated.model_manager import model_manager
+    test_models_dir = tmp_path_factory.mktemp("fed_models")
+    model_manager.set_models_dir(test_models_dir)
     init_db()
 
 
@@ -135,9 +138,9 @@ def test_end_to_end_fl_execution_and_persistence():
         assert mv.is_deployed is False
         assert mv.status in ["eligible", "rejected", "pending_review"]
         assert mv.gate_report is not None
-
-        # Verify Checkpoint File on disk
-        expected_ckpt = PROJECT_ROOT / "dl" / "models" / "federated" / f"{tag}.pth"
+        # Verify Checkpoint File on disk in isolated test directory
+        from dl.federated.model_manager import model_manager
+        expected_ckpt = model_manager.fed_dir / f"{tag}.pth"
         assert expected_ckpt.exists()
 
     finally:

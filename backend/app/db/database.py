@@ -19,6 +19,15 @@ engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def set_database_url(new_url: str) -> None:
+    """Dynamically rebind database engine and SessionLocal (e.g. for testing)."""
+    global DATABASE_URL, engine, SessionLocal
+    DATABASE_URL = new_url
+    c_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+    engine = create_engine(DATABASE_URL, connect_args=c_args)
+    SessionLocal.configure(bind=engine)
+
+
 def init_db() -> None:
     """Call once on backend startup (see INTEGRATION.md)."""
     Base.metadata.create_all(bind=engine)

@@ -336,7 +336,7 @@ def persist_round_to_db(
                 recall=val_rec,
                 is_deployed=False,
                 status="pending_review",
-                artifact_path=str(checkpoint_path.relative_to(PROJECT_ROOT)),
+                artifact_path=str(checkpoint_path.relative_to(PROJECT_ROOT)) if str(checkpoint_path).startswith(str(PROJECT_ROOT)) else str(checkpoint_path),
                 trained_at=datetime.utcnow()
             )
             db.add(mv)
