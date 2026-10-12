@@ -72,10 +72,9 @@ Exit Code: 0
   - `backend/app/api/v1/routes/predict_router.py`: 73%
   - **Overall Backend Application Coverage:** **72%** (1,950 / 2,699 statements).
 
-### Frontend Verification Results
 - **TypeScript Type Checking (`npx tsc --noEmit`):** Passed with code `0` (0 errors).
-- **ESLint (`npm run lint`):** Passed with code `0` (0 errors, 10 warnings on React hook exhaustive deps).
-- **Production Build (`npm run build`):** Passed with code `0`. Generated optimized assets (`dist/assets/index-lMZ72foU.js` [415 kB], `dist/assets/index-CkeiwB3w.css` [41 kB]) in 11.33 seconds.
+- **ESLint (`npm run lint`):** Passed with code `0` (0 errors, 0 warnings; all 10 former hook dependencies and Fast Refresh warnings cleanly resolved).
+- **Production Build (`npm run build`):** Passed with code `0`. Generated optimized assets cleanly.
 
 ---
 

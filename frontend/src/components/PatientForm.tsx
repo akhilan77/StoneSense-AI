@@ -5,7 +5,7 @@ import type { RiskPrediction } from '../types/riskPrediction';
 import { ErrorMessage } from './ErrorMessage';
 import { LoadingSpinner } from './LoadingSpinner';
 import { PredictionCard } from './PredictionCard';
-import { useHospital } from '../context/HospitalContext';
+import { useHospital } from '../context/useHospital';
 import type { PatientRecord } from '../types/dashboard';
 
 const initialPatient: Patient = {

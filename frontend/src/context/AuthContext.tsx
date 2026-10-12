@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { AuthUser, UserRole } from '../types/auth';
+import { AuthUser } from '../types/auth';
 import {
   clearStoredSession,
   fetchCurrentProfile,
@@ -11,20 +11,7 @@ import {
   refreshApi,
   setStoredSession,
 } from '../services/authApi';
-
-interface AuthContextValue {
-  user: AuthUser | null;
-  token: string | null;
-  role: UserRole | null;
-  hospitalId: number | null;
-  isAuthenticated: boolean;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  refresh: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+import { AuthContext } from './authContextDef';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => getStoredUser());
@@ -143,10 +130,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}

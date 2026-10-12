@@ -1,6 +1,6 @@
-import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import AppLayout from '../components/layout/AppLayout';
-import { useHospital } from '../context/HospitalContext';
+import { useHospital } from '../context/useHospital';
 import {
   fetchHospitalDatasetStatus,
   triggerLocalTraining,
@@ -35,7 +35,7 @@ export default function HospitalPrivateDataset() {
     metrics?: Record<string, number>;
   } | null>(null);
 
-  const loadDataset = async () => {
+  const loadDataset = useCallback(async () => {
     setLoading(true);
     try {
       setDataset(await fetchHospitalDatasetStatus(activeHospitalId));
@@ -47,11 +47,11 @@ export default function HospitalPrivateDataset() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeHospitalId]);
 
   useEffect(() => {
     loadDataset();
-  }, [activeHospitalId]);
+  }, [loadDataset]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;

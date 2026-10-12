@@ -5,18 +5,10 @@
 // When real auth lands, this Provider's `setHospitalId` call site becomes
 // "read hospital_id out of the login response" — no consumer changes.
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { Hospital } from "../types/dashboard";
 import { fetchHospitals } from "../services/hospitalApi";
-
-interface HospitalContextValue {
-  hospitals: Hospital[];
-  hospitalId: number | null;
-  setHospitalId: (id: number) => void;
-  loading: boolean;
-}
-
-const HospitalContext = createContext<HospitalContextValue | undefined>(undefined);
+import { HospitalContext } from "./hospitalContextDef";
 
 export function HospitalProvider({ children }: { children: ReactNode }) {
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
@@ -50,8 +42,3 @@ export function HospitalProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useHospital() {
-  const ctx = useContext(HospitalContext);
-  if (!ctx) throw new Error("useHospital must be used within a HospitalProvider");
-  return ctx;
-}

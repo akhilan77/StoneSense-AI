@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useHospital } from "../context/HospitalContext";
+import { useHospital } from "../context/useHospital";
 
 export function LandingPage() {
   const navigate = useNavigate();

@@ -4,7 +4,7 @@ import type { DLModelMetadata, StoneDetection } from '../types/stoneDetection';
 import { ErrorMessage } from './ErrorMessage';
 import { LoadingSpinner } from './LoadingSpinner';
 import { PredictionCard } from './PredictionCard';
-import { useHospital } from '../context/HospitalContext';
+import { useHospital } from '../context/useHospital';
 import type { PatientRecord } from '../types/dashboard';
 
 const acceptedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -41,12 +41,14 @@ export function ImageUpload({ patientId }: { patientId: number }) {
       .then((res) => {
         if (res.models && res.models.length > 0) {
           setModels(res.models);
-          // If current selected model is not ready, pick first ready model
-          const current = res.models.find((m) => m.id === selectedModelId);
-          if (!current || !current.is_ready) {
-            const firstReady = res.models.find((m) => m.is_ready);
-            if (firstReady) setSelectedModelId(firstReady.id);
-          }
+          setSelectedModelId((prevSelected) => {
+            const current = res.models.find((m) => m.id === prevSelected);
+            if (!current || !current.is_ready) {
+              const firstReady = res.models.find((m) => m.is_ready);
+              return firstReady ? firstReady.id : prevSelected;
+            }
+            return prevSelected;
+          });
         }
       })
       .catch(() => {

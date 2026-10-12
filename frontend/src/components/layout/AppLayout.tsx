@@ -2,7 +2,7 @@
 import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
-import { useHospital } from "../../context/HospitalContext";
+import { useHospital } from "../../context/useHospital";
 
 interface AppLayoutProps {
   role: "hospital" | "developer";

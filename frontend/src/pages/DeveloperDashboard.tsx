@@ -1,5 +1,4 @@
-// frontend/src/pages/DeveloperDashboard.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
 import {
@@ -49,7 +48,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
   const navigate = useNavigate();
 
   // Determine active tab from URL path or props
-  const getTabFromPath = (): DevTab => {
+  const getTabFromPath = useCallback((): DevTab => {
     if (initialTab) return initialTab;
     const path = location.pathname;
     if (path.includes('/federated')) return 'federated';
@@ -63,7 +62,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     if (path.includes('/health') || path.includes('/monitoring') || path.includes('/drift'))
       return 'health';
     return 'overview';
-  };
+  }, [initialTab, location.pathname]);
 
   const [activeTab, setActiveTab] = useState<DevTab>(getTabFromPath());
   const [versions, setVersions] = useState<ModelPerformance[]>([]);
@@ -140,7 +139,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     setTimeout(() => setToastMessage(null), 3200);
   };
 
-  const loadAllData = () => {
+  const loadAllData = useCallback(() => {
     fetchModelPerformance()
       .then((data) => setVersions(Array.isArray(data) ? data : []))
       .catch(() => {});
@@ -175,7 +174,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     fetchCurrentRoundLiveStatus()
       .then((data) => setLiveRoundStatus(data && typeof data === 'object' && !Array.isArray(data) ? data : null))
       .catch(() => {});
-  };
+  }, []);
 
   useEffect(() => {
     loadAllData();
@@ -196,11 +195,12 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [loadAllData]);
 
   // Polling fallback while a round is actively running
+  const activeRoundStatus = liveRoundStatus?.status;
   useEffect(() => {
-    if (!liveRoundStatus || ['READY', 'COMPLETED', 'FAILED'].includes(liveRoundStatus.status)) {
+    if (!activeRoundStatus || ['READY', 'COMPLETED', 'FAILED'].includes(activeRoundStatus)) {
       return;
     }
 
@@ -216,11 +216,11 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [liveRoundStatus?.status]);
+  }, [activeRoundStatus, loadAllData]);
 
   useEffect(() => {
     setActiveTab(getTabFromPath());
-  }, [location.pathname]);
+  }, [getTabFromPath]);
 
   const openRoundModal = () => {
     setSelectedHospitalIds(

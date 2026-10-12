@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import AppLayout from '../components/layout/AppLayout';
-import { useHospital } from '../context/HospitalContext';
+import { useHospital } from '../context/useHospital';
 import {
   createFederatedWebSocket,
   fetchFederatedOverview,
@@ -67,7 +67,7 @@ export default function HospitalFederatedLearning() {
   const [connected, setConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<FederatedEventMessage | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [liveStatus, globalOverview, model, localDataset, trainingHistory] = await Promise.all([
         fetchHospitalLiveStatus(activeHospitalId),
@@ -91,12 +91,12 @@ export default function HospitalFederatedLearning() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeHospitalId]);
 
   useEffect(() => {
     setLoading(true);
     loadData();
-  }, [activeHospitalId]);
+  }, [loadData]);
 
   useEffect(() => {
     if (!hospitalCode) return;
@@ -117,13 +117,15 @@ export default function HospitalFederatedLearning() {
       setConnected
     );
     return unsubscribe;
-  }, [activeHospitalId, hospitalCode]);
+  }, [activeHospitalId, hospitalCode, loadData]);
 
+  const liveStatusValue = live?.status;
+  const liveRoundStatusValue = live?.round_status;
   useEffect(() => {
     if (
-      !live ||
-      !activeStatuses.has(live.status) ||
-      ['READY', 'COMPLETED', 'FAILED'].includes(live.round_status ?? '')
+      !liveStatusValue ||
+      !activeStatuses.has(liveStatusValue) ||
+      ['READY', 'COMPLETED', 'FAILED'].includes(liveRoundStatusValue ?? '')
     )
       return;
     const interval = window.setInterval(() => {
@@ -132,7 +134,7 @@ export default function HospitalFederatedLearning() {
         .catch(() => undefined);
     }, 2500);
     return () => window.clearInterval(interval);
-  }, [activeHospitalId, live?.status]);
+  }, [activeHospitalId, liveStatusValue, liveRoundStatusValue]);
 
   const currentIndex = useMemo(() => statusIndex(live?.status ?? 'WAITING'), [live?.status]);
   const isActive = Boolean(

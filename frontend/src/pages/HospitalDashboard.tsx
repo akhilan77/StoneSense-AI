@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
-import { useHospital } from '../context/HospitalContext';
+import { useHospital } from '../context/useHospital';
 import { createPatient, fetchPatients, predictImage, predictRisk, RiskPrediction } from '../services/api';
 import { StoneDetection } from '../types/stoneDetection';
 import { ConcordanceCard } from '../components/ConcordanceCard';
@@ -65,7 +65,7 @@ export default function HospitalDashboard() {
       .finally(() => setIsPatientsLoading(false));
   }, [activeHospId]);
 
-  const loadFederatedData = (hId: number) => {
+  const loadFederatedData = useCallback((hId: number) => {
     fetchHospitalDatasetStatus(hId)
       .then(setDatasetStatus)
       .catch(() => {});
@@ -75,7 +75,7 @@ export default function HospitalDashboard() {
     fetchHospitalLiveStatus(hId)
       .then(setHospitalLiveStatus)
       .catch(() => {});
-  };
+  }, []);
 
   useEffect(() => {
     loadFederatedData(activeHospId);
@@ -96,13 +96,14 @@ export default function HospitalDashboard() {
     });
 
     return () => unsubscribe();
-  }, [activeHospId]);
+  }, [activeHospId, loadFederatedData]);
 
   // Polling fallback while a federated round is running
+  const activeHospLiveStatus = hospitalLiveStatus?.status;
   useEffect(() => {
     if (
-      !hospitalLiveStatus ||
-      ['WAITING', 'READY', 'MODEL_UPDATED'].includes(hospitalLiveStatus.status)
+      !activeHospLiveStatus ||
+      ['WAITING', 'READY', 'MODEL_UPDATED'].includes(activeHospLiveStatus)
     ) {
       return;
     }
@@ -119,7 +120,7 @@ export default function HospitalDashboard() {
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [activeHospId, hospitalLiveStatus?.status]);
+  }, [activeHospId, activeHospLiveStatus, loadFederatedData]);
 
   const handleValidateDataset = async () => {
     setIsValidatingDataset(true);
