@@ -236,11 +236,14 @@ dl/outputs/
 backend/app/static/gradcam/
 dl/processed_grouped/
 
-# SQLite databases
+# SQLite databases and backups
 *.db
 *.sqlite3
 stonesense.db
 backend/stonesense.db
+*.db.bak-*
+stonesense.db.bak-*
+.stonesense_pii_dev_key*
 
 # Nested backend artifacts
 backend/backend/

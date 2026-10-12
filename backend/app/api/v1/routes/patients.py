@@ -40,6 +40,7 @@ def _patient_out(patient: Patient, db: Session) -> PatientOut:
         patient_id=patient.reference_code,
         name=patient.name or identity.get("name", patient.reference_code),
         phone=patient.phone or identity.get("phone", ""),
+        email=patient.email or identity.get("email"),
         blood_group=patient.blood_group or identity.get("blood_group", ""),
         admitted_date=patient.admitted_date or identity.get("admitted_date", ""),
         inspection_date=patient.last_inspected_date or identity.get("inspection_date"),
@@ -59,22 +60,34 @@ def _get_patient(patient_id: int, hospital_id: int, db: Session) -> Patient:
 @router.get("", response_model=List[PatientOut])
 def list_patients(
     hospital_id: Optional[int] = Query(default=None),
+    search_name: Optional[str] = Query(default=None, description="Exact-match search via keyed blind index"),
+    search_phone: Optional[str] = Query(default=None, description="Exact-match search via keyed blind index"),
+    search_email: Optional[str] = Query(default=None, description="Exact-match search via keyed blind index"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Lists patient records scoped strictly to the authenticated hospital."""
+    """Lists patient records scoped strictly to the authenticated hospital with optional blind index lookup."""
     if current_user.role == "developer":
         raise HTTPException(
             status_code=403,
             detail="Developers are not permitted to access patient PII endpoints.",
         )
     effective_hospital_id = get_scoped_hospital_id(current_user, hospital_id)
-    patients = (
-        db.query(Patient)
-        .filter(Patient.hospital_id == effective_hospital_id)
-        .order_by(Patient.id.desc())
-        .all()
-    )
+    query = db.query(Patient).filter(Patient.hospital_id == effective_hospital_id)
+
+    # Keyed blind index lookups
+    from app.core.pii_crypto import compute_blind_index
+    if search_name:
+        bidx = compute_blind_index(search_name, "name")
+        query = query.filter(Patient.name_bidx == bidx)
+    if search_phone:
+        bidx = compute_blind_index(search_phone, "phone")
+        query = query.filter(Patient.phone_bidx == bidx)
+    if search_email:
+        bidx = compute_blind_index(search_email, "email")
+        query = query.filter(Patient.email_bidx == bidx)
+
+    patients = query.order_by(Patient.id.desc()).all()
     log_audit(
         db=db,
         action="PATIENT_READ",
@@ -140,12 +153,12 @@ def create_patient(
         reference_code=payload.reference_code,
         name=payload.name,
         phone=payload.phone,
+        email=payload.email,
         blood_group=payload.blood_group,
         admitted_date=payload.admitted_date,
         last_inspected_date=payload.inspection_date,
-        urine_features={"identity": {
-            "name": payload.name,
-            "phone": payload.phone,
+        urine_features={"deidentified_profile": {
+            "reference_code": payload.reference_code,
             "blood_group": payload.blood_group,
             "admitted_date": payload.admitted_date,
             "inspection_date": payload.inspection_date,

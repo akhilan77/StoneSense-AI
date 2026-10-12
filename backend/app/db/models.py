@@ -11,9 +11,11 @@ No raw patient CT images or sensitive identifiers are stored in the database.
 """
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime, ForeignKey, JSON, Boolean
+    Column, Integer, String, Float, DateTime, ForeignKey, JSON, Boolean, event
 )
 from sqlalchemy.orm import relationship, declarative_base
+from app.db.pii_types import EncryptedString
+from app.core.pii_crypto import compute_blind_index
 
 Base = declarative_base()
 
@@ -180,8 +182,12 @@ class Patient(Base):
     id = Column(Integer, primary_key=True, index=True)
     hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=False, index=True)
     reference_code = Column(String(64), nullable=False)  # de-identified reference code
-    name = Column(String(255), nullable=True)
-    phone = Column(String(64), nullable=True)
+    name = Column(EncryptedString(255), nullable=True)
+    phone = Column(EncryptedString(64), nullable=True)
+    email = Column(EncryptedString(255), nullable=True)
+    name_bidx = Column(String(64), index=True, nullable=True)
+    phone_bidx = Column(String(64), index=True, nullable=True)
+    email_bidx = Column(String(64), index=True, nullable=True)
     blood_group = Column(String(8), nullable=True)
     admitted_date = Column(String(32), nullable=True)
     last_inspected_date = Column(String(32), nullable=True)
@@ -190,6 +196,18 @@ class Patient(Base):
 
     hospital = relationship("Hospital", back_populates="patients")
     predictions = relationship("Prediction", back_populates="patient")
+
+
+@event.listens_for(Patient, "before_insert")
+@event.listens_for(Patient, "before_update")
+def set_patient_blind_indexes(mapper, connection, target):
+    """Automatically maintain keyed blind indexes for exact-match searches."""
+    if target.name and not str(target.name).startswith("enc:v1:"):
+        target.name_bidx = compute_blind_index(str(target.name), "name")
+    if target.phone and not str(target.phone).startswith("enc:v1:"):
+        target.phone_bidx = compute_blind_index(str(target.phone), "phone")
+    if target.email and not str(target.email).startswith("enc:v1:"):
+        target.email_bidx = compute_blind_index(str(target.email), "email")
 
 
 class Prediction(Base):

@@ -36,6 +36,7 @@ class PatientCreate(BaseModel):
     reference_code: str = Field(..., min_length=1, max_length=64)
     name: str = Field(..., min_length=1, max_length=255)
     phone: str = Field(..., min_length=1, max_length=64)
+    email: Optional[str] = Field(default=None, max_length=255)
     blood_group: str = Field(..., min_length=1, max_length=8)
     admitted_date: str = Field(..., min_length=1, max_length=32)
     inspection_date: Optional[str] = Field(default=None, max_length=32)
@@ -47,6 +48,7 @@ class PatientOut(BaseModel):
     patient_id: str
     name: str
     phone: str
+    email: Optional[str] = None
     blood_group: str
     admitted_date: str
     inspection_date: Optional[str] = None
