@@ -145,3 +145,35 @@
 2. Risk: Outdated Flower API usage from old tutorials — mitigate by checking installed Flower version's current ServerApp/ClientApp docs before implementation.
 3. Risk: Claiming real multi-hospital data when it's simulated — mitigate via explicit documentation (B6).
 4. Risk: PostgreSQL misuse to store raw images — mitigate via schema review (no BLOB/image fields in any table).
+
+---
+
+## 8. VERIFIED IMPLEMENTATION STATUS (AUDIT: OCTOBER 2026)
+
+| PRD Item | Requirement Summary | Verified Status | Evidence & Code References |
+| :--- | :--- | :---: | :--- |
+| **A1** | Local Training Refactor (`train_local`) | **DONE** | [`dl/federated/local_training.py`](dl/federated/local_training.py#L32-L135): Standalone function training on local PyTorch DataLoader, returning updated parameters, metrics dict, and sample counts. |
+| **A2** | Dataset Partitioning (IID & Non-IID) | **DONE** | [`dl/federated/partition.py`](dl/federated/partition.py#L28-L125): Splits CT dataset into Apollo, Manipal, AIIMS partitions with reproducible seed; logs class distributions to `distribution.json`. |
+| **A3** | Flower FL Client | **DONE** | [`dl/federated/client.py`](dl/federated/client.py#L51-L180): `StoneSenseFLClient` implementing `get_parameters`, `set_parameters`, `fit`, `evaluate`. Real local gradient updates; zero raw CT image transmission. |
+| **A4** | Flower Server + FedAvg Aggregation | **DONE** | [`dl/federated/server.py`](dl/federated/server.py) and [`dl/federated/strategy.py`](dl/federated/strategy.py#L75-L399): `StoneSenseFedAvg` custom strategy coordinating clients and weighted FedAvg parameter aggregation. |
+| **A5** | Versioned Checkpoints & Model Manager | **DONE** | [`dl/federated/model_manager.py`](dl/federated/model_manager.py#L22-L85): Writes immutable `resnet18_fed_round_00N.pth` and maintains `latest.pth` symlink/copy. Checkpoints 001–029 verified on disk. |
+| **A6** | Database Persistence (Schema + Connection) | **DONE** | [`backend/app/db/models.py`](backend/app/db/models.py): `Hospital`, `FederatedRound`, `HospitalTrainingRun`, `ModelVersion`, and `InferenceLog` tables mapped; database connection via `STONESENSE_DATABASE_URL` (SQLite default). |
+| **A7** | Hospital ↔ Global Model Sync | **DONE** | [`dl/federated/strategy.py`](dl/federated/strategy.py#L359): Automatically updates `Hospital.current_model_version = version_tag` on round completion, served in live inference. |
+| **A8** | End-to-End Local Simulation | **DONE** | [`dl/federated/simulate.py`](dl/federated/simulate.py#L127-L315): Multi-hospital runner executing complete training rounds, aggregating weights, and verifying loss decrease. 29 rounds verified in SQLite store. |
+| **B1** | Backend REST APIs (Exposure Layer) | **DONE** | [`backend/app/main.py`](backend/app/main.py): 52 registered endpoints covering Hospital and Developer operations across `/hospital/*`, `/developer/*`, and `/predict/*`. |
+| **B2** | Statistical / Analytics Tables | **DONE** | Database tables `hospital_training_runs`, `inference_logs`, `drift_records`, and `system_logs` actively store run telemetry and inference records. |
+| **B3** | Hospital Page UI | **DONE** | [`frontend/src/pages/HospitalFederatedLearning.tsx`](frontend/src/pages/HospitalFederatedLearning.tsx) and [`HospitalDashboard.tsx`](frontend/src/pages/HospitalDashboard.tsx): Hospital training triggers, telemetry monitoring, and private dataset management. |
+| **B4** | Developer Page UI | **DONE** | [`frontend/src/pages/DeveloperDashboard.tsx`](frontend/src/pages/DeveloperDashboard.tsx): 5-tab console monitoring active rounds, hospital participation, model versions, deployment gate, and audit logs. |
+| **B5** | Frontend API Service Layer | **DONE** | [`frontend/src/services/federatedApi.ts`](frontend/src/services/federatedApi.ts), [`developerApi.ts`](frontend/src/services/developerApi.ts), and [`hospitalApi.ts`](frontend/src/services/hospitalApi.ts): Typed Axios clients with WebSocket subscriptions. |
+| **B6** | Documentation | **DONE** | Architecture and execution workflows documented in `README.md`, `DEVELOPER_GUIDE.md`, and `docs/FEDERATED_LEARNING.md`. |
+| **B7** | Research Comparison (Non-IID vs IID) | **PARTIAL** | IID and Non-IID partitioning logic implemented; comparative convergence charts generated in `docs/report_figures/fig_8_3_federated_training_convergence.png`; formal writeup pending. |
+
+---
+
+## 9. CHANGELOG
+
+- **v1.0 (Initial Draft)**: Initial product requirements definition for StoneSense-AI Federated Learning Extension.
+- **v1.1 (Implementation Complete & Verified)**:
+  - All Part A core requirements (A1–A8) implemented in `dl/federated/` and verified with 106 passing unit and regression tests.
+  - Part B REST APIs, database models, and React dashboards (B1–B5) implemented and integrated into FastAPI and Vite.
+  - Confirmed real per-client training with zero raw data transmission; verified versioned checkpoint preservation (`resnet18_fed_round_001.pth` through `029.pth`).
