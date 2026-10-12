@@ -2,17 +2,25 @@
 
 from enum import Enum
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ConcordanceOutcomeCode(str, Enum):
     """Closed set of stable machine codes for multi-stream concordance outcomes."""
     CONCORDANT_STONE_EVIDENCE = "CONCORDANT_STONE_EVIDENCE"
-    CONCORDANT_LOW_CONCERN = "CONCORDANT_LOW_CONCERN"
+    CONCORDANT_NO_STONE_EVIDENCE = "CONCORDANT_NO_STONE_EVIDENCE"
     DISCORDANT = "DISCORDANT"
     NON_STONE_FINDING = "NON_STONE_FINDING"
     LOW_CONFIDENCE = "LOW_CONFIDENCE"
     INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+    # Legacy alias for safe backward-compatible deserialization:
+    CONCORDANT_LOW_CONCERN = "CONCORDANT_LOW_CONCERN"
+
+    @classmethod
+    def _missing_(cls, value: object) -> Optional["ConcordanceOutcomeCode"]:
+        if isinstance(value, str) and value.upper() == "CONCORDANT_LOW_CONCERN":
+            return cls.CONCORDANT_NO_STONE_EVIDENCE
+        return None
 
 
 class TabularRiskInput(BaseModel):
@@ -31,9 +39,19 @@ class ImagingOutputInput(BaseModel):
 
 
 class ConcordanceRequest(BaseModel):
-    """Request payload for evidence concordance evaluation."""
-    risk: Optional[TabularRiskInput] = Field(default=None, description="Tabular urine risk assessment output")
-    imaging: Optional[ImagingOutputInput] = Field(default=None, description="CT imaging classification output")
+    """Request payload for evidence concordance evaluation.
+    
+    Accepts server-stored prediction references (risk_prediction_id, image_prediction_id)
+    with tenant-level authorization. Deprecated direct payloads (risk, imaging) are only
+    accepted if explicitly enabled in server settings.
+    """
+    risk_prediction_id: Optional[int] = Field(default=None, description="Database ID of server-stored tabular risk prediction")
+    image_prediction_id: Optional[int] = Field(default=None, description="Database ID of server-stored CT imaging prediction")
+    patient_id: Optional[int] = Field(default=None, description="Optional patient ID for strict tenant/patient authorization")
+
+    # Deprecated direct payload fields (only permitted if allow_direct_concordance_payload=True)
+    risk: Optional[TabularRiskInput] = Field(default=None, description="[DEPRECATED] Direct tabular urine risk assessment output")
+    imaging: Optional[ImagingOutputInput] = Field(default=None, description="[DEPRECATED] Direct CT imaging classification output")
 
 
 class ConcordanceResult(BaseModel):
@@ -46,3 +64,10 @@ class ConcordanceResult(BaseModel):
     inputs_used: Dict[str, Any] = Field(default_factory=dict, description="Exact normalized inputs evaluated by the engine")
     thresholds_applied: Dict[str, Any] = Field(default_factory=dict, description="Configuration thresholds applied during evaluation")
     disclaimer: str = Field(..., description="Mandatory regulatory disclaimer concerning unpaired dataset training")
+
+    @field_validator("outcome_code", mode="before")
+    @classmethod
+    def normalize_legacy_outcome_code(cls, v: Any) -> Any:
+        if v == "CONCORDANT_LOW_CONCERN" or v == ConcordanceOutcomeCode.CONCORDANT_LOW_CONCERN:
+            return ConcordanceOutcomeCode.CONCORDANT_NO_STONE_EVIDENCE
+        return v

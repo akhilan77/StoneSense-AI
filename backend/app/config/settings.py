@@ -113,6 +113,10 @@ class Settings(BaseModel):
         ),
         description="Fixed regulatory disclaimer string for unpaired multi-stream evidence evaluation.",
     )
+    allow_direct_concordance_payload: bool = Field(
+        default_factory=lambda: os.getenv("STONESENSE_ALLOW_DIRECT_CONCORDANCE_PAYLOAD", "false").lower() in ("true", "1", "yes"),
+        description="Allow deprecated direct client-supplied probabilities in /predict/concordance (default: False for clinical safety).",
+    )
 
     # CT Scan Upload Hardening & OOD Rejection Configuration
     ct_upload_max_bytes: int = Field(

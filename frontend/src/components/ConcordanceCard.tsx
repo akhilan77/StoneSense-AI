@@ -10,6 +10,9 @@ import type {
 interface ConcordanceCardProps {
   risk: TabularRiskInput | null;
   imaging: ImagingOutputInput | null;
+  riskPredictionId?: number | null;
+  imagePredictionId?: number | null;
+  patientId?: number | null;
 }
 
 interface OutcomeBadgeConfig {
@@ -28,12 +31,19 @@ const OUTCOME_CONFIGS: Record<ConcordanceOutcomeCode, OutcomeBadgeConfig> = {
     icon: '⚠️',
     iconLabel: 'Positive Finding',
   },
+  CONCORDANT_NO_STONE_EVIDENCE: {
+    badgeBg: 'bg-[#1F6F5C]/15',
+    badgeText: 'text-[#1F6F5C]',
+    borderColor: 'border-[#1F6F5C]/40',
+    icon: '✓',
+    iconLabel: 'No Stone Evidence',
+  },
   CONCORDANT_LOW_CONCERN: {
     badgeBg: 'bg-[#1F6F5C]/15',
     badgeText: 'text-[#1F6F5C]',
     borderColor: 'border-[#1F6F5C]/40',
     icon: '✓',
-    iconLabel: 'Low Concern',
+    iconLabel: 'No Stone Evidence (Legacy)',
   },
   DISCORDANT: {
     badgeBg: 'bg-[#D97706]/15',
@@ -65,16 +75,23 @@ const OUTCOME_CONFIGS: Record<ConcordanceOutcomeCode, OutcomeBadgeConfig> = {
   },
 };
 
-export const ConcordanceCard: React.FC<ConcordanceCardProps> = ({ risk, imaging }) => {
+export const ConcordanceCard: React.FC<ConcordanceCardProps> = ({
+  risk,
+  imaging,
+  riskPredictionId,
+  imagePredictionId,
+  patientId,
+}) => {
   const [concordance, setConcordance] = useState<ConcordanceResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const hasBothStreams = Boolean(
-    risk &&
-      (risk.probability !== undefined || risk.risk_level !== undefined) &&
-      imaging &&
-      imaging.class_name
+    (riskPredictionId && imagePredictionId) ||
+      (risk &&
+        (risk.probability !== undefined || risk.risk_level !== undefined) &&
+        imaging &&
+        imaging.class_name)
   );
 
   useEffect(() => {
@@ -88,7 +105,16 @@ export const ConcordanceCard: React.FC<ConcordanceCardProps> = ({ risk, imaging 
     setIsLoading(true);
     setError(null);
 
-    predictConcordance({ risk, imaging })
+    const payload =
+      riskPredictionId && imagePredictionId
+        ? {
+            risk_prediction_id: riskPredictionId,
+            image_prediction_id: imagePredictionId,
+            patient_id: patientId ?? null,
+          }
+        : { risk, imaging };
+
+    predictConcordance(payload)
       .then((res) => {
         if (isMounted) {
           setConcordance(res);
@@ -112,7 +138,7 @@ export const ConcordanceCard: React.FC<ConcordanceCardProps> = ({ risk, imaging 
     return () => {
       isMounted = false;
     };
-  }, [risk, imaging, hasBothStreams]);
+  }, [risk, imaging, riskPredictionId, imagePredictionId, patientId, hasBothStreams]);
 
   if (!hasBothStreams) {
     return (
@@ -260,9 +286,14 @@ export const ConcordanceCard: React.FC<ConcordanceCardProps> = ({ risk, imaging 
       </div>
 
       {/* Regulatory & Multi-Stream Unpaired Dataset Disclaimer */}
-      <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-[11px] text-stone-600 leading-relaxed">
-        <strong className="block text-stone-700 font-semibold mb-0.5">Clinical Disclaimer:</strong>
-        {concordance.disclaimer}
+      <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-[11px] text-stone-600 leading-relaxed space-y-1.5">
+        <div>
+          <strong className="block text-stone-700 font-semibold mb-0.5">Clinical Disclaimer:</strong>
+          {concordance.disclaimer}
+        </div>
+        <div className="pt-1.5 border-t border-stone-200/60 text-stone-500">
+          <span className="font-medium text-stone-600">Threshold Calibration:</span> Concordance thresholds (risk cutoff 0.50, confidence cutoff 0.60) are uncalibrated defaults, not clinically validated. This decision support tool provides research assistance only and does not establish clinical clearance.
+        </div>
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ def evaluate_concordance(
         3. RULE_3_LOW_CONFIDENCE: Either stream has confidence below its threshold,
            or imaging review status was rejected/needs_review.
         4. RULE_4_CONCORDANT_STONE_EVIDENCE: Elevated tabular risk AND CT predicts Stone.
-        5. RULE_5_CONCORDANT_LOW_CONCERN: Low tabular risk AND CT predicts Normal.
+        5. RULE_5_CONCORDANT_NO_STONE_EVIDENCE: Low tabular risk AND CT predicts Normal.
         6. RULE_6_DISCORDANT_EVIDENCE: Streams point in opposite directions.
 
     Args:
@@ -263,17 +263,20 @@ def evaluate_concordance(
         )
 
     # -------------------------------------------------------------------------
-    # RULE 5: CONCORDANT LOW CONCERN
+    # RULE 5: CONCORDANT NO STONE EVIDENCE
     # -------------------------------------------------------------------------
     if not is_tabular_elevated and normalized_class == "NORMAL":
         return ConcordanceResult(
-            outcome_code=ConcordanceOutcomeCode.CONCORDANT_LOW_CONCERN,
-            outcome_label="Concordant Low Concern",
+            outcome_code=ConcordanceOutcomeCode.CONCORDANT_NO_STONE_EVIDENCE,
+            outcome_label="No stone evidence in either stream",
             explanation=(
-                "Both urine biochemistry profile (low risk score) and CT scan slice (normal renal parenchyma) "
-                "independently demonstrate low concern for acute nephrolithiasis."
+                "Neither the urine biochemistry profile nor the axial CT scan slice shows positive evidence of kidney stones. "
+                "CRITICAL CLINICAL SAFETY NOTICE: This is NOT a clearance. The CT deep learning model misses a substantial share of stones "
+                "(verified test Stone recall: 65.70% at the slice level, 80.95% at the cluster scan level; see metrics.json) "
+                "and the tabular risk model was trained on a very small dataset of 79 patients. "
+                "Absence of positive evidence does not rule out nephrolithiasis or other urological conditions; full clinical evaluation is required."
             ),
-            rule_fired="RULE_5_CONCORDANT_LOW_CONCERN",
+            rule_fired="RULE_5_CONCORDANT_NO_STONE_EVIDENCE",
             clinician_review_recommended=False,
             inputs_used=inputs_used,
             thresholds_applied=thresholds_applied,

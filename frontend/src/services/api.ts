@@ -46,6 +46,7 @@ export interface RiskPrediction {
   confidence: number;
   inference_time_sec: number;
   shap?: ShapExplanation;
+  prediction_id?: number;
 }
 
 export interface ShapExplanation {

@@ -44,6 +44,16 @@ def client():
 
 
 @pytest.fixture
+def db():
+    """SQLAlchemy session fixture."""
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+@pytest.fixture
 def auth_headers_admin():
     token = create_access_token({
         "sub": "admin@stonesense.ai",

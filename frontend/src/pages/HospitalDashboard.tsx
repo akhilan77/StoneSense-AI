@@ -1102,7 +1102,13 @@ export default function HospitalDashboard() {
                   <h3 className="font-serif text-base font-medium text-[#101B16] mb-3">
                     Multi-Stream Evidence Concordance
                   </h3>
-                  <ConcordanceCard risk={effectiveRisk} imaging={effectiveImaging} />
+                  <ConcordanceCard
+                    risk={effectiveRisk}
+                    imaging={effectiveImaging}
+                    riskPredictionId={workflowRiskResult?.prediction_id}
+                    imagePredictionId={workflowCtResult?.prediction_id}
+                    patientId={selectedPatientForWorkflow?.id}
+                  />
                   <div className="mt-4 flex gap-3">
                     <button
                       onClick={() =>

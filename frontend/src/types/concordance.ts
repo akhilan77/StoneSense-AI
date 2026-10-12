@@ -1,6 +1,7 @@
 export type ConcordanceOutcomeCode =
   | 'CONCORDANT_STONE_EVIDENCE'
-  | 'CONCORDANT_LOW_CONCERN'
+  | 'CONCORDANT_NO_STONE_EVIDENCE'
+  | 'CONCORDANT_LOW_CONCERN' // Legacy code compatibility
   | 'DISCORDANT'
   | 'NON_STONE_FINDING'
   | 'LOW_CONFIDENCE'
@@ -20,6 +21,9 @@ export interface ImagingOutputInput {
 }
 
 export interface ConcordanceRequest {
+  risk_prediction_id?: number | null;
+  image_prediction_id?: number | null;
+  patient_id?: number | null;
   risk?: TabularRiskInput | null;
   imaging?: ImagingOutputInput | null;
 }

@@ -40,4 +40,5 @@ export interface StoneDetection {
   probabilities?: Record<string, number>;
   ood_metrics?: Record<string, number>;
   warnings?: string[];
+  prediction_id?: number;
 }

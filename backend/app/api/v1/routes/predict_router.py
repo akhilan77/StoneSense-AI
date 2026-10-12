@@ -8,10 +8,16 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.config.settings import settings
 from app.core.auth import get_current_user, get_scoped_hospital_id, log_audit
 from app.db.database import get_db
 from app.db.models import InferenceLog, Patient, Prediction, User
-from app.schemas.concordance import ConcordanceRequest, ConcordanceResult
+from app.schemas.concordance import (
+    ConcordanceRequest,
+    ConcordanceResult,
+    ImagingOutputInput,
+    TabularRiskInput,
+)
 from app.schemas.patient import PatientInformation
 from app.schemas.responses import (
     RiskPredictionResponse,
@@ -39,9 +45,92 @@ async def predict_concordance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ConcordanceResult:
-    """Evaluates transparent, rule-based evidence concordance between tabular and imaging streams."""
-    result = evaluate_concordance(risk=payload.risk, imaging=payload.imaging)
+    """Evaluates transparent, rule-based evidence concordance between tabular and imaging streams.
+    
+    Accepts server-stored prediction references (risk_prediction_id, image_prediction_id)
+    with strict tenant isolation and patient scoping. Direct client-supplied probabilities
+    are deprecated and rejected unless allow_direct_concordance_payload is explicitly enabled.
+    """
+    effective_hospital_id = get_scoped_hospital_id(current_user, current_user.hospital_id)
 
+    risk_input: Optional[TabularRiskInput] = None
+    img_input: Optional[ImagingOutputInput] = None
+
+    has_ref_ids = payload.risk_prediction_id is not None or payload.image_prediction_id is not None
+    has_direct_payload = payload.risk is not None or payload.imaging is not None
+
+    if has_ref_ids:
+        # 1. Lookup server-stored risk prediction
+        if payload.risk_prediction_id is not None:
+            risk_pred = db.query(Prediction).filter(
+                Prediction.id == payload.risk_prediction_id,
+            ).first()
+            if not risk_pred:
+                raise HTTPException(status_code=404, detail=f"Risk prediction #{payload.risk_prediction_id} not found.")
+            if risk_pred.prediction_type != "risk":
+                raise HTTPException(status_code=400, detail=f"Prediction #{payload.risk_prediction_id} is not a risk prediction.")
+
+            # Tenant isolation
+            if current_user.role != "admin" and risk_pred.hospital_id != effective_hospital_id:
+                raise HTTPException(status_code=403, detail="Cross-tenant access denied: risk prediction belongs to a different hospital organization.")
+
+            # Patient authorization
+            if payload.patient_id is not None and risk_pred.patient_id is not None and risk_pred.patient_id != payload.patient_id:
+                raise HTTPException(status_code=403, detail="Patient authorization mismatch: risk prediction does not belong to specified patient.")
+
+            r_level = "High" if str(risk_pred.result_label).lower() == "high" else "Low"
+            r_conf = float(risk_pred.confidence) if risk_pred.confidence is not None else 0.5
+            r_prob = r_conf if r_level == "High" else (1.0 - r_conf)
+            risk_input = TabularRiskInput(
+                probability=r_prob,
+                risk_level=r_level,
+                confidence=r_conf,
+            )
+
+        # 2. Lookup server-stored imaging prediction
+        if payload.image_prediction_id is not None:
+            img_pred = db.query(Prediction).filter(
+                Prediction.id == payload.image_prediction_id,
+            ).first()
+            if not img_pred:
+                raise HTTPException(status_code=404, detail=f"Imaging prediction #{payload.image_prediction_id} not found.")
+            if img_pred.prediction_type != "image":
+                raise HTTPException(status_code=400, detail=f"Prediction #{payload.image_prediction_id} is not an imaging prediction.")
+
+            # Tenant isolation
+            if current_user.role != "admin" and img_pred.hospital_id != effective_hospital_id:
+                raise HTTPException(status_code=403, detail="Cross-tenant access denied: imaging prediction belongs to a different hospital organization.")
+
+            # Patient authorization
+            if payload.patient_id is not None and img_pred.patient_id is not None and img_pred.patient_id != payload.patient_id:
+                raise HTTPException(status_code=403, detail="Patient authorization mismatch: imaging prediction does not belong to specified patient.")
+
+            c_label = img_pred.result_label or "Normal"
+            c_conf = float(img_pred.confidence) if img_pred.confidence is not None else 0.5
+            c_status = "needs_review" if c_label == "needs_review" else "accepted"
+            img_input = ImagingOutputInput(
+                class_name=c_label,
+                confidence=c_conf,
+                probabilities={c_label: c_conf},
+                status=c_status,
+            )
+    elif has_direct_payload:
+        if not settings.allow_direct_concordance_payload:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Direct client-supplied probabilities in /predict/concordance are deprecated and disabled "
+                    "for clinical safety. Please supply server-stored prediction references (risk_prediction_id "
+                    "and image_prediction_id). To enable direct payloads in testing environments, set "
+                    "STONESENSE_ALLOW_DIRECT_CONCORDANCE_PAYLOAD=true."
+                ),
+            )
+        risk_input = payload.risk
+        img_input = payload.imaging
+
+    result = evaluate_concordance(risk=risk_input, imaging=img_input)
+
+    # Standard database audit log entry (non-cryptographic relational record)
     log_audit(
         db=db,
         action="PREDICTION_CONCORDANCE",
@@ -52,7 +141,7 @@ async def predict_concordance(
         details={
             "outcome_code": result.outcome_code.value,
             "rule_fired": result.rule_fired,
-            "clinician_review_recommended": result.clinician_review_recommended,
+            "status": "evaluated",
         },
     )
 
@@ -88,6 +177,7 @@ async def predict_risk(
     active_ml_ver = getattr(model_loader, "active_ml_version_tag", "logistic_regression_v001")
     active_ml_fam = getattr(model_loader, "active_ml_family", "logistic_regression")
 
+    prediction_id = None
     try:
         prediction = Prediction(
             hospital_id=effective_hospital_id,
@@ -114,6 +204,8 @@ async def predict_risk(
             profile["clinical"] = payload.model_dump(exclude={"hospital_id", "patient_id"})
             patient.urine_features = profile
         db.commit()
+        db.refresh(prediction)
+        prediction_id = prediction.id
     except Exception:
         db.rollback()
 
@@ -139,6 +231,7 @@ async def predict_risk(
         confidence=confidence,
         inference_time_sec=round(elapsed, 4),
         shap=shap,
+        prediction_id=prediction_id,
     )
 
 
@@ -237,6 +330,7 @@ async def predict_image(
     # If gate fires, return 'needs_review' rather than confident diagnosis label
     effective_class_label = "needs_review" if gate_status == "needs_review" else res["class"]
 
+    prediction_id = None
     try:
         prediction = Prediction(
             hospital_id=effective_hospital_id,
@@ -260,6 +354,8 @@ async def predict_image(
         db.add(prediction)
         db.add(inf_log)
         db.commit()
+        db.refresh(prediction)
+        prediction_id = prediction.id
     except Exception:
         db.rollback()
 
@@ -292,6 +388,7 @@ async def predict_image(
         "probabilities": raw_probabilities,
         "ood_metrics": ood_metrics,
         "warnings": image_warnings,
+        "prediction_id": prediction_id,
     }
     if overlay:
         payload["gradcam"] = {
