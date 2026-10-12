@@ -198,3 +198,38 @@ def test_low_confidence_ood_gate_fires(client: TestClient, auth_headers_hospital
         assert "below safety gate" in body["review_reason"]
         assert body["probabilities"]["Stone"] == 0.35
         assert body["ood_metrics"]["confidence"] == 0.35
+
+
+def test_decompression_bomb_between_1x_and_2x_rejected_413(client: TestClient, auth_headers_hospital_1):
+    """Image with pixel count between 1x and 2x ct_upload_max_pixels is rejected with 413.
+
+    Pillow by default only issues a DecompressionBombWarning between 1x and 2x.
+    Our hardened decoder promotes this warning to an error and explicitly checks dimensions.
+    """
+    original_max_pixels = settings.ct_upload_max_pixels
+    # Set limit to 40,000 pixels. A 224x224 image has 50,176 pixels (1.25x limit -> strictly between 1x and 2x).
+    settings.ct_upload_max_pixels = 40000
+    try:
+        img_bytes = _make_image_bytes(format="PNG", size=(224, 224))
+        files = {"image": ("between_1x_2x_bomb.png", img_bytes, "image/png")}
+        data = {"hospital_id": 1}
+
+        res = client.post("/api/v1/predict/image", files=files, data=data, headers=auth_headers_hospital_1)
+        assert res.status_code == 413
+        assert "decompression bomb" in res.json()["detail"].lower()
+    finally:
+        settings.ct_upload_max_pixels = original_max_pixels
+
+
+def test_chromatic_variance_warning(client: TestClient, auth_headers_hospital_1):
+    """Color RGB photograph triggers chromatic variance warning because medical CTs are grayscale."""
+    img = Image.new("RGB", (224, 224), color=(255, 0, 0))  # Pure red
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    files = {"image": ("red_photo.jpg", buf.getvalue(), "image/jpeg")}
+    data = {"hospital_id": 1}
+
+    res = client.post("/api/v1/predict/image", files=files, data=data, headers=auth_headers_hospital_1)
+    assert res.status_code == 200
+    body = res.json()
+    assert any("chromatic variance" in w.lower() for w in body.get("warnings", []))

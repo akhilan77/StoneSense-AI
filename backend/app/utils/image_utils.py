@@ -3,10 +3,12 @@
 import io
 import logging
 import math
+import warnings as pywarnings
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image, ImageStat
+from PIL.Image import DecompressionBombError, DecompressionBombWarning
 
 from app.config.settings import settings
 
@@ -92,14 +94,24 @@ def validate_ct_image_content(
             ),
         )
 
-    # 2. Decompression bomb protection
+    # 2. Decompression bomb protection with scoped limit and warning promotion
+    # Pillow issues DecompressionBombWarning between 1x and 2x MAX_IMAGE_PIXELS,
+    # and DecompressionBombError at > 2x. We promote DecompressionBombWarning
+    # to an error within this decode path and explicitly check width * height.
+    orig_max_pixels = Image.MAX_IMAGE_PIXELS
     Image.MAX_IMAGE_PIXELS = settings.ct_upload_max_pixels
-
     try:
-        # Initial parse & integrity verification
-        verify_img = Image.open(io.BytesIO(image_bytes))
-        verify_img.verify()
-    except Image.DecompressionBombError:
+        with pywarnings.catch_warnings():
+            pywarnings.simplefilter("error", Image.DecompressionBombWarning)
+            # Initial parse & integrity verification
+            verify_img = Image.open(io.BytesIO(image_bytes))
+            v_width, v_height = verify_img.size
+            if v_width * v_height > settings.ct_upload_max_pixels:
+                raise Image.DecompressionBombError(
+                    f"Pixel count {v_width * v_height} exceeds limit of {settings.ct_upload_max_pixels} pixels."
+                )
+            verify_img.verify()
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning):
         raise HTTPException(
             status_code=413,
             detail=(
@@ -112,11 +124,21 @@ def validate_ct_image_content(
             status_code=422,
             detail=f"Corrupted or unreadable image file: {str(exc)}",
         )
+    finally:
+        # Restore global limit so other application modules are not mutated unexpectedly
+        Image.MAX_IMAGE_PIXELS = orig_max_pixels
 
     # 3. Reload image data (PIL verify closes the file pointer)
     try:
-        img = Image.open(io.BytesIO(image_bytes))
-    except Image.DecompressionBombError:
+        with pywarnings.catch_warnings():
+            pywarnings.simplefilter("error", Image.DecompressionBombWarning)
+            img = Image.open(io.BytesIO(image_bytes))
+            width, height = img.size
+            if width * height > settings.ct_upload_max_pixels:
+                raise Image.DecompressionBombError(
+                    f"Pixel count {width * height} exceeds limit of {settings.ct_upload_max_pixels} pixels."
+                )
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning):
         raise HTTPException(
             status_code=413,
             detail=(
