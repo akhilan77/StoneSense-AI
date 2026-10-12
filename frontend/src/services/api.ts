@@ -108,3 +108,7 @@ export async function getModelInfo(): Promise<ModelInfoResponse> {
   const response = await api.get<ModelInfoResponse>('/api/v1/models');
   return response.data;
 }
+
+export { predictConcordance } from './concordanceApi';
+export type { ConcordanceRequest, ConcordanceResult, ConcordanceOutcomeCode } from '../types/concordance';
+

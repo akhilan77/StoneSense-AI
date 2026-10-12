@@ -146,3 +146,30 @@ Mapped using SQLAlchemy 2.0 declarative models in [`backend/app/db/models.py`](f
   - Validates candidate metrics against production thresholds: Accuracy $\ge 95\%$, Macro F1 $\ge 94\%$, Stone Recall $\ge 96\%$, Tumor Recall $\ge 98\%$.
   - Enforces regression limit: Candidate cannot regress more than 2% relative to currently deployed active model.
   - Rejects unverified/leaky data: Checkpoints marked with `trained_on_leaky_partitions = True` are blocked from promotion.
+
+### 3.7 Multi-Stream Evidence Concordance Engine
+- **Service**: [`backend/app/services/concordance_service.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/services/concordance_service.py)
+- **API**: `POST /api/v1/predict/concordance`
+- **Frontend Component**: [`ConcordanceCard.tsx`](file:///c:/Users/akhil/projects/StoneSense-AI/frontend/src/components/ConcordanceCard.tsx)
+- **Design**: Pure, deterministic evaluation without randomness or I/O. Compares independent outputs from tabular risk and CT imaging streams without synthetic data fusion.
+- **Rule Precedence Order**:
+  1. `RULE_1_INSUFFICIENT_DATA`: Missing or malformed inputs in either stream.
+  2. `RULE_2_NON_STONE_FINDING`: Incidental CT finding (`Cyst` or `Tumor`). Highest clinical priority: always escalates to clinician review and can never be softened by low tabular risk.
+  3. `RULE_3_LOW_CONFIDENCE`: Either stream below confidence threshold (0.60) or CT gate status flagged as review/OOD.
+  4. `RULE_4_CONCORDANT_STONE_EVIDENCE`: Elevated tabular risk ($\ge 0.50$) AND CT predicts `Stone`.
+  5. `RULE_5_CONCORDANT_LOW_CONCERN`: Low tabular risk ($< 0.50$) AND CT predicts `Normal`.
+  6. `RULE_6_DISCORDANT_EVIDENCE`: Streams point in opposing directions.
+- **Regulatory Notice**: Mandatory disclaimer returned in all payloads noting that models were trained on separate, unpaired patient cohorts and constitute decision support rather than diagnosis.
+
+### 3.8 CT Upload Security Hardening & OOD Heuristic Gate
+- **Module**: [`backend/app/utils/image_utils.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/utils/image_utils.py)
+- **API**: `POST /api/v1/predict/image`
+- **Payload Controls**:
+  - Bounded 64 KB chunk reading with early termination at 10 MB (HTTP 413).
+  - True file signature verification via magic bytes: PNG and JPEG accepted; all others rejected (HTTP 415).
+  - Decompression bomb protection: PIL `MAX_IMAGE_PIXELS` capped at 25 MP (HTTP 413).
+  - Integrity and dimension checks: Corrupt images and slices below 32x32 rejected (HTTP 422).
+  - Aspect ratio check: Non-axial ratios ($> 3.5:1$) rejected (HTTP 422).
+  - Sanity check: Near-constant / blank image variance check (warning in response).
+- **OOD Uncertainty Gate**: Evaluates maximum softmax probability and Shannon predictive entropy. When top class confidence $< 0.50$ or entropy $> 1.30$ nats, response returns `status = "needs_review"` and `class_name = "needs_review"` with full probability distribution.
+

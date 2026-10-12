@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [1.1.0] - 2026-10-12
+
+### Clinical-Safety & Endpoint Hardening Fixes
+- **Evidence Concordance Engine**:
+  - Implemented pure, deterministic, rule-based evidence concordance service (`evaluate_concordance`) in `backend/app/services/concordance_service.py`.
+  - Defined 6 closed outcome codes: `CONCORDANT_STONE_EVIDENCE`, `CONCORDANT_LOW_CONCERN`, `DISCORDANT`, `NON_STONE_FINDING`, `LOW_CONFIDENCE`, and `INSUFFICIENT_DATA` with strict precedence hierarchy (`INSUFFICIENT_DATA` > `NON_STONE_FINDING` > `LOW_CONFIDENCE` > `CONCORDANT_STONE_EVIDENCE` > `CONCORDANT_LOW_CONCERN` > `DISCORDANT`).
+  - Enforced mandatory clinician review escalation for any CT non-stone incidental finding (Cyst or Tumor) regardless of tabular risk.
+  - Exposed authenticated endpoint `POST /api/v1/predict/concordance` returning full input audit, applied thresholds, triggered rules, and regulatory decision-support disclaimers.
+  - Replaced hardcoded "Trustworthy assessment" numbers ("71%", "94.2%") in `HospitalDashboard.tsx` with live dynamic evaluation component (`ConcordanceCard.tsx`) providing color+icon indicators and empty-state guidance.
+- **CT Upload Endpoint Hardening & Out-of-Distribution (OOD) Gate**:
+  - Enforced bounded request stream reading (64 KB chunks up to configurable 10 MB limit) with HTTP 413 responses for oversized payloads.
+  - Added strict magic-bytes validation restricting uploads exclusively to PNG and JPEG with HTTP 415 responses for invalid media types.
+  - Added decompression bomb protection (`Image.MAX_IMAGE_PIXELS` capped at 25 MP) with HTTP 413.
+  - Guarded against corrupt/truncated files, degenerate dimensions (<32x32), and extreme aspect ratios (>3.5:1) with HTTP 422.
+  - Implemented heuristic OOD / low-confidence gate utilizing maximum softmax confidence (<0.50), Shannon predictive entropy (>1.30 nats), and image variance checks, returning `status="needs_review"` and `review_reason` without breaking backwards compatibility.
+
+---
+
 ## [1.0.0] - 2026-10-12
 
 ### Documentation & Repository Audit

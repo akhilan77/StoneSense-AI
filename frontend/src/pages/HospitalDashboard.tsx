@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
 import { useHospital } from '../context/HospitalContext';
-import { createPatient, fetchPatients } from '../services/api';
+import { createPatient, fetchPatients, predictImage, predictRisk, RiskPrediction } from '../services/api';
+import { StoneDetection } from '../types/stoneDetection';
+import { ConcordanceCard } from '../components/ConcordanceCard';
+import type { ImagingOutputInput, TabularRiskInput } from '../types/concordance';
 import {
   createFederatedWebSocket,
   fetchHospitalDatasetStatus,
@@ -24,7 +27,7 @@ const steps = [
   { key: 'input', label: 'Patient input' },
   { key: 'results', label: 'ML & DL results' },
   { key: 'explain', label: 'Explainability' },
-  { key: 'assessment', label: 'Trustworthy assessment' },
+  { key: 'assessment', label: 'Evidence concordance' },
 ] as const;
 
 export default function HospitalDashboard() {
@@ -171,6 +174,96 @@ export default function HospitalDashboard() {
   const [conductivity, setConductivity] = useState('24.1');
   const [urea, setUrea] = useState('380');
   const [calcium, setCalcium] = useState('4.5');
+  const [workflowRiskResult, setWorkflowRiskResult] = useState<RiskPrediction | null>(null);
+  const [workflowCtResult, setWorkflowCtResult] = useState<StoneDetection | null>(null);
+  const [workflowCtFile, setWorkflowCtFile] = useState<File | null>(null);
+  const [isEvaluatingWorkflow, setIsEvaluatingWorkflow] = useState(false);
+
+  const effectiveRisk: TabularRiskInput | null = workflowRiskResult
+    ? {
+        probability: workflowRiskResult.probability,
+        risk_level: workflowRiskResult.risk_level,
+        confidence: workflowRiskResult.confidence,
+      }
+    : selectedPatientForWorkflow?.ml_risk?.status === 'completed'
+    ? {
+        probability:
+          selectedPatientForWorkflow.ml_risk.score !== undefined
+            ? selectedPatientForWorkflow.ml_risk.score / 100
+            : 0.5,
+        risk_level: selectedPatientForWorkflow.ml_risk.level ?? 'Low',
+        confidence:
+          selectedPatientForWorkflow.ml_risk.score !== undefined
+            ? selectedPatientForWorkflow.ml_risk.score / 100
+            : 0.5,
+      }
+    : null;
+
+  const effectiveImaging: ImagingOutputInput | null = workflowCtResult
+    ? {
+        class_name: workflowCtResult.class_name,
+        confidence: workflowCtResult.confidence,
+        probabilities: workflowCtResult.probabilities,
+        status: workflowCtResult.status,
+      }
+    : selectedPatientForWorkflow?.dl_imaging?.status === 'completed'
+    ? {
+        class_name: selectedPatientForWorkflow.dl_imaging.result ?? 'Normal',
+        confidence:
+          selectedPatientForWorkflow.dl_imaging.confidence !== undefined
+            ? selectedPatientForWorkflow.dl_imaging.confidence / 100
+            : 0.8,
+      }
+    : null;
+
+  const handleRunClinicalAssessment = async () => {
+    setIsEvaluatingWorkflow(true);
+    showToast('Evaluating clinical biomarker risk and CT image slices...');
+    try {
+      const riskPayload = {
+        age: 45,
+        gender: 'male',
+        bmi: 26.5,
+        blood_pressure: 120,
+        diabetes: false,
+        family_history: false,
+        water_intake: 2.0,
+        urine_ph: parseFloat(ph) || 5.8,
+        urine_specific_gravity: parseFloat(gravity) || 1.020,
+        osmolality: parseFloat(osmolality) || 620,
+        conductivity: parseFloat(conductivity) || 24.1,
+        urea: parseFloat(urea) || 380,
+        calcium: parseFloat(calcium) || 4.5,
+        uric_acid: 6.0,
+        creatinine: 1.0,
+        hospital_id: activeHospId,
+        patient_id: selectedPatientForWorkflow?.id,
+      };
+
+      const riskRes = await predictRisk(riskPayload);
+      setWorkflowRiskResult(riskRes);
+
+      if (workflowCtFile) {
+        const formData = new FormData();
+        formData.append('image', workflowCtFile);
+        formData.append('model_family', 'resnet18');
+        formData.append('hospital_id', String(activeHospId));
+        if (selectedPatientForWorkflow?.id) {
+          formData.append('patient_id', String(selectedPatientForWorkflow.id));
+        }
+        const ctRes = await predictImage(formData);
+        setWorkflowCtResult(ctRes);
+      }
+
+      setActiveStep('results');
+      showToast('Clinical assessments evaluated successfully.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Clinical assessment run encountered an error.');
+      setActiveStep('results');
+    } finally {
+      setIsEvaluatingWorkflow(false);
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -815,21 +908,30 @@ export default function HospitalDashboard() {
                   </div>
                   <label className="mt-4 block rounded-lg border border-dashed border-[#DDE3DC] p-6 text-center text-xs text-[#101B16]/55 cursor-pointer hover:border-[#1F6F5C]/50 transition-colors bg-[#F9FAF8]">
                     <span className="block font-medium text-[#101B16]">
-                      Drop a CT scan slice here (DICOM / PNG / JPG)
+                      {workflowCtFile ? `Selected: ${workflowCtFile.name}` : 'Drop a CT scan slice here (PNG / JPG)'}
                     </span>
                     <span className="text-[11px] text-[#101B16]/40 mt-1 block">
-                      Supports standard axial slice formats
+                      Supports standard axial CT slice formats (PNG / JPEG, max 10 MB)
                     </span>
-                    <input type="file" className="hidden" />
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setWorkflowCtFile(file);
+                          showToast(`Loaded CT slice: ${file.name}`);
+                        }
+                      }}
+                    />
                   </label>
                   <button
-                    onClick={() => {
-                      setActiveStep('results');
-                      showToast('ML & DL assessment calculated successfully!');
-                    }}
-                    className="btn-primary mt-4 rounded-md bg-[#1F6F5C] px-5 py-2.5 text-xs font-medium text-white hover:bg-[#185849] cursor-pointer shadow-xs"
+                    onClick={handleRunClinicalAssessment}
+                    disabled={isEvaluatingWorkflow}
+                    className="btn-primary mt-4 rounded-md bg-[#1F6F5C] px-5 py-2.5 text-xs font-medium text-white hover:bg-[#185849] cursor-pointer shadow-xs disabled:opacity-50"
                   >
-                    Run clinical assessment
+                    {isEvaluatingWorkflow ? 'Evaluating assessments...' : 'Run clinical assessment'}
                   </button>
                 </div>
               )}
@@ -844,11 +946,34 @@ export default function HospitalDashboard() {
                       <h3 className="font-serif text-base font-medium text-[#101B16] mb-1">
                         ML result — risk score
                       </h3>
-                      <p className="text-3xl font-semibold text-[#1F6F5C] mt-2">Moderate</p>
-                      <p className="text-xs text-[#101B16]/70 mt-1.5">
-                        Probability score: <strong>71.0%</strong>. Top contributing risk factors:
-                        low urinary pH, elevated serum calcium.
-                      </p>
+                      {effectiveRisk ? (
+                        <>
+                          <p
+                            className={`text-3xl font-semibold mt-2 ${
+                              effectiveRisk.risk_level === 'High'
+                                ? 'text-[#C97A2B]'
+                                : 'text-[#1F6F5C]'
+                            }`}
+                          >
+                            {effectiveRisk.risk_level ?? 'Evaluated'}
+                          </p>
+                          <p className="text-xs text-[#101B16]/70 mt-1.5">
+                            Probability score:{' '}
+                            <strong>
+                              {effectiveRisk.probability !== undefined
+                                ? `${(effectiveRisk.probability * 100).toFixed(1)}%`
+                                : 'Calculated'}
+                            </strong>
+                            {effectiveRisk.confidence !== undefined && (
+                              <span> · Confidence: {(effectiveRisk.confidence * 100).toFixed(1)}%</span>
+                            )}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-[#101B16]/50 mt-2">
+                          Assessment pending. Provide urine biomarker values in Step 1.
+                        </p>
+                      )}
                       <button
                         onClick={() =>
                           downloadFileSimulation('ML_Risk_Report.pdf', 'ML Risk Assessment Report')
@@ -862,11 +987,36 @@ export default function HospitalDashboard() {
                       <h3 className="font-serif text-base font-medium text-[#101B16] mb-1">
                         DL result — stone detection
                       </h3>
-                      <p className="text-3xl font-semibold text-[#C97A2B] mt-2">Stone detected</p>
-                      <p className="text-xs text-[#101B16]/70 mt-1.5">
-                        Confidence <strong>94.2%</strong> · Localized region: left kidney, lower
-                        calyx pole.
-                      </p>
+                      {effectiveImaging ? (
+                        <>
+                          <p
+                            className={`text-3xl font-semibold mt-2 ${
+                              effectiveImaging.class_name === 'Stone'
+                                ? 'text-[#C97A2B]'
+                                : effectiveImaging.class_name === 'Tumor' || effectiveImaging.class_name === 'Cyst'
+                                ? 'text-red-600'
+                                : 'text-[#1F6F5C]'
+                            }`}
+                          >
+                            {effectiveImaging.class_name}
+                          </p>
+                          <p className="text-xs text-[#101B16]/70 mt-1.5">
+                            Confidence:{' '}
+                            <strong>
+                              {effectiveImaging.confidence !== undefined
+                                ? `${(effectiveImaging.confidence * 100).toFixed(1)}%`
+                                : 'Evaluated'}
+                            </strong>
+                            {effectiveImaging.status && effectiveImaging.status !== 'accepted' && (
+                              <span className="text-amber-700 font-medium"> · Status: {effectiveImaging.status}</span>
+                            )}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-[#101B16]/50 mt-2">
+                          Assessment pending. Drop a CT scan slice in Step 1.
+                        </p>
+                      )}
                       <button
                         onClick={() =>
                           downloadFileSimulation('DL_CT_Imaging_Report.pdf', 'DL CT Imaging Report')
@@ -950,25 +1100,9 @@ export default function HospitalDashboard() {
               {activeStep === 'assessment' && (
                 <div>
                   <h3 className="font-serif text-base font-medium text-[#101B16] mb-3">
-                    Trustworthy assessment
+                    Multi-Stream Evidence Concordance
                   </h3>
-                  <div className="rounded-lg border border-[#DDE3DC] bg-[#F9FAF8] p-4 text-xs">
-                    <p>
-                      <span className="text-[#101B16]/60 font-medium">
-                        Clinical biomarker model:
-                      </span>{' '}
-                      Moderate risk (71%)
-                    </p>
-                    <p className="mt-1">
-                      <span className="text-[#101B16]/60 font-medium">CT Imaging model:</span> Stone
-                      detected (94.2%)
-                    </p>
-                    <p className="mt-2.5 text-[#101B16]/80 leading-relaxed border-t border-[#DDE3DC] pt-2">
-                      Both evidence streams independently agree a nephrolithiasis condition is
-                      likely present. This transparent rule-based concordance provides multi-modal
-                      verification without synthetic data fusion.
-                    </p>
-                  </div>
+                  <ConcordanceCard risk={effectiveRisk} imaging={effectiveImaging} />
                   <div className="mt-4 flex gap-3">
                     <button
                       onClick={() =>

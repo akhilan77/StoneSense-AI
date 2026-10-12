@@ -35,4 +35,9 @@ export interface StoneDetection {
   model_id?: string;
   model_name?: string;
   gradcam?: GradCAMResult;
+  status?: string;
+  review_reason?: string;
+  probabilities?: Record<string, number>;
+  ood_metrics?: Record<string, number>;
+  warnings?: string[];
 }

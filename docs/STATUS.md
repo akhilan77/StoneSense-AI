@@ -10,9 +10,9 @@
 
 This document establishes the verified runtime reality of the **StoneSense-AI** repository. Every claim below has been corroborated through direct source inspection, local automated test execution, static type analysis, or database state examination.
 
-- **Backend Status:** Operational (FastAPI 0.115+, 52 endpoints registered).
-- **Backend Test Suite:** **106 passed, 1 skipped, 0 failed** (Total: 107 items, 72% code coverage across `backend/app`).
-- **Frontend Status:** Operational (React 18.3 + Vite 5.4 + Tailwind CSS 3.4). `npx tsc --noEmit` exits cleanly (code 0) and `npm run build` generates production assets cleanly in 11.33s.
+- **Backend Status:** Operational (FastAPI 0.115+, 53 endpoints registered).
+- **Backend Test Suite:** **221 passed, 1 skipped, 0 failed** (Total: 222 items).
+- **Frontend Status:** Operational (React 18.3 + Vite 5.4 + Tailwind CSS 3.4). `npx tsc --noEmit` exits cleanly (code 0), `npm run lint` passes (0 errors), and `npm run build` generates production assets cleanly.
 - **Active ML Model:** `logistic_regression_v001` (Deployed 1-Standard-Error rule winner).
 - **Active DL Model:** `resnet18_centralized_v1` / `resnet18_grouped_audit_v1` (Evaluated on grouped leak-free test split).
 - **Federated Learning Rounds:** 29 completed live rounds persisted in `stonesense.db`.
@@ -20,6 +20,7 @@ This document establishes the verified runtime reality of the **StoneSense-AI** 
 ---
 
 ## 2. Complete Feature Status Matrix
+
 
 | Module | Feature | Status | Evidence & File Links | Audit Notes |
 | :--- | :--- | :---: | :--- | :--- |
@@ -46,8 +47,8 @@ This document establishes the verified runtime reality of the **StoneSense-AI** 
 | **Security** | Authentication & Scoped RBAC | **DONE** | [`backend/app/core/auth.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/core/auth.py), [`security.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/core/security.py) | JWT tokens with HMAC SHA-256; role validation (`hospital_user`, `developer`, `admin`). Scopes queries to user's assigned hospital. |
 | **Security** | Cryptographic Audit Logging | **DONE** | [`backend/app/db/models.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/db/models.py#L210), [`auth.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/core/auth.py#L180-L215) | `AuditLog` table stores timestamp, actor user, hospital scope, action, SHA-256 hash. |
 | **Security** | PII Encryption / Pseudonymization | **MISSING** | [`backend/app/db/models.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/db/models.py#L80-L100) | Patient names, phones, and emails are currently stored in plain text in the relational store. |
-| **Safety** | CT Input Validation & OOD Filter | **PARTIAL** | [`predict_router.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/api/v1/routes/predict_router.py#L120-L165) | Image decoding occurs, but lacks file size limit, MIME whitelist, and Out-of-Distribution rejection for non-kidney images. |
-| **Clinical UI** | Multi-Modal Evidence Concordance | **PARTIAL** | [`HospitalDashboard.tsx`](file:///c:/Users/akhil/projects/StoneSense-AI/frontend/src/pages/HospitalDashboard.tsx#L950-L971) | Surfaced on UI, but uses hardcoded static text ("Moderate risk 71%", "Stone detected 94.2%"). Backend multi-modal rule agreement engine is missing. |
+| **Safety** | CT Input Validation & OOD Gate | **DONE** | [`image_utils.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/utils/image_utils.py), [`predict_router.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/api/v1/routes/predict_router.py#L150-L245), [`test_ct_upload_hardening.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/tests/test_ct_upload_hardening.py) | Enforces bounded 10 MB payload limits (HTTP 413), content-based magic bytes verification (PNG/JPEG only, HTTP 415), decompression bomb protection, degenerate dimension & aspect ratio checks, and model-level OOD/uncertainty gate (status='needs_review'). 12/12 validation tests passing. |
+| **Clinical UI** | Multi-Stream Evidence Concordance | **DONE** | [`concordance_service.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/services/concordance_service.py), [`predict_router.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/api/v1/routes/predict_router.py#L26-L52), [`ConcordanceCard.tsx`](file:///c:/Users/akhil/projects/StoneSense-AI/frontend/src/components/ConcordanceCard.tsx), [`HospitalDashboard.tsx`](file:///c:/Users/akhil/projects/StoneSense-AI/frontend/src/pages/HospitalDashboard.tsx#L940-L960) | Pure deterministic server-side concordance engine evaluating independent risk and CT outputs across 6 closed outcome codes with strict precedence rules and unpaired-dataset disclaimer. Fully connected to Hospital Dashboard; all hardcoded numbers removed. |
 
 ---
 

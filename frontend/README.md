@@ -84,4 +84,5 @@ npm run build
 
 1. **Role Protection**: Routes are wrapped with `<ProtectedRoute allowedRoles={[...]}>`. Accessing unauthorized routes redirects to `/login`.
 2. **Demo Quick-Fill Accounts**: In non-production environments, the Login page provides one-click buttons to sign in as Dr. Aisha (`hospital_user`), Developer (`developer`), or Administrator (`admin`).
-3. **Hardcoded Concordance Warning**: The "Trustworthy assessment" step on `HospitalDashboard.tsx` currently displays static placeholder text ("Moderate risk 71%", "Stone detected 94.2%"). Dynamic rule-based agreement calculation will be wired in Phase 4.
+3. **Server-Side Concordance Engine**: The "Evidence concordance" step on `HospitalDashboard.tsx` is powered by the `/api/v1/predict/concordance` endpoint, evaluating transparent rule-based concordance across real tabular risk and CT imaging predictions with strict precedence rules and unpaired-dataset disclaimers.
+

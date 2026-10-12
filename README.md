@@ -71,8 +71,8 @@ flowchart TD
 | **Multi-Model DL Wrappers** | **PARTIAL** | Wrappers implemented in [`dl/models/wrappers/`](dl/models/wrappers/) for YOLO26 (`best.pt`), DINOv3 (feature backbone), and QKNN (quantum simulator). YOLO26 and DINOv3 run inference; QKNN is an experimental low-accuracy prototype (41.95% acc). |
 | **Federated Learning (Core A1–A8)** | **DONE** | Local training refactor (`train_local`), dataset partitioning (IID/non-IID), Flower `NumPyClient`, Flower server + `StoneSenseFedAvg`, versioned checkpoints (`resnet18_fed_round_001.pth`–`029.pth`), DB telemetry persistence, and multi-hospital simulation runner in [`dl/federated/`](dl/federated/). Real per-client training confirmed. |
 | **Federated UI & APIs (B1–B5)** | **DONE** | 52 REST endpoints registered in FastAPI; Hospital FL UI ([`HospitalFederatedLearning.tsx`](frontend/src/pages/HospitalFederatedLearning.tsx)) and Developer FL Console ([`DeveloperDashboard.tsx`](frontend/src/pages/DeveloperDashboard.tsx)) connected via [`federatedApi.ts`](frontend/src/services/federatedApi.ts) and WebSockets. |
-| **Rule-Based Evidence Agreement** | **PARTIAL** | Surfaced on Hospital Dashboard ("Trustworthy assessment" step), but **hardcoded in frontend** with fixed strings ("Moderate risk 71%", "Stone detected 94.2%"). Backend multi-modal concordance calculation is not yet wired. |
-| **Image Upload Validation** | **PARTIAL** | Backend accepts image byte payloads and processes them through PIL/Torchvision, but **lacks file size limits, MIME type validation, and Out-of-Distribution (OOD) / non-kidney rejection**. |
+| **Rule-Based Evidence Agreement** | **DONE** | Implemented in [`backend/app/services/concordance_service.py`](backend/app/services/concordance_service.py) and exposed via `POST /api/v1/predict/concordance`. Deterministic evaluation across independent biomarker and CT predictions with 6 closed outcome codes, strict precedence rules, and unpaired-dataset regulatory disclaimers. Connected to frontend [`ConcordanceCard.tsx`](frontend/src/components/ConcordanceCard.tsx) on Hospital Dashboard. |
+| **Image Upload Validation & OOD Gate** | **DONE** | Implemented in [`backend/app/utils/image_utils.py`](backend/app/utils/image_utils.py) and `/api/v1/predict/image`. Enforces bounded 10 MB payload limits (HTTP 413), content-based magic bytes verification (PNG/JPEG only, HTTP 415), decompression bomb protection, degenerate dimension & aspect ratio checks, and model-level OOD/uncertainty gate (status='needs_review'). |
 | **Authentication & RBAC** | **DONE** | JWT access/refresh tokens with bcrypt password hashing; role-based access control (`hospital_user`, `developer`, `admin`) and hospital scoping enforced in [`backend/app/core/auth.py`](backend/app/core/auth.py). |
 | **Patient Record Encryption (PII)** | **MISSING** | Patient names, phone numbers, and emails are currently stored in plain text in the SQLite/PostgreSQL `patients` table. Encryption-at-rest or pseudonymization is not yet implemented. |
 | **Infrastructure & CI** | **DONE** | Pinned dependencies in [`requirements.txt`](requirements.txt), Docker Compose ([`docker-compose.yml`](docker-compose.yml)), Alembic migrations, and GitHub Actions CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) with fast Pytest run. |
@@ -153,7 +153,7 @@ The backend exposes **52 endpoints** organized into modular FastAPI routers regi
 
 - **Health & Info**: `GET /api/v1/health` (public), `GET /api/v1/models` (requires auth), `GET /api/v1/models/dl`.
 - **Authentication**: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `GET /api/v1/auth/me`.
-- **Clinical Inference**: `POST /api/v1/predict/risk` (urine biomarkers + SHAP), `POST /api/v1/predict/image` (CT scan + Grad-CAM).
+- **Clinical Inference**: `POST /api/v1/predict/risk` (urine biomarkers + SHAP), `POST /api/v1/predict/image` (hardened CT upload + OOD gate + Grad-CAM), `POST /api/v1/predict/concordance` (evidence concordance engine).
 - **Patient Management**: `GET /api/v1/patients`, `POST /api/v1/patients`, `GET /api/v1/patients/{id}`.
 - **Hospital Endpoints** (registered at both `/api/v1/hospital` and `/api/v1/hospitals`): `/list`, `/{id}/detail`, `/{id}/current-model`, `/{id}/dataset-status`, `/{id}/dataset-upload`, `/{id}/dataset-validate`, `/{id}/train-local`, `/{id}/training-history`, `/{id}/federated-status`, `/{id}/history`.
 - **Developer Endpoints**: `/system-stats`, `/statistics`, `/model-performance`, `/model-versions`, `/model-versions/deploy`, `/model-versions/rollback`, `/federated-overview`, `/federated/rounds/start`, `/federated/rounds/current/status`, `/hospital-participation`, `/round-history`, `/system-monitoring`, `/drift-analysis`, `/system-logs`, `/hospital-logs`.
@@ -200,7 +200,7 @@ Frontend dev server runs at `http://localhost:5173`.
 # Activate backend virtual environment from repository root:
 .\backend\.venv\Scripts\python.exe -m pytest -v --cov=backend/app
 ```
-*Current test suite: 106 passed, 1 skipped (partition leakage check requires local dataset archives), 0 failed (72% code coverage across backend/app).*
+*Current test suite: 221 passed, 1 skipped (partition leakage check requires local dataset archives), 0 failed.*
 
 ### 4. Running Frontend Type Checks & Production Build
 ```bash
@@ -215,8 +215,8 @@ npm run build
 ## Known Limitations & Technical Debt
 
 1. **Patient Identifier Encryption (PII)**: Patient records in `stonesense.db` store names, phone numbers, and emails in cleartext. Needs column-level encryption or salted pseudonymization before clinical pilot.
-2. **Hardcoded Concordance in UI**: The "Trustworthy assessment" step on `HospitalDashboard.tsx` uses static placeholder strings rather than computing dynamic rule agreement from actual prediction outputs.
-3. **CT Image Upload Validation**: The `/predict/image` endpoint does not enforce maximum file size limits, MIME type verification, or an Out-of-Distribution (OOD) rejection filter for non-kidney images.
+2. **Multi-Stream Independence Disclaimer**: Tabular risk and CT imaging models are trained on separate, unpaired patient cohorts. Concordance engine outputs decision support rules rather than joint multimodal diagnosis.
+3. **OOD Heuristic Gate**: The CT upload OOD gate relies on softmax entropy and confidence thresholds, which flag uncertain and ambiguous inputs but cannot guarantee elimination of non-kidney CT scans.
 4. **Tracked Model Weights in Git History**: Over 1 GB of binary PyTorch checkpoints (`resnet18_fed_round_001.pth`–`022.pth`) were committed to git history prior to `.gitignore` exclusions.
 5. **Single-Process Federated Coordinator**: Live federated rounds triggered via REST use an in-process thread with `threading.Lock`. Production multi-worker setups require a background task broker (e.g. Celery / Redis).
 

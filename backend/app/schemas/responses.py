@@ -34,3 +34,9 @@ class StoneDetectionResponse(BaseModel):
     model_id: Optional[str] = Field(default="resnet18", description="Identifier of the model that produced prediction")
     model_name: Optional[str] = Field(default="ResNet18", description="Human-readable model name")
     gradcam: Optional[GradCAMResponse] = None
+    status: str = Field(default="accepted", description="Review status: accepted, needs_review, or rejected_ood")
+    review_reason: Optional[str] = Field(default=None, description="Detailed explanation if gate flagged image for review")
+    probabilities: Optional[Dict[str, float]] = Field(default=None, description="Raw softmax probability distribution across classes")
+    ood_metrics: Optional[Dict[str, float]] = Field(default=None, description="OOD heuristic metrics including entropy and contrast")
+    warnings: List[str] = Field(default_factory=list, description="Sanity warnings (e.g., non-axial aspect ratio or color photo)")
+

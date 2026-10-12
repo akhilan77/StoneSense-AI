@@ -92,6 +92,58 @@ class Settings(BaseModel):
         description="Default validation dataset signature for deployment comparisons.",
     )
 
+    # Concordance Engine Configuration
+    concordance_risk_threshold: float = Field(
+        default_factory=lambda: float(os.getenv("CONCORDANCE_RISK_THRESHOLD", "0.50")),
+        description="Tabular probability threshold above which risk is considered elevated.",
+    )
+    concordance_tabular_min_confidence: float = Field(
+        default_factory=lambda: float(os.getenv("CONCORDANCE_TABULAR_MIN_CONFIDENCE", "0.60")),
+        description="Minimum confidence for tabular risk model before flagging LOW_CONFIDENCE.",
+    )
+    concordance_imaging_min_confidence: float = Field(
+        default_factory=lambda: float(os.getenv("CONCORDANCE_IMAGING_MIN_CONFIDENCE", "0.60")),
+        description="Minimum confidence for CT imaging model before flagging LOW_CONFIDENCE.",
+    )
+    concordance_disclaimer: str = Field(
+        default_factory=lambda: os.getenv(
+            "CONCORDANCE_DISCLAIMER",
+            "Decision support only. Tabular risk and CT imaging models were trained on separate, unpaired datasets. "
+            "This rule-based concordance does not constitute a clinical diagnosis and requires qualified physician review."
+        ),
+        description="Fixed regulatory disclaimer string for unpaired multi-stream evidence evaluation.",
+    )
+
+    # CT Scan Upload Hardening & OOD Rejection Configuration
+    ct_upload_max_bytes: int = Field(
+        default_factory=lambda: int(os.getenv("CT_UPLOAD_MAX_BYTES", str(10 * 1024 * 1024))),
+        description="Maximum allowed CT image upload payload size in bytes (default 10 MB).",
+    )
+    ct_upload_max_pixels: int = Field(
+        default_factory=lambda: int(os.getenv("CT_UPLOAD_MAX_PIXELS", "25000000")),
+        description="Maximum allowed pixel count to prevent decompression bomb attacks (default 25 MP).",
+    )
+    ct_upload_min_dimension: int = Field(
+        default_factory=lambda: int(os.getenv("CT_UPLOAD_MIN_DIMENSION", "32")),
+        description="Minimum width and height in pixels for valid CT scan slice.",
+    )
+    ct_ood_min_confidence: float = Field(
+        default_factory=lambda: float(os.getenv("CT_OOD_MIN_CONFIDENCE", "0.50")),
+        description="Minimum predicted class probability required to pass out-of-distribution / low-confidence gate.",
+    )
+    ct_ood_max_entropy: float = Field(
+        default_factory=lambda: float(os.getenv("CT_OOD_MAX_ENTROPY", "1.30")),
+        description="Maximum Shannon entropy (nats) allowed before flagging prediction as uncertain / out-of-distribution.",
+    )
+    ct_ood_min_std: float = Field(
+        default_factory=lambda: float(os.getenv("CT_OOD_MIN_STD", "8.0")),
+        description="Minimum pixel intensity standard deviation to reject blank or near-constant uploads.",
+    )
+    ct_ood_max_aspect_ratio: float = Field(
+        default_factory=lambda: float(os.getenv("CT_OOD_MAX_ASPECT_RATIO", "3.5")),
+        description="Maximum allowed aspect ratio (width/height or height/width) to reject non-axial or distorted images.",
+    )
+
     def get_jwt_secret(self) -> str:
         """Returns JWT secret key, enforcing explicit secret in production mode."""
         if self.jwt_secret_key:

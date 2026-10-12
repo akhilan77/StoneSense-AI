@@ -11,19 +11,52 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user, get_scoped_hospital_id, log_audit
 from app.db.database import get_db
 from app.db.models import InferenceLog, Patient, Prediction, User
+from app.schemas.concordance import ConcordanceRequest, ConcordanceResult
 from app.schemas.patient import PatientInformation
 from app.schemas.responses import (
     RiskPredictionResponse,
     StoneDetectionResponse,
 )
+from app.services.concordance_service import evaluate_concordance
 from app.services.explainability_service import (
     generate_gradcam_for_bytes,
     generate_shap_for_patient,
 )
 from app.services.model_loader import model_loader
 from app.services.prediction_service import PredictionService
+from app.utils.image_utils import (
+    evaluate_ct_ood_gate,
+    read_bounded_image_bytes,
+    validate_ct_image_content,
+)
 
 router = APIRouter(prefix="/predict", tags=["predict"])
+
+
+@router.post("/concordance", response_model=ConcordanceResult)
+async def predict_concordance(
+    payload: ConcordanceRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ConcordanceResult:
+    """Evaluates transparent, rule-based evidence concordance between tabular and imaging streams."""
+    result = evaluate_concordance(risk=payload.risk, imaging=payload.imaging)
+
+    log_audit(
+        db=db,
+        action="PREDICTION_CONCORDANCE",
+        resource_type="concordance",
+        hospital_id=current_user.hospital_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "outcome_code": result.outcome_code.value,
+            "rule_fired": result.rule_fired,
+            "clinician_review_recommended": result.clinician_review_recommended,
+        },
+    )
+
+    return result
 
 
 @router.post("/risk", response_model=RiskPredictionResponse)
@@ -154,14 +187,30 @@ async def predict_image(
         if patient is None:
             raise HTTPException(status_code=404, detail="Patient not found for this hospital.")
 
+    # 1. Bounded upload read to prevent unbounded memory consumption
+    content = await read_bounded_image_bytes(image)
+
+    # 2. Strict content verification (magic bytes, decompression limit, dimensions, sanity)
+    _, image_warnings, sanity_metrics = validate_ct_image_content(content)
+
     start_time = time.time()
     try:
-        content = await image.read()
         res = PredictionService.predict_ct_image(content, model_id=selected_model_id)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to process image with model '{wrapper.model_name}': {str(e)}")
 
     elapsed = time.time() - start_time
+
+    # 3. Out-of-distribution & low-confidence safety gate
+    raw_probabilities = res.get("probabilities", {})
+    gate_status, review_reason, ood_metrics = evaluate_ct_ood_gate(
+        probabilities=raw_probabilities,
+        confidence=res["confidence"],
+        warnings=image_warnings,
+    )
+
     output_dir = Path(__file__).resolve().parents[3] / "static" / "gradcam"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -185,13 +234,16 @@ async def predict_image(
     model_display_tag = f"{res['model_id']}_{res['class']}"
     recorded_family = res.get("model_family", f"{res['model_id']}_ct")
 
+    # If gate fires, return 'needs_review' rather than confident diagnosis label
+    effective_class_label = "needs_review" if gate_status == "needs_review" else res["class"]
+
     try:
         prediction = Prediction(
             hospital_id=effective_hospital_id,
             patient_id=patient.id if patient else None,
             prediction_type="image",
             model_name=res["model_name"],
-            result_label=str(res["class"]),
+            result_label=str(effective_class_label),
             confidence=res["confidence"],
             latency_ms=elapsed * 1000,
             explainability_ref=overlay_url,
@@ -201,7 +253,7 @@ async def predict_image(
             prediction_type="image",
             model_name=recorded_family,
             version_tag=res["model_id"],
-            result_label=str(res["class"]),
+            result_label=str(effective_class_label),
             confidence=res["confidence"],
             latency_ms=elapsed * 1000,
         )
@@ -220,19 +272,26 @@ async def predict_image(
         user_email=current_user.email,
         details={
             "patient_id": patient.id if patient else None,
-            "result_label": str(res["class"]),
+            "result_label": str(effective_class_label),
             "confidence": round(float(res["confidence"]), 4),
             "model_id": res["model_id"],
             "model_name": res["model_name"],
+            "status": gate_status,
+            "ood_metrics": ood_metrics,
         },
     )
 
     payload = {
-        "class_name": res["class"],
+        "class_name": effective_class_label,
         "confidence": res["confidence"],
         "inference_time_sec": round(elapsed, 4),
         "model_id": res["model_id"],
         "model_name": res["model_name"],
+        "status": gate_status,
+        "review_reason": review_reason,
+        "probabilities": raw_probabilities,
+        "ood_metrics": ood_metrics,
+        "warnings": image_warnings,
     }
     if overlay:
         payload["gradcam"] = {
@@ -250,3 +309,4 @@ async def predict_image(
         }
 
     return StoneDetectionResponse(**payload)
+
