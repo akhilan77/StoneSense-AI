@@ -65,17 +65,15 @@ flowchart TD
 | **Tabular Risk Pipeline** | **DONE** | 50-fold nested repeated stratified CV implemented in [`ml/training/train_risk_model.py`](ml/training/train_risk_model.py). Model registry in [`ml/risk_models/registry.py`](ml/risk_models/registry.py) active with `logistic_regression_v001` (1-SE winner) and `xgboost_v001`. |
 | **SHAP Explainability** | **DONE** | Dynamic explainer (`LinearExplainer` for linear models, `TreeExplainer` for tree models) implemented in [`ml/explainability/shap_explainer.py`](ml/explainability/shap_explainer.py) and [`backend/app/services/explainability_service.py`](backend/app/services/explainability_service.py). Top features and directions returned via API. |
 | **CT ResNet18 Classifier** | **DONE** | PyTorch ResNet18 transfer learning pipeline in [`dl/training/train_resnet18.py`](dl/training/train_resnet18.py); audited grouped benchmark in [`dl/training/train_resnet18_audit.py`](dl/training/train_resnet18_audit.py). Weights loaded in backend [`backend/app/services/model_loader.py`](backend/app/services/model_loader.py). |
-| **Grad-CAM Saliency Maps** | **DONE** | Standard Grad-CAM (Selvaraju et al., 2017) targeting `layer4[-1]` implemented in [`dl/explainability/gradcam.py`](dl/explainability/gradcam.py), [`backend/app/services/explainability_service.py`](backend/app/services/explainability_service.py), and [`dl/models/wrappers/resnet18_wrapper.py`](dl/models/wrappers/resnet18_wrapper.py). |
-| **Grad-CAM++** | **MISSING** | **Not implemented.** Only standard Grad-CAM exists in code; UI labels ("Grad-CAM++") and former diagram notes were cosmetic placeholders. |
-| **LIME** | **MISSING** | **Not implemented.** No LIME library, explainer script, or dependencies exist in the repository. |
+| **Grad-CAM Saliency Maps** | **DONE** | Standard Grad-CAM (Selvaraju et al., 2017) targeting `layer4[-1]` implemented in [`dl/explainability/gradcam.py`](dl/explainability/gradcam.py), [`backend/app/services/explainability_service.py`](backend/app/services/explainability_service.py), and [`dl/models/wrappers/resnet18_wrapper.py`](dl/models/wrappers/resnet18_wrapper.py). All UI labels and documentation normalized to Grad-CAM. |
 | **Multi-Model DL Wrappers** | **PARTIAL** | Wrappers implemented in [`dl/models/wrappers/`](dl/models/wrappers/) for YOLO26 (`best.pt`), DINOv3 (feature backbone), and QKNN (quantum simulator). YOLO26 and DINOv3 run inference; QKNN is an experimental low-accuracy prototype (41.95% acc). |
 | **Federated Learning (Core A1–A8)** | **DONE** | Local training refactor (`train_local`), dataset partitioning (IID/non-IID), Flower `NumPyClient`, Flower server + `StoneSenseFedAvg`, versioned checkpoints (`resnet18_fed_round_001.pth`–`029.pth`), DB telemetry persistence, and multi-hospital simulation runner in [`dl/federated/`](dl/federated/). Real per-client training confirmed. |
 | **Federated UI & APIs (B1–B5)** | **DONE** | 52 REST endpoints registered in FastAPI; Hospital FL UI ([`HospitalFederatedLearning.tsx`](frontend/src/pages/HospitalFederatedLearning.tsx)) and Developer FL Console ([`DeveloperDashboard.tsx`](frontend/src/pages/DeveloperDashboard.tsx)) connected via [`federatedApi.ts`](frontend/src/services/federatedApi.ts) and WebSockets. |
-| **Rule-Based Evidence Agreement** | **DONE** | Implemented in [`backend/app/services/concordance_service.py`](backend/app/services/concordance_service.py) and exposed via `POST /api/v1/predict/concordance`. Deterministic evaluation across independent biomarker and CT predictions with 6 closed outcome codes, strict precedence rules, and unpaired-dataset regulatory disclaimers. Connected to frontend [`ConcordanceCard.tsx`](frontend/src/components/ConcordanceCard.tsx) on Hospital Dashboard. |
-| **Image Upload Validation & OOD Gate** | **DONE** | Implemented in [`backend/app/utils/image_utils.py`](backend/app/utils/image_utils.py) and `/api/v1/predict/image`. Enforces bounded 10 MB payload limits (HTTP 413), content-based magic bytes verification (PNG/JPEG only, HTTP 415), decompression bomb protection, degenerate dimension & aspect ratio checks, and model-level OOD/uncertainty gate (status='needs_review'). |
-| **Authentication & RBAC** | **DONE** | JWT access/refresh tokens with bcrypt password hashing; role-based access control (`hospital_user`, `developer`, `admin`) and hospital scoping enforced in [`backend/app/core/auth.py`](backend/app/core/auth.py). |
-| **Patient Record Encryption (PII)** | **MISSING** | Patient names, phone numbers, and emails are currently stored in plain text in the SQLite/PostgreSQL `patients` table. Encryption-at-rest or pseudonymization is not yet implemented. |
-| **Infrastructure & CI** | **DONE** | Pinned dependencies in [`requirements.txt`](requirements.txt), Docker Compose ([`docker-compose.yml`](docker-compose.yml)), Alembic migrations, and GitHub Actions CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) with fast Pytest run. |
+| **Rule-Based Evidence Concordance** | **DONE** | Implemented in [`backend/app/services/concordance_service.py`](backend/app/services/concordance_service.py) (`POST /api/v1/predict/concordance`). Accepts server-stored prediction IDs (`risk_prediction_id`, `image_prediction_id`), strictly enforcing hospital tenant and patient scoping. Uses `CONCORDANT_NO_STONE_EVIDENCE` ("No stone evidence in either stream") with real verified CT stone recall (65.70%) and small tabular dataset citations. |
+| **Image Upload Validation & OOD Gate** | **DONE** | Implemented in [`backend/app/utils/image_utils.py`](backend/app/utils/image_utils.py) and `/api/v1/predict/image`. Enforces bounded 10 MB payload limits (HTTP 413), content-based magic bytes verification (PNG/JPEG only, HTTP 415), scoped Pillow decompression-bomb rejection at 1x MAX_IMAGE_PIXELS (HTTP 413), degenerate dimension & aspect ratio checks, and model-level OOD/uncertainty gate. |
+| **Authentication & RBAC** | **DONE** | JWT access/refresh tokens with bcrypt password hashing; role-based access control (`hospital_user`, `developer`, `admin`) and hospital scoping enforced in [`backend/app/core/auth.py`](backend/app/core/auth.py). Audit logging to database records all administrative and clinical actions without logging PII. |
+| **Patient Record Encryption (PII)** | **DONE** | Implemented in [`backend/app/core/pii_crypto.py`](backend/app/core/pii_crypto.py) and [`backend/app/db/pii_types.py`](backend/app/db/pii_types.py). Authenticated AES-256-GCM column encryption with fresh 96-bit nonces for `name`, `phone`, `email` in SQLite/PostgreSQL. Keyed HMAC-SHA256 blind indexing for exact-match search without exposing plaintext. Idempotent migration backfill and fail-closed key management. |
+| **Infrastructure & CI** | **DONE** | Pinned dependencies in [`requirements.txt`](requirements.txt), Docker Compose ([`docker-compose.yml`](docker-compose.yml)), Nginx proxy config (`client_max_body_size 10M`), Alembic migrations, and GitHub Actions CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). |
 
 ---
 
@@ -212,27 +210,79 @@ npm run build
 
 ---
 
-## Known Limitations & Technical Debt
+## Security Threat Model & Protections
 
-1. **Patient Identifier Encryption (PII)**: Patient records in `stonesense.db` store names, phone numbers, and emails in cleartext. Needs column-level encryption or salted pseudonymization before clinical pilot.
-2. **Multi-Stream Independence Disclaimer**: Tabular risk and CT imaging models are trained on separate, unpaired patient cohorts. Concordance engine outputs decision support rules rather than joint multimodal diagnosis.
-3. **OOD Heuristic Gate**: The CT upload OOD gate relies on softmax entropy and confidence thresholds, which flag uncertain and ambiguous inputs but cannot guarantee elimination of non-kidney CT scans.
-4. **Tracked Model Weights in Git History**: Over 1 GB of binary PyTorch checkpoints (`resnet18_fed_round_001.pth`–`022.pth`) were committed to git history prior to `.gitignore` exclusions.
-5. **Single-Process Federated Coordinator**: Live federated rounds triggered via REST use an in-process thread with `threading.Lock`. Production multi-worker setups require a background task broker (e.g. Celery / Redis).
+### 1. Patient PII Protection at Rest
+- **Threat Mitigated:** Database file compromise (e.g. lost backups, leaked SQLite/PostgreSQL volume files, stolen disk images).
+- **Architecture:** Authenticated **AES-256-GCM** column-level encryption via SQLAlchemy `EncryptedString` TypeDecorator. Every write receives a distinct 96-bit cryptographically secure random nonce. Ciphertext payload structure: `enc:v1:{key_id}:{b64(nonce + ct + tag)}`.
+- **Searchability:** Keyed HMAC-SHA256 blind indexing (`name_bidx`, `phone_bidx`, `email_bidx`) using normalized canonical tokens enables exact-match lookups without exposing or searching raw plaintext.
+- **Threat NOT Mitigated:** Full application server compromise. If an attacker attains root shell execution or reads application process memory, active encryption keys residing in memory can be extracted. Full-disk encryption (LUKS/BitLocker) and database server TLS are still mandatory in production. Compliance with HIPAA, GDPR, or India's DPDP Act requires administrative access controls and operational audits in addition to column encryption.
+- **User Accounts (`users.email`):** Auth emails for hospital staff and developers remain plaintext with unique DB constraints and bcrypt password hashing. They are referenced in audit trails (`audit_logs.user_email`) and are not patient PHI.
+
+### 2. CT Image Upload Pipeline Hardening
+- **Threat Mitigated:** Denial of service via decompression bombs, malformed file parser exploits, memory exhaustion, arbitrary non-medical image uploads.
+- **Layers Enforced:**
+  1. **Proxy Limit:** Nginx `client_max_body_size 10M;` discards oversized HTTP requests at ingress.
+  2. **FastAPI Payload Limit:** Application-level byte check validates `ct_upload_max_bytes` (10 MB default) returning HTTP 413.
+  3. **Magic Byte Verification:** Inspects raw file signatures (PNG `\x89PNG\r\n\x1a\n` and JPEG `\xff\xd8\xff`), rejecting renamed binaries or disguised executables with HTTP 415.
+  4. **Scoped Decompression Bomb Defense:** Bounded dimension checks and Pillow `DecompressionBombWarning` promoted to hard error at `MAX_IMAGE_PIXELS` (60M pixels), with `try...finally` ensuring global interpreter settings are restored.
+  5. **Aspect Ratio & Variance Filter:** Rejects extreme aspect ratios ($>10:1$) and near-constant images ($\sigma < 2.0$).
+  6. **Empirical OOD Gate:** ResNet18 softmax confidence and Shannon entropy thresholds flag uncertain or non-medical images for clinical review. Note: this gate is an empirical heuristic; deep networks can produce high-confidence false predictions on synthetic noise, and the gate cannot guarantee that accepted images are genuine kidney CT scans.
 
 ---
 
-## Project Roadmap
+## PII Key Management & Rotation Runbook
 
-- [ ] **Phase 1 (ML & Tabular Hardening)**: Complete — 50-fold nested repeated CV implemented, Logistic Regression v001 registered as deployed 1-SE baseline.
-- [ ] **Phase 2 (Dynamic Explainability)**: Complete — Dynamic `LinearExplainer` / `TreeExplainer` operational; standard Grad-CAM operational.
-- [ ] **Phase 3 (Deployment Gate & Governance)**: Complete — Automated multi-metric gate rejects unverified and leaky models.
-- [ ] **Phase 4 (Security & HIPAA Prep)**: 
-  - [x] JWT authentication and role-based access control.
-  - [ ] Implement AES-256 field encryption for patient PII (`name`, `phone`, `email`).
-  - [ ] Add dynamic server-side rule agreement engine for multi-modal concordance.
-- [ ] **Phase 5 (Input Hardening & Safety)**: Add file size limits, image MIME validation, and confidence-based OOD rejection on CT uploads.
-- [ ] **Phase 6 (Repository Hygiene)**: Prune historical `.pth` binary blobs from git history using `git-filter-repo` and move to an external artifact store.
+### Key Generation
+Generate a cryptographically secure 256-bit (32-byte) key encoded in base64:
+```bash
+python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"
+```
+
+### Production Configuration
+Set environment variables:
+```bash
+STONESENSE_ENV=production
+STONESENSE_PII_KEYS="v1:<base64-key-1>,v2:<base64-key-2>"
+STONESENSE_PII_ACTIVE_KEY_ID="v2"
+STONESENSE_PII_BLIND_INDEX_KEY="<base64-blind-index-key>"
+```
+*Fail-closed rule:* If `STONESENSE_ENV` is `production` and `STONESENSE_PII_KEYS` is missing or malformed, application startup immediately terminates with `KeyManagementError`.
+
+### Key Rotation Steps
+1. Generate new 32-byte base64 key `v2`.
+2. Append `v2` to `STONESENSE_PII_KEYS`: `STONESENSE_PII_KEYS="v1:<old-key>,v2:<new-key>"`.
+3. Update `STONESENSE_PII_ACTIVE_KEY_ID="v2"`.
+4. Deploy application. Existing records encrypted under `v1` continue to decrypt transparently; all new writes use `v2`.
+5. (Optional) Run `python backend/scripts/backfill_encrypt_patients.py` to re-encrypt legacy rows under `v2`.
+
+---
+
+## Configuration Reference
+
+| Environment Variable | Default | Purpose / Description |
+| :--- | :---: | :--- |
+| `STONESENSE_ENV` | `production` | Environment mode (`development`, `testing`, `production`). In production, missing keys fail closed. |
+| `STONESENSE_DATABASE_URL` | `sqlite:///stonesense.db` | SQLAlchemy database connection URI. |
+| `STONESENSE_JWT_SECRET` | *(Required in prod)* | HMAC-SHA256 secret key for signing user authentication tokens. |
+| `STONESENSE_PII_KEYS` | *(Required in prod)* | Comma-separated `keyid:base64key` master encryption keys. |
+| `STONESENSE_PII_ACTIVE_KEY_ID` | `v1` | Key identifier used for encrypting new patient PII rows. |
+| `STONESENSE_PII_BLIND_INDEX_KEY` | Derived from active key | Key used for HMAC-SHA256 blind indexing of patient fields. |
+| `STONESENSE_MODELS_DIR` | `dl/models/federated` | Directory where federated model checkpoints are stored. |
+| `STONESENSE_ALLOW_DIRECT_CONCORDANCE` | `false` | When `false`, `/predict/concordance` requires server prediction IDs. |
+| `CT_UPLOAD_MAX_BYTES` | `10485760` (10 MB) | Maximum permitted size for CT upload payload. |
+| `CT_MAX_IMAGE_PIXELS` | `60000000` (60 MP) | Scoped Pillow decompression bomb threshold. |
+| `CT_OOD_MIN_CONFIDENCE` | `0.45` | Minimum softmax confidence required before OOD review flag. |
+| `CT_OOD_MAX_ENTROPY` | `1.30` | Maximum Shannon entropy required before OOD review flag. |
+
+---
+
+## Not Implemented / Future Work
+
+1. **LIME (Local Interpretable Model-agnostic Explanations)**: Not implemented. Explanations are powered exclusively by SHAP (biomarkers) and standard Grad-CAM (CT scans).
+2. **Grad-CAM++**: Not implemented. The repository implements standard Grad-CAM (Selvaraju et al., 2017) on ResNet18 `layer4[-1]`.
+3. **Joint Multimodal Model**: Clinical and CT datasets are not patient-linked. Concordance is currently a deterministic rule-based cross-check.
+4. **Celery / Redis Job Broker**: Federated learning coordinator currently executes in a threaded worker process.
 
 ---
 

@@ -9,7 +9,7 @@ The `backend/` directory contains the FastAPI REST & WebSocket application, rela
 ```text
 backend/
 ├── alembic/                  # Database migration scripts and schema versions
-│   └── versions/             # Reversible migration revisions
+│   └── versions/             # Reversible migration revisions (including PII encryption)
 ├── app/
 │   ├── api/v1/routes/        # Modular API routes
 │   │   ├── admin.py          # Audit log retrieval and administrator endpoints
@@ -18,13 +18,13 @@ backend/
 │   │   ├── health_router.py  # Health probe endpoint (/api/v1/health)
 │   │   ├── hospital.py       # Hospital-scoped clinical workflows, history, datasets
 │   │   ├── model_router.py   # Model metadata and status endpoints (/api/v1/models)
-│   │   ├── patients.py       # Patient record management (scoped by hospital_id)
+│   │   ├── patients.py       # Patient record management (AES-256-GCM encrypted PII, blind index lookups)
 │   │   ├── predict_router.py # Inference & concordance routes (/predict/risk, /predict/image, /predict/concordance)
 │   │   └── root_router.py    # Root greeting endpoint (/)
 │   ├── config/               # Settings configuration (settings.py)
-│   ├── core/                 # Auth dependencies, security utilities, startup routines
-│   ├── db/                   # SQLAlchemy database engine, session factory, models.py, seed.py
-│   ├── schemas/              # Typed Pydantic request and response schemas (concordance.py, responses.py)
+│   ├── core/                 # Auth dependencies, security utilities, PII crypto manager (pii_crypto.py)
+│   ├── db/                   # SQLAlchemy database engine, session factory, models.py, seed.py, pii_types.py
+│   ├── schemas/              # Typed Pydantic request and response schemas (concordance.py, responses.py, patient.py)
 │   ├── services/             # Core business logic
 │   │   ├── concordance_service.py # Pure, deterministic evidence concordance engine
 │   │   ├── deployment_gate.py # Multi-metric validation and rollback engine
@@ -35,28 +35,33 @@ backend/
 │   │   └── ws_manager.py     # Real-time WebSocket connection manager
 │   ├── utils/                # Preprocessing, bounded upload read, and content validation helpers
 │   └── main.py               # Main application factory: create_app()
-└── tests/                    # Unit & API tests for endpoints, auth, concordance, and image upload hardening
+├── scripts/                  # Idempotent PII encryption backfill script (backfill_encrypt_patients.py)
+└── tests/                    # Unit & API tests for endpoints, auth, concordance, upload hardening, and PII
 ```
 
 ---
 
 ## Configuration & Environment Variables
 
-All safety thresholds are consolidated in [`app/config/settings.py`](app/config/settings.py):
+All safety and security thresholds are consolidated in [`app/config/settings.py`](app/config/settings.py) and environment variables:
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `CONCORDANCE_RISK_THRESHOLD` | `0.50` | Probability cutoff above which urine risk is elevated |
+| `STONESENSE_ENV` | `production` | Environment mode (`development`, `testing`, `production`). In production, missing keys fail closed. |
+| `STONESENSE_PII_KEYS` | *(Required in prod)* | Comma-separated `keyid:base64key` master AES-256-GCM encryption keys. |
+| `STONESENSE_PII_ACTIVE_KEY_ID` | `v1` | Key ID used for encrypting new patient PII columns (`name`, `phone`, `email`). |
+| `STONESENSE_PII_BLIND_INDEX_KEY` | Derived from active key | HMAC-SHA256 blind indexing key for exact-match searching without plaintext exposure. |
+| `STONESENSE_ALLOW_DIRECT_CONCORDANCE` | `false` | When `false`, `/predict/concordance` requires server prediction IDs. |
+| `CONCORDANCE_RISK_THRESHOLD` | `0.50` | Probability cutoff above which urine risk is elevated (uncalibrated default). |
 | `CONCORDANCE_TABULAR_MIN_CONFIDENCE` | `0.60` | Minimum confidence for tabular risk model |
 | `CONCORDANCE_IMAGING_MIN_CONFIDENCE` | `0.60` | Minimum confidence for CT imaging model |
-| `CONCORDANCE_DISCLAIMER` | *(Standard text)* | Regulatory disclaimer on unpaired training datasets |
 | `CT_UPLOAD_MAX_BYTES` | `10485760` (10 MB) | Bounded upload size limit (HTTP 413) |
-| `CT_UPLOAD_MAX_PIXELS` | `25000000` (25 MP) | Decompression bomb protection limit (HTTP 413) |
+| `CT_MAX_IMAGE_PIXELS` | `60000000` (60 MP) | Scoped Pillow decompression bomb protection limit (HTTP 413) |
 | `CT_UPLOAD_MIN_DIMENSION` | `32` | Minimum image dimension in pixels (HTTP 422) |
-| `CT_OOD_MIN_CONFIDENCE` | `0.50` | Heuristic gate minimum confidence (status='needs_review') |
-| `CT_OOD_MAX_ENTROPY` | `1.30` | Heuristic gate maximum predictive entropy in nats |
-| `CT_OOD_MIN_STD` | `8.0` | Minimum pixel standard deviation for uniform/blank image warnings |
-| `CT_OOD_MAX_ASPECT_RATIO` | `3.5` | Maximum aspect ratio before non-axial rejection (HTTP 422) |
+| `CT_OOD_MIN_CONFIDENCE` | `0.45` | Heuristic gate minimum confidence (status='needs_review') |
+| `CT_OOD_MAX_ENTROPY` | `1.30` | Heuristic gate maximum Shannon entropy in nats |
+| `CT_OOD_MIN_STD` | `2.0` | Minimum pixel standard deviation for near-constant image warnings |
+| `CT_OOD_MAX_ASPECT_RATIO` | `10.0` | Maximum aspect ratio before non-axial rejection (HTTP 422) |
 
 ---
 

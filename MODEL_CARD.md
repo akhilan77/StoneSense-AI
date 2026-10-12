@@ -106,7 +106,30 @@
 
 ---
 
-## Model Card 3: Supplementary & Experimental Architectures
+## Model Card 3: Rule-Based Evidence Concordance Engine
+
+### 3.1 Overview & Architecture
+- **Algorithm:** Deterministic rule-based agreement engine implemented in [`backend/app/services/concordance_service.py`](backend/app/services/concordance_service.py).
+- **Inputs:** Independent tabular urine biomarker risk prediction and axial CT imaging prediction.
+- **Outcome Codes:**
+  1. `CONCORDANT_STONE`: Both streams present positive evidence for nephrolithiasis.
+  2. `CONCORDANT_NO_STONE_EVIDENCE`: Neither stream shows stone evidence.
+  3. `DISCORDANT_CT_POSITIVE`: CT indicates stone while urine chemistry indicates low risk.
+  4. `DISCORDANT_BIOMARKER_POSITIVE`: Urine chemistry indicates high risk while CT imaging shows normal parenchyma.
+  5. `INCONCLUSIVE_OOD`: CT image was flagged by out-of-distribution / uncertainty gate or quality filter.
+  6. `NON_STONE_PATHOLOGY_PRESENT`: CT imaging detected Cyst or Tumor, superseding non-stone classification.
+
+### 3.2 Critical Clinical Safety Disclosures & Limitations
+> [!WARNING]
+> **CONCORDANT_NO_STONE_EVIDENCE IS NOT A CLINICAL CLEARANCE:**
+> 1. **Diagnostic Sensitivity Deficit:** The audited axial CT model misses a substantial share of stones (**Slice Stone Recall is only 65.70%**; Scan-level Stone Recall is 80.95%). Approximately 1 in 3 positive stone slices will produce a false negative if assessed individually.
+> 2. **Extreme Sample Constraint:** The tabular urine risk model was trained on a very small historical cohort of only **79 patients** (95% CI sensitivity: `[0.4749, 0.8000]`).
+> 3. **Unpaired Cohorts:** The tabular dataset and axial CT dataset are **not patient-paired**. There are zero ground-truth linked records across streams; agreement is an artificial heuristic decision-support cross-check, not a joint multimodal multimodal model.
+> 4. **Uncalibrated Thresholds:** Concordance decision boundaries (e.g. Risk $\ge 0.5$, CT Stone probability $\ge 0.5$) are uncalibrated default thresholds, not clinically validated cutoffs.
+
+---
+
+## Model Card 4: Supplementary & Experimental Architectures
 
 The repository includes modular model wrappers in [`dl/models/wrappers/`](dl/models/wrappers/) evaluated on the identical held-out grouped test set:
 

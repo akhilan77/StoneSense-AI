@@ -34,7 +34,7 @@ flowchart TD
 
     subgraph DataTier["Data & Persistence Layer"]
         DB[("Relational Store (stonesense.db)\nSQLite / PostgreSQL 16")]
-        AuditStore[("Cryptographic Audit Table\n(SHA-256 Event Chain)")]
+        AuditStore[("Relational Audit Log Table\n(User, Hospital, Action, Details)")]
     end
 
     subgraph MLSubsystem["Tabular Risk Engine (ml/)"]
@@ -117,12 +117,12 @@ Mapped using SQLAlchemy 2.0 declarative models in [`backend/app/db/models.py`](f
 | :--- | :--- | :--- |
 | `hospitals` | Tenant hospital registry | `id`, `hospital_code`, `name`, `current_model_version`, `dataset_size` |
 | `users` | User credentials & roles | `id`, `email`, `password_hash`, `role`, `hospital_id`, `is_active` |
-| `patients` | Patient clinical files | `id`, `hospital_id`, `name`, `age`, `urine_features`, `admitted_date` |
+| `patients` | Patient clinical files (AES-256-GCM encrypted PII at rest) | `id`, `hospital_id`, `reference_code`, `name` *(encrypted)*, `phone` *(encrypted)*, `email` *(encrypted)*, `name_bidx`, `phone_bidx`, `email_bidx`, `urine_features`, `admitted_date` |
 | `predictions` | Clinical predictions history | `id`, `hospital_id`, `patient_id`, `prediction_type`, `model_name`, `confidence` |
 | `federated_rounds` | Global FL round telemetry | `round_number`, `global_accuracy`, `global_f1`, `global_loss`, `status` |
 | `hospital_training_runs` | Per-hospital FL round metrics | `hospital_id`, `round_number`, `local_loss`, `local_accuracy`, `sample_count` |
 | `model_versions` | Versioned models registry | `version_tag`, `model_family`, `accuracy`, `f1_score`, `is_deployed`, `gate_report` |
-| `audit_logs` | Cryptographic event logs | `actor_user_id`, `action`, `resource_type`, `sha256_hash`, `timestamp` |
+| `audit_logs` | Standard relational audit log (No PII) | `id`, `action`, `resource_type`, `resource_id`, `hospital_id`, `user_id`, `user_email`, `details`, `created_at` |
 | `inference_logs` | Operational inference logs | `model_name`, `version_tag`, `confidence`, `latency_ms`, `timestamp` |
 | `drift_records` | Data drift monitoring records | `metric_name`, `p_value`, `drift_detected`, `snapshot_date` |
 
@@ -151,25 +151,26 @@ Mapped using SQLAlchemy 2.0 declarative models in [`backend/app/db/models.py`](f
 - **Service**: [`backend/app/services/concordance_service.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/services/concordance_service.py)
 - **API**: `POST /api/v1/predict/concordance`
 - **Frontend Component**: [`ConcordanceCard.tsx`](file:///c:/Users/akhil/projects/StoneSense-AI/frontend/src/components/ConcordanceCard.tsx)
-- **Design**: Pure, deterministic evaluation without randomness or I/O. Compares independent outputs from tabular risk and CT imaging streams without synthetic data fusion.
+- **Design**: Pure, deterministic evaluation without randomness or I/O. Supports resolving server-stored predictions by ID (`risk_prediction_id`, `image_prediction_id`, `patient_id`) with strict hospital tenant isolation. Compares independent outputs from tabular risk and CT imaging streams without synthetic data fusion.
 - **Rule Precedence Order**:
   1. `RULE_1_INSUFFICIENT_DATA`: Missing or malformed inputs in either stream.
   2. `RULE_2_NON_STONE_FINDING`: Incidental CT finding (`Cyst` or `Tumor`). Highest clinical priority: always escalates to clinician review and can never be softened by low tabular risk.
-  3. `RULE_3_LOW_CONFIDENCE`: Either stream below confidence threshold (0.60) or CT gate status flagged as review/OOD.
-  4. `RULE_4_CONCORDANT_STONE_EVIDENCE`: Elevated tabular risk ($\ge 0.50$) AND CT predicts `Stone`.
-  5. `RULE_5_CONCORDANT_LOW_CONCERN`: Low tabular risk ($< 0.50$) AND CT predicts `Normal`.
-  6. `RULE_6_DISCORDANT_EVIDENCE`: Streams point in opposing directions.
+  3. `RULE_3_LOW_CONFIDENCE`: Either stream below confidence threshold (0.60) or CT gate status flagged as review/OOD (`INCONCLUSIVE_OOD`).
+  4. `RULE_4_CONCORDANT_STONE_EVIDENCE`: Elevated tabular risk ($\ge 0.50$) AND CT predicts `Stone` (`CONCORDANT_STONE`).
+  5. `RULE_5_CONCORDANT_NO_STONE_EVIDENCE`: Low tabular risk ($< 0.50$) AND CT predicts `Normal` (`CONCORDANT_NO_STONE_EVIDENCE`). Label: "No stone evidence in either stream". Explicitly warns: NOT a clinical clearance; cites audited CT slice Stone recall (65.70%) and tabular sample limits ($N=79$).
+  6. `RULE_6_DISCORDANT_EVIDENCE`: Streams point in opposing directions (`DISCORDANT_CT_POSITIVE` or `DISCORDANT_BIOMARKER_POSITIVE`).
 - **Regulatory Notice**: Mandatory disclaimer returned in all payloads noting that models were trained on separate, unpaired patient cohorts and constitute decision support rather than diagnosis.
 
 ### 3.8 CT Upload Security Hardening & OOD Heuristic Gate
 - **Module**: [`backend/app/utils/image_utils.py`](file:///c:/Users/akhil/projects/StoneSense-AI/backend/app/utils/image_utils.py)
 - **API**: `POST /api/v1/predict/image`
 - **Payload Controls**:
+  - Ingress proxy limit: Nginx `client_max_body_size 10M;`
   - Bounded 64 KB chunk reading with early termination at 10 MB (HTTP 413).
   - True file signature verification via magic bytes: PNG and JPEG accepted; all others rejected (HTTP 415).
-  - Decompression bomb protection: PIL `MAX_IMAGE_PIXELS` capped at 25 MP (HTTP 413).
+  - Decompression bomb protection: Scoped Pillow `DecompressionBombWarning` promoted to error with explicit `width * height > MAX_IMAGE_PIXELS` (60 MP default) check, restoring global settings in `finally` block (HTTP 413).
   - Integrity and dimension checks: Corrupt images and slices below 32x32 rejected (HTTP 422).
-  - Aspect ratio check: Non-axial ratios ($> 3.5:1$) rejected (HTTP 422).
-  - Sanity check: Near-constant / blank image variance check (warning in response).
-- **OOD Uncertainty Gate**: Evaluates maximum softmax probability and Shannon predictive entropy. When top class confidence $< 0.50$ or entropy $> 1.30$ nats, response returns `status = "needs_review"` and `class_name = "needs_review"` with full probability distribution.
+  - Aspect ratio check: Non-axial ratios ($> 10.0:1$) rejected (HTTP 422).
+  - Sanity check: Near-constant image variance check ($\sigma < 2.0$, warning in response).
+- **OOD Uncertainty Gate**: Evaluates maximum softmax probability and Shannon predictive entropy. When top class confidence $< 0.45$ or entropy $> 1.30$ nats, response returns `status = "needs_review"` and `class_name = "needs_review"` with full probability distribution. Heuristic note: deep networks can yield high confidence on Gaussian noise textures; the gate does not guarantee that accepted images are genuine kidney CT scans.
 

@@ -4,6 +4,35 @@ All notable changes to the StoneSense-AI project are documented in this file bas
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-12
+
+### End-to-End Hardening & Security Release
+- **Concordance Safety Fixes (Phase 1)**:
+  - Renamed `CONCORDANT_LOW_CONCERN` to `CONCORDANT_NO_STONE_EVIDENCE` ("No stone evidence in either stream"). Explanation explicitly clarifies this is NOT a clinical clearance, citing audited CT slice stone sensitivity (65.70%, scan 80.95%) and small tabular sample size ($N=79$).
+  - Deprecated and disabled client-supplied raw probability payloads by default (`allow_direct_concordance_payload=False`); endpoint resolves server-stored prediction IDs (`risk_prediction_id`, `image_prediction_id`, `patient_id`) with strict hospital tenant and patient scoping (403 on mismatch).
+  - Maintained safe backward-compatible deserialization for legacy stored assessment records.
+  - Documented audit trail accurately as standard relational database rows without cryptographic claims, ensuring zero PII logging.
+- **Upload Hardening Follow-ups (Phase 2)**:
+  - Scoped Pillow decompression bomb checks to fail at `MAX_IMAGE_PIXELS` (promoting `DecompressionBombWarning` to an error) and pre-checking raw dimensions, restoring global settings in `finally`. Verified rejection of images between 1x and 2x pixel limits.
+  - Configured Nginx ingress proxy `client_max_body_size 10M;` consistent with backend limits.
+  - Built empirical OOD evaluation script (`testing/eval_ood_gate.py`), reporting metrics across 100 in-distribution CT slices (0.0% rejected) and 125 synthetic OOD patterns (14.4% rejected; Gaussian noise fooled ResNet18 with 99.98% confidence). Documented that gate is an empirical heuristic.
+- **Test Side-Effects & Artifact Isolation (Phase 3)**:
+  - Eliminated test side-effects on tracked model checkpoints (`latest.pth`) by isolating federated training checkpoints to temporary process directories via `STONESENSE_MODELS_DIR`.
+  - Rebound test databases to isolated temporary SQLite instances (`stonesense_test_<pid>.db`), guaranteeing that `stonesense.db` and git-tracked files remain completely untouched during test runs.
+- **Frontend Lint & Architecture Decoupling (Phase 4)**:
+  - Resolved all Fast Refresh (`react-refresh/only-export-components`) and `react-hooks/exhaustive-deps` warnings.
+  - Decoupled `AuthContext` and `HospitalContext` into dedicated context definitions (`authContextDef.ts`, `hospitalContextDef.ts`) and hooks (`useAuth.ts`, `useHospital.ts`). ESLint now passes cleanly with 0 errors and 0 warnings under `--max-warnings 0`.
+- **Patient PII Authenticated Encryption at Rest (Phase 5)**:
+  - Implemented column-level authenticated encryption (AES-256-GCM with fresh 96-bit nonces) via SQLAlchemy `EncryptedString` TypeDecorator for `patients.name`, `patients.phone`, and `patients.email`.
+  - Added keyed HMAC-SHA256 blind indexing (`name_bidx`, `phone_bidx`, `email_bidx`) enabling deterministic exact-match querying without exposing plaintext.
+  - Configured fail-closed key management requiring `STONESENSE_PII_KEYS` in non-development environments, with support for zero-downtime key rotation.
+  - Authored Alembic migration (`0002_patient_pii_encryption_and_blind_indexes`) and idempotent backfill script (`backfill_encrypt_patients.py`) with automatic timestamped database backup.
+- **Label Normalization & Route Sanitization (Phase 6)**:
+  - Normalized all user-facing, component, and doc mentions of "Grad-CAM++" to "Grad-CAM".
+  - Moved LIME mentions to "Not implemented / future work" section.
+  - Fixed broken `/home` dashboard cards by linking to valid existing routes (`/hospital/federated-learning`, `/hospital/private-dataset`) and adding `/hospital-dashboard` fallback redirects for `/risk-prediction` and `/stone-detection`.
+  - Archived legacy notes into `docs/archive/`.
+
 ---
 
 ## [1.1.0] - 2026-10-12
