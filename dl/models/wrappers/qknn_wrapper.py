@@ -19,6 +19,7 @@ from dl.models.base import BaseCTModel, DLModelStatus, CLASS_MAPPING, CLASS_NAME
 logger = logging.getLogger("QKNNWrapper")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_K = 40
 
 
 class QKNNWrapper(BaseCTModel):
@@ -55,22 +56,62 @@ class QKNNWrapper(BaseCTModel):
             self._error_message = "QKNN artifact directory not found. Waiting for training export."
             return False
 
+        bundle_path = self.artifact_dir / "qknn_bundle.joblib"
         model_path = self.artifact_dir / "qknn_model.pkl"
         pca_path = self.artifact_dir / "pca_pipeline.pkl"
         proto_path = self.artifact_dir / "prototypes.npz"
 
-        if not (model_path.exists() and pca_path.exists() and proto_path.exists()):
+        if bundle_path.exists():
+            try:
+                bundle = joblib.load(bundle_path)
+                required = {"pca", "scaler", "proto_X", "proto_y"}
+                if not isinstance(bundle, dict) or not required.issubset(bundle):
+                    raise ValueError(
+                        f"QKNN bundle is missing required fields: {sorted(required - set(bundle or {}))}."
+                    )
+                self.qknn_model = bundle
+                self.pca_pipeline = {"pca": bundle["pca"], "scaler": bundle["scaler"]}
+                self.prototypes = {
+                    "X": np.asarray(bundle["proto_X"]),
+                    "y": np.asarray(bundle["proto_y"]),
+                }
+            except Exception as exc:
+                self._status = DLModelStatus.PENDING_WEIGHTS
+                self._error_message = f"Failed to load QKNN bundle: {exc}"
+                return False
+        elif model_path.exists() and pca_path.exists() and proto_path.exists():
+            try:
+                self.qknn_model = joblib.load(model_path)
+                self.pca_pipeline = joblib.load(pca_path)
+                self.prototypes = np.load(proto_path)
+            except Exception as exc:
+                self._status = DLModelStatus.PENDING_WEIGHTS
+                self._error_message = f"Failed to load QKNN components: {exc}"
+                return False
+        else:
             self._status = DLModelStatus.PENDING_WEIGHTS
-            self._error_message = "QKNN artifacts (qknn_model.pkl, pca_pipeline.pkl, prototypes.npz) are pending."
+            self._error_message = (
+                "QKNN artifacts are pending. Provide qknn_bundle.joblib or the legacy "
+                "qknn_model.pkl, pca_pipeline.pkl, and prototypes.npz files."
+            )
             return False
 
-        try:
-            self.qknn_model = joblib.load(model_path)
-            self.pca_pipeline = joblib.load(pca_path)
-            self.prototypes = np.load(proto_path)
-        except Exception as exc:
+        if (
+            self.prototypes["X"].ndim != 2
+            or self.prototypes["y"].ndim != 1
+            or self.prototypes["X"].shape[0] != self.prototypes["y"].shape[0]
+            or self.prototypes["X"].shape[0] == 0
+            or not np.issubdtype(self.prototypes["X"].dtype, np.number)
+            or not np.isfinite(self.prototypes["X"]).all()
+            or not np.issubdtype(self.prototypes["y"].dtype, np.integer)
+            or np.any(self.prototypes["y"] < 0)
+            or np.any(self.prototypes["y"] >= len(CLASS_NAMES))
+        ):
             self._status = DLModelStatus.PENDING_WEIGHTS
-            self._error_message = f"Failed to load QKNN components: {exc}"
+            self._error_message = (
+                "QKNN prototypes must contain finite numeric 2-D features and aligned integer labels "
+                f"in [0, {len(CLASS_NAMES) - 1}]."
+            )
             return False
 
         try:
@@ -107,7 +148,47 @@ class QKNNWrapper(BaseCTModel):
         logger.info("QKNNWrapper loaded successfully.")
         return True
 
-    def predict_embedding(self, embedding: np.ndarray, k: int = 40) -> Dict[str, Any]:
+    def _transform_embedding(self, embedding: np.ndarray) -> np.ndarray:
+        """Applies the fitted scaler/PCA in the order encoded by the loaded artifacts."""
+        pca = (
+            self.pca_pipeline["pca"]
+            if isinstance(self.pca_pipeline, dict)
+            else getattr(self.pca_pipeline, "pca", self.pca_pipeline)
+        )
+        scaler = (
+            self.pca_pipeline["scaler"]
+            if isinstance(self.pca_pipeline, dict)
+            else getattr(self.pca_pipeline, "scaler", None)
+        )
+
+        emb_2d = np.asarray(embedding, dtype=np.float32).reshape(1, -1)
+        if not np.isfinite(emb_2d).all():
+            raise ValueError("QKNN embedding must contain only finite values.")
+
+        if pca is not None and scaler is not None:
+            scaler_input_size = getattr(scaler, "n_features_in_", None)
+            pca_input_size = getattr(pca, "n_features_in_", None)
+            if scaler_input_size == emb_2d.shape[1]:
+                # Legacy artifacts fit the scaler on raw DINOv3 embeddings.
+                transformed = pca.transform(scaler.transform(emb_2d))
+            elif pca_input_size == emb_2d.shape[1]:
+                # Current training bundles fit PCA first, then scale the PCA coordinates.
+                transformed = scaler.transform(pca.transform(emb_2d))
+            else:
+                raise ValueError(
+                    "QKNN scaler/PCA dimensions do not match the input embedding "
+                    f"({emb_2d.shape[1]} features)."
+                )
+        elif pca is not None:
+            transformed = pca.transform(emb_2d)
+        elif scaler is not None:
+            transformed = scaler.transform(emb_2d)
+        else:
+            transformed = emb_2d
+
+        return np.asarray(transformed, dtype=np.float32).reshape(-1)
+
+    def predict_embedding(self, embedding: np.ndarray, k: Optional[int] = None) -> Dict[str, Any]:
         """Runs PennyLane state-fidelity quantum kernel against saved class prototypes on a 384-d vector."""
         if self.pca_pipeline is None or self.prototypes is None:
             if not self.load():
@@ -116,24 +197,24 @@ class QKNNWrapper(BaseCTModel):
         import pennylane as qml
 
         start_t = time.perf_counter()
-
-        # Extract PCA and Scaler objects
-        pca = self.pca_pipeline["pca"] if isinstance(self.pca_pipeline, dict) else getattr(self.pca_pipeline, "pca", self.pca_pipeline)
-        scaler = self.pca_pipeline["scaler"] if isinstance(self.pca_pipeline, dict) else getattr(self.pca_pipeline, "scaler", None)
-
-        emb_2d = np.asarray(embedding, dtype=np.float32).reshape(1, -1)
-        if scaler is not None:
-            emb_scaled = scaler.transform(emb_2d)
-        else:
-            emb_scaled = emb_2d
-
-        if pca is not None:
-            x_q = pca.transform(emb_scaled)[0]
-        else:
-            x_q = emb_scaled[0]
+        x_q = self._transform_embedding(embedding)
 
         proto_X = self.prototypes["X"]
         proto_y = self.prototypes["y"]
+        if proto_X.ndim != 2 or proto_y.ndim != 1 or len(proto_X) != len(proto_y) or len(proto_X) == 0:
+            raise ValueError("QKNN prototypes must contain non-empty, aligned 2-D features and 1-D labels.")
+        if proto_X.shape[1] != len(x_q):
+            raise ValueError(
+                f"QKNN transformed embedding has {len(x_q)} features, "
+                f"but prototypes have {proto_X.shape[1]}."
+            )
+
+        configured_k = self.qknn_model.get("k", DEFAULT_K) if isinstance(self.qknn_model, dict) else DEFAULT_K
+        if k is None:
+            k = configured_k
+        if isinstance(k, bool) or not isinstance(k, (int, np.integer)) or k < 1:
+            raise ValueError("QKNN k must be a positive integer.")
+        k = min(int(k), len(proto_X))
         n_qubits = len(x_q)
 
         dev = qml.device("default.qubit", wires=n_qubits)
@@ -143,10 +224,9 @@ class QKNNWrapper(BaseCTModel):
             qml.AngleEmbedding(x1, wires=range(n_qubits), rotation='Y')
             qml.adjoint(qml.AngleEmbedding)(x2, wires=range(n_qubits), rotation='Y')
             return qml.probs(wires=range(n_qubits))
-
         sims = np.array([quantum_fidelity_circuit(x_q, p)[0] for p in proto_X], dtype=np.float32)
-        top_k = min(k, len(sims))
-        top_k_idx = np.argsort(sims)[-top_k:]
+        sims = np.array([quantum_fidelity_circuit(x_q, p)[0] for p in proto_X], dtype=np.float32)
+        top_k_idx = np.argsort(sims)[-k:]
         top_k_labels = proto_y[top_k_idx]
         top_k_weights = sims[top_k_idx]
 

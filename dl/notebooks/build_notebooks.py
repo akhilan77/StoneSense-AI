@@ -393,8 +393,8 @@ print(f"License: {license_name}")"""),
 
         new_markdown_cell("""---
 ### 3. Extract & Cache Foundation Embeddings (`.npz`)
-* **What it does:** Iterates through `train`, `validation`, and `test` splits, runs frozen backbone feature extraction, and saves `{split}.npz` containing `embeddings (N, 384)`, `labels (N,)`, `filenames (N,)`, and `cluster_ids (N,)`.
-* **Expected runtime:** ~1-2 mins on GPU (~10s in SMOKE_TEST mode). Idempotent: skips if cached.
+* **What it does:** Iterates through grouped `train`, `validation`, and `test` splits and saves embeddings, labels, filenames, paths, and authoritative `cluster_ids`.
+* **Expected runtime:** ~1-2 mins on GPU (~10s in SMOKE_TEST mode). Existing complete caches are skipped; incomplete caches fail closed unless `RERUN=True`.
 * **Expected output:** Cache file confirmation with tensor shapes."""),
 
         new_code_cell("""import numpy as np
@@ -411,8 +411,17 @@ start_time = time.time()
 for split in ["train", "validation", "test"]:
     cache_file = EMBEDDINGS_DIR / f"{FAMILY}_{split}.npz"
     if cache_file.exists() and not RERUN and not SMOKE_TEST:
-        print(f"Cached embeddings found at {cache_file.name}. Skipping extraction.")
-        continue
+        with np.load(cache_file, allow_pickle=False) as cached:
+            required = {"embeddings", "labels", "filenames", "paths", "cluster_ids"}
+            if required.issubset(cached.files):
+                print(f"Grouped embeddings found at {cache_file.name}. Skipping extraction.")
+                continue
+        raise RuntimeError(
+            f"{cache_file} lacks required grouped fields "
+            "(embeddings, labels, filenames, cluster_ids). Set RERUN=True to "
+            "re-extract from the authoritative grouped manifest; the existing "
+            "cache will be backed up before replacement."
+        )
 
     split_df = df_manifest[df_manifest["destination_split"] == split].reset_index(drop=True)
     if SMOKE_TEST:
@@ -421,6 +430,7 @@ for split in ["train", "validation", "test"]:
     embeddings_list = []
     labels_list = []
     filenames_list = []
+    paths_list = []
     cluster_ids_list = []
 
     print(f"Extracting {len(split_df):,} embeddings for '{split}' split...")
@@ -445,14 +455,25 @@ for split in ["train", "validation", "test"]:
         embeddings_list.append(emb)
         labels_list.extend([CLASS_TO_IDX[r["class"]] for _, r in batch_rows.iterrows()])
         filenames_list.extend(batch_rows["filename"].tolist())
+        paths_list.extend([
+            (DATA_DIR / split / row["class"] / row["filename"]).as_posix()
+            for _, row in batch_rows.iterrows()
+        ])
         cluster_ids_list.extend(batch_rows["near_duplicate_group_id"].tolist())
+
+    if cache_file.exists():
+        backup_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        backup_file = cache_file.with_name(f"{cache_file.stem}.backup-{backup_stamp}{cache_file.suffix}")
+        shutil.copy2(cache_file, backup_file)
+        print(f"Preserved existing cache at {backup_file}")
 
     np.savez_compressed(
         cache_file,
         embeddings=np.vstack(embeddings_list),
         labels=np.array(labels_list, dtype=np.int64),
         filenames=np.array(filenames_list),
-        cluster_ids=np.array(cluster_ids_list, dtype=np.int64)
+        paths=np.array(paths_list),
+        cluster_ids=np.array(cluster_ids_list)
     )
     print(f"Saved {cache_file.name} ({len(filenames_list)} records, shape: {np.vstack(embeddings_list).shape})")
 
@@ -940,7 +961,7 @@ This notebook implements and evaluates a **Quantum K-Nearest Neighbors (QKNN)** 
 
         new_markdown_cell("""---
 ### 1. Global Configuration & Smoke Test Settings
-* **What it does:** Configures number of qubits ($N=6$), prototype count, paths, seed, and `SMOKE_TEST` flag.
+* **What it does:** Configures number of qubits ($N=6$), prototype count, paths, seed, and `SMOKE_TEST` flag. Supports both `X`/`y`/`paths` and `embeddings`/`labels`/`filenames` caches and checks group IDs against the authoritative manifest.
 * **Expected runtime:** < 1 second.
 * **Expected output:** Config summary."""),
 
@@ -962,7 +983,9 @@ WORKSPACE_ROOT = Path("/content/StoneSense-AI") if "google.colab" in sys.modules
 sys.path.insert(0, (WORKSPACE_ROOT / "dl" / "notebooks").as_posix())
 
 EMBEDDINGS_DIR = WORKSPACE_ROOT / "dl" / "artifacts" / "embeddings"
-OUT_DIR = WORKSPACE_ROOT / "dl" / "models" / "ct"
+if not EMBEDDINGS_DIR.exists():
+    EMBEDDINGS_DIR = WORKSPACE_ROOT / "dl" / "models" / "ct" / "dinov3" / "embeddings"
+OUT_DIR = WORKSPACE_ROOT / "dl" / "models" / "ct" / "qknn_candidates"
 MANIFEST_PATH = WORKSPACE_ROOT / "dl" / "outputs" / "reports" / "grouped_split_manifest.csv"
 
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1011,21 +1034,123 @@ train_npz = EMBEDDINGS_DIR / "dinov3_train.npz"
 val_npz = EMBEDDINGS_DIR / "dinov3_validation.npz"
 test_npz = EMBEDDINGS_DIR / "dinov3_test.npz"
 
-if not train_npz.exists():
-    raise FileNotFoundError(f"DINOv3 embeddings missing at {train_npz.as_posix()}. Run Notebook 01 first!")
+missing_caches = [path for path in (train_npz, val_npz, test_npz) if not path.exists()]
+if missing_caches:
+    missing_paths = ", ".join(path.as_posix() for path in missing_caches)
+    raise FileNotFoundError(f"Required DINOv3 split embeddings are missing: {missing_paths}")
 
-train_data = np.load(train_npz)
-val_data = np.load(val_npz)
-test_data = np.load(test_npz)
+if not MANIFEST_PATH.exists():
+    raise FileNotFoundError(
+        f"Cannot verify grouped QKNN inputs: missing authoritative manifest "
+        f"{MANIFEST_PATH}. Restore it before running this notebook."
+    )
 
-X_train_raw, y_train = train_data["embeddings"], train_data["labels"]
-X_val_raw, y_val = val_data["embeddings"], val_data["labels"]
-X_test_raw, y_test = test_data["embeddings"], test_data["labels"]
+df_manifest = pd.read_csv(MANIFEST_PATH)
+manifest_columns = {
+    "filename", "class", "destination_split", "near_duplicate_group_id"
+}
+missing_columns = manifest_columns.difference(df_manifest.columns)
+if missing_columns:
+    raise ValueError(f"Grouped manifest is missing columns: {sorted(missing_columns)}")
+if df_manifest[list(manifest_columns)].isna().any().any():
+    raise ValueError("Grouped manifest contains null identity, split, or group fields.")
+if set(df_manifest["destination_split"]) != {"train", "validation", "test"}:
+    raise ValueError("Grouped manifest must contain exactly train, validation, and test splits.")
+manifest_keys = ["destination_split", "class", "filename"]
+if df_manifest.duplicated(manifest_keys).any():
+    raise ValueError("Grouped manifest has duplicate split/class/filename identities.")
+manifest_group_ids = {
+    (row.destination_split, row["class"], row.filename): str(row.near_duplicate_group_id)
+    for _, row in df_manifest.iterrows()
+}
+manifest_groups = {
+    split: set(df_manifest.loc[df_manifest["destination_split"] == split, "near_duplicate_group_id"].astype(str))
+    for split in ("train", "validation", "test")
+}
+if any(
+    manifest_groups[left].intersection(manifest_groups[right])
+    for left, right in (("train", "validation"), ("train", "test"), ("validation", "test"))
+):
+    raise ValueError("Authoritative manifest has near-duplicate groups across splits.")
+
+CLASS_NAMES = ["Cyst", "Normal", "Stone", "Tumor"]
+CLASS_TO_IDX = {name: index for index, name in enumerate(CLASS_NAMES)}
+
+def load_grouped_split(cache_path, split):
+    with np.load(cache_path, allow_pickle=False) as data:
+        feature_key = next((key for key in ("X", "embeddings") if key in data), None)
+        label_key = next((key for key in ("y", "labels") if key in data), None)
+        if feature_key is None or label_key is None:
+            raise ValueError(f"{cache_path} must include X/embeddings and y/labels.")
+        X, y = data[feature_key], data[label_key]
+        path_key = "paths" if "paths" in data else "filenames"
+        if path_key not in data:
+            raise ValueError(f"{cache_path} must include paths or filenames.")
+        paths = data[path_key].astype(str)
+        group_key = next(
+            (key for key in ("cluster_ids", "group_ids", "near_duplicate_group_id") if key in data),
+            None,
+        )
+        cached_groups = data[group_key].astype(str) if group_key else None
+
+    if X.ndim != 2 or y.ndim != 1 or len(X) != len(y) or len(paths) != len(y):
+        raise ValueError(f"{cache_path} has incompatible X/y/path dimensions.")
+    if not np.issubdtype(y.dtype, np.integer) or not set(np.unique(y)).issubset(range(4)):
+        raise ValueError(f"{cache_path} labels must be integer class indices 0..3.")
+
+    group_ids = []
+    filenames = []
+    matched_keys = []
+    for index, raw_path in enumerate(paths):
+        parts = raw_path.replace("\\\\", "/").split("/")
+        split_positions = [position for position, part in enumerate(parts) if part == split]
+        if not split_positions:
+            raise ValueError(f"Cannot identify {split!r} split in cached path {raw_path!r}.")
+        position = split_positions[-1]
+        if position + 2 >= len(parts):
+            raise ValueError(f"Cached path does not end in split/class/filename: {raw_path!r}.")
+        class_name, filename = parts[position + 1], parts[position + 2]
+        if class_name not in CLASS_TO_IDX or CLASS_TO_IDX[class_name] != int(y[index]):
+            raise ValueError(f"Cached label/path class mismatch for {raw_path!r}.")
+        key = (split, class_name, filename)
+        if key not in manifest_group_ids:
+            raise ValueError(f"Cached record is absent from the grouped manifest: {key!r}.")
+        group_id = manifest_group_ids[key]
+        if cached_groups is not None and cached_groups[index] != group_id:
+            raise ValueError(f"Cached group ID disagrees with manifest for {key!r}.")
+        group_ids.append(group_id)
+        filenames.append(filename)
+        matched_keys.append(key)
+    expected_keys = set(
+        df_manifest.loc[df_manifest["destination_split"] == split, manifest_keys]
+        .itertuples(index=False, name=None)
+    )
+    if len(matched_keys) != len(expected_keys) or set(matched_keys) != expected_keys:
+        raise ValueError(f"{cache_path} does not exactly cover manifest split {split!r}.")
+    return X, y, np.asarray(filenames), np.asarray(group_ids)
+
+train_data = load_grouped_split(train_npz, "train")
+val_data = load_grouped_split(val_npz, "validation")
+test_data = load_grouped_split(test_npz, "test")
+
+group_sets = [set(data[3]) for data in (train_data, val_data, test_data)]
+if any(
+    group_sets[left].intersection(group_sets[right])
+    for left, right in ((0, 1), (0, 2), (1, 2))
+):
+    raise ValueError("Near-duplicate groups overlap across train, validation, and test.")
+
+X_train_raw, y_train, train_filenames, train_clusters = train_data
+X_val_raw, y_val, val_filenames, val_clusters = val_data
+X_test_raw, y_test, test_filenames, test_clusters = test_data
 
 if SMOKE_TEST:
     X_train_raw, y_train = X_train_raw[:50], y_train[:50]
     X_val_raw, y_val = X_val_raw[:50], y_val[:50]
     X_test_raw, y_test = X_test_raw[:50], y_test[:50]
+    train_filenames, train_clusters = train_filenames[:50], train_clusters[:50]
+    val_filenames, val_clusters = val_filenames[:50], val_clusters[:50]
+    test_filenames, test_clusters = test_filenames[:50], test_clusters[:50]
 
 # 1. Fit PCA strictly on train split
 pca = PCA(n_components=N_QUBITS, random_state=SEED)
@@ -1051,7 +1176,7 @@ for c_idx in range(4):
 
 proto_X = X_train_q[proto_indices]
 proto_y = y_train[proto_indices]
-proto_filenames = train_data["filenames"][proto_indices] if not SMOKE_TEST else train_data["filenames"][:50][proto_indices]
+proto_filenames = train_filenames[proto_indices]
 
 print(f"Selected {len(proto_X)} quantum prototypes ({PROTOTYPES_PER_CLASS} per class across {len(np.unique(proto_y))} classes).")"""),
 
@@ -1145,10 +1270,10 @@ print(f"Computing QKNN predictions on Validation ({eval_val_n} images) and Test 
 qknn_val_probs = qknn_predict_proba(X_val_q, k=best_k)
 qknn_test_probs = qknn_predict_proba(X_test_q, k=best_k)
 
-val_filenames = val_data["filenames"][:eval_val_n] if SMOKE_TEST else val_data["filenames"]
-val_clusters = val_data["cluster_ids"][:eval_val_n] if SMOKE_TEST else val_data["cluster_ids"]
-test_filenames = test_data["filenames"][:eval_test_n] if SMOKE_TEST else test_data["filenames"]
-test_clusters = test_data["cluster_ids"][:eval_test_n] if SMOKE_TEST else test_data["cluster_ids"]
+val_filenames = val_filenames[:eval_val_n]
+val_clusters = val_clusters[:eval_val_n]
+test_filenames = test_filenames[:eval_test_n]
+test_clusters = test_clusters[:eval_test_n]
 
 df_val_preds = pd.DataFrame({
     "filename": val_filenames,
@@ -1180,12 +1305,12 @@ print(f"   - Slice Accuracy    : {eval_results['test']['slice_accuracy']:.4f}")
 print(f"   - Slice Macro F1    : {eval_results['test']['slice_macro_f1']:.4f} (95% CI: [{eval_results['test']['confidence_intervals_95']['slice_macro_f1']['ci_lower_95']:.4f}, {eval_results['test']['confidence_intervals_95']['slice_macro_f1']['ci_upper_95']:.4f}])")
 print(f"   - Cluster Macro F1  : {eval_results['test']['cluster_macro_f1']:.4f}")
 print(f"   - Latency           : {ms_per_sample:.2f} ms / prediction")
-print(f"   - Evaluated Subset  : {eval_test_n} / {len(test_data['labels'])} test images")
+print(f"   - Evaluated Subset  : {eval_test_n} / {len(y_test)} test images")
 print("=" * 60)"""),
 
         new_markdown_cell("""---
 ### 6. Save Artifacts Contract & `predict_example.py`
-* **What it does:** Saves `qknn_bundle.joblib`, `model_card.json`, `metrics.json`, `predictions.csv`, and `predict_example.py` under `dl/models/ct/qknn/`.
+* **What it does:** Saves candidate artifacts under `dl/models/ct/qknn_candidates/qknn/`; legacy baseline artifacts remain untouched.
 * **Expected runtime:** ~2-3 seconds.
 * **Expected output:** Confirmation of saved artifacts and hashes."""),
 
