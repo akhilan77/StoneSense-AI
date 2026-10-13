@@ -260,6 +260,8 @@ def persist_round_to_db(
     client_runs: List[Dict[str, Any]],
     duration_sec: float,
     selected_hospital_ids: Optional[List[int]] = None,
+    model_family: str = "resnet18",
+    min_participants: int = 2,
 ) -> None:
     """Persists round results, hospital runs, and model version into SQLite/PostgreSQL."""
     try:
@@ -300,6 +302,8 @@ def persist_round_to_db(
                 mode=mode,
                 selected_hospital_ids=selected_hospital_ids,
                 participants_count=len(client_runs),
+                model_family=model_family,
+                min_participants=min_participants,
                 global_train_loss=train_loss,
                 global_train_acc=train_acc,
                 global_val_loss=val_loss,
@@ -315,6 +319,8 @@ def persist_round_to_db(
             db.flush()
         else:
             fed_round.selected_hospital_ids = selected_hospital_ids
+            fed_round.model_family = model_family
+            fed_round.min_participants = min_participants
             fed_round.global_train_loss = train_loss
             fed_round.global_train_acc = train_acc
             fed_round.global_val_loss = val_loss

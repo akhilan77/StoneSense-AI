@@ -40,6 +40,10 @@ class DINOv3Wrapper(BaseCTModel):
         self.processor = None
         self.classifier_head = None
         self.config = None
+        self.can_federate = False
+        self.federation_strategy = None
+        self.federation_readiness = "UNSUPPORTED"
+        self.federation_ineligibility_reason = "DINOv3 vision transformer foundation backbone is frozen; classification operates via fine-tuned linear head."
 
     def load(self) -> bool:
         """Attempts to load DINOv3 classifier head and backbone if artifacts exist."""

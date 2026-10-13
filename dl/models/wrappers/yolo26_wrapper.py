@@ -34,6 +34,10 @@ class YOLO26Wrapper(BaseCTModel):
         )
         self.weights_path = Path(weights_path) if weights_path else None
         self.model = None
+        self.can_federate = False
+        self.federation_strategy = None
+        self.federation_readiness = "UNSUPPORTED"
+        self.federation_ineligibility_reason = "YOLO26 detection bounding-box objectives require aligned federated bounding-box loss coordination; centralized training only."
 
     def load(self) -> bool:
         """Loads Ultralytics YOLO model from best.pt checkpoint if available."""

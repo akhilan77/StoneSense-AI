@@ -43,6 +43,10 @@ class BaseCTModel(ABC):
         self._error_message: Optional[str] = None
         self._metrics: Dict[str, Any] = {}
         self._model_card: Dict[str, Any] = {}
+        self.can_federate: bool = False
+        self.federation_strategy: Optional[str] = None
+        self.federation_readiness: str = "UNSUPPORTED"
+        self.federation_ineligibility_reason: Optional[str] = None
 
     @property
     def status(self) -> DLModelStatus:
@@ -171,4 +175,8 @@ class BaseCTModel(ABC):
             "created_at": self._model_card.get("created_at"),
             "version_tag": self._model_card.get("version_tag", f"{self.model_id}_v1"),
             "display_name": self._model_card.get("display_name", self.model_name),
+            "can_federate": self.can_federate,
+            "federation_strategy": self.federation_strategy,
+            "federation_readiness": self.federation_readiness,
+            "federation_ineligibility_reason": self.federation_ineligibility_reason,
         }

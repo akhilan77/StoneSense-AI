@@ -35,8 +35,9 @@ from app.schemas.federated import (
 )
 from app.services.model_loader import model_loader
 from app.services.federated_coordinator import federated_coordinator
+from dl.federated.dataset_manifest import scan_partition_dataset
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
+PROJECT_ROOT = Path(__file__).resolve().parents[4].parent
 PARTITIONS_ROOT = PROJECT_ROOT / "dl" / "datasets" / "partitions"
 DATASET_CLASSES = ("Cyst", "Normal", "Stone", "Tumor")
 DATASET_SPLITS = ("train", "validation", "test")
@@ -308,14 +309,17 @@ def _dataset_status(hospital: Hospital, inspection: Dict[str, Any]) -> DatasetSt
         hospital_id=hospital.id,
         hospital_code=hospital.hospital_code,
         name=hospital.name,
-        dataset_size=inspection["total"],
-        class_distribution=inspection["class_counts"],
-        is_valid=inspection["is_valid"],
-        split_info=inspection["split_counts"],
+        dataset_size=inspection.get("total", inspection.get("total_images", 0)),
+        class_distribution=inspection.get("class_counts", {}),
+        is_valid=inspection.get("is_valid", True),
+        split_info=inspection.get("split_counts", {}),
         dataset_version=hospital.dataset_version,
         last_updated=hospital.dataset_updated_at,
         last_validated=hospital.dataset_validated_at,
-        validation_message=inspection["message"],
+        validation_message=inspection.get("message"),
+        duplicate_count=inspection.get("duplicate_count", 0),
+        patient_leakage_detected=inspection.get("patient_leakage_detected", False),
+        has_new_valid_training_data=inspection.get("has_new_valid_training_data", False),
     )
 
 
@@ -357,14 +361,53 @@ def validate_dataset(
             total_samples=0,
             classes={},
             corrupted_images=0,
-            message="Private dataset directory not found. Upload a dataset first."
+            duplicate_count=0,
+            patient_leakage_detected=False,
+            has_new_valid_training_data=False,
+            message="Private dataset directory not found. Upload a dataset first.",
         )
 
-    inspection = _inspect_dataset(part_dir)
-    h.dataset_size = inspection["total"]
-    h.class_distribution = inspection["class_counts"]
-    h.dataset_split_counts = inspection["split_counts"]
-    h.dataset_is_valid = inspection["is_valid"]
+    manifest = scan_partition_dataset(part_dir, hospital_code=h.hospital_code, save_manifest=True)
+    corrupted_count = manifest.get("corrupted_count", 0)
+    leakage_detected = manifest.get("patient_leakage_detected", False)
+    total_images = manifest.get("total_images", 0)
+    split_counts = manifest.get("split_counts", {})
+    class_counts = manifest.get("class_counts", {})
+    duplicate_count = manifest.get("duplicate_count", 0)
+    has_new_data = manifest.get("has_new_valid_training_data", False)
+    manifest_version = manifest.get("version_tag")
+    delta_counts = manifest.get("delta", {})
+
+    missing_paths = [s for s in DATASET_SPLITS if not (part_dir / s).is_dir()]
+    missing_classes = [c for c in DATASET_CLASSES if not (part_dir / "train" / c).is_dir()]
+
+    is_valid = (
+        not missing_paths
+        and not missing_classes
+        and total_images > 0
+        and split_counts.get("train", 0) > 0
+        and corrupted_count == 0
+        and not leakage_detected
+    )
+
+    if missing_paths or missing_classes:
+        message = "Missing required dataset paths: " + ", ".join((missing_paths + missing_classes)[:5])
+    elif corrupted_count > 0:
+        message = f"Validation found {corrupted_count} corrupted image file(s)."
+    elif leakage_detected:
+        message = f"Validation failed: Patient leakage detected between splits ({manifest.get('leaked_patient_count', 0)} patient overlap)."
+    elif split_counts.get("train", 0) == 0:
+        message = "The train split contains no supported images."
+    elif is_valid:
+        message = f"Dataset validated successfully for the ResNet18 training pipeline (Manifest: {manifest_version})."
+    else:
+        message = "Dataset validation failed."
+
+    h.dataset_size = total_images
+    h.class_distribution = class_counts
+    h.dataset_split_counts = split_counts
+    h.dataset_is_valid = is_valid
+    h.dataset_version = manifest_version or h.dataset_version
     h.dataset_validated_at = datetime.utcnow()
     db.commit()
 
@@ -377,18 +420,25 @@ def validate_dataset(
         user_email=current_user.email,
         details={
             "hospital_code": h.hospital_code,
-            "is_valid": inspection["is_valid"],
-            "total": inspection["total"],
+            "is_valid": is_valid,
+            "total": total_images,
+            "manifest_version": manifest_version,
+            "patient_leakage_detected": leakage_detected,
         },
     )
 
     return DatasetValidateResponse(
         hospital_code=h.hospital_code,
-        is_valid=inspection["is_valid"],
-        total_samples=inspection["total"],
-        classes=inspection["class_counts"],
-        corrupted_images=inspection["corrupted"],
-        message=inspection["message"]
+        is_valid=is_valid,
+        total_samples=total_images,
+        classes=class_counts,
+        corrupted_images=corrupted_count,
+        duplicate_count=duplicate_count,
+        patient_leakage_detected=leakage_detected,
+        has_new_valid_training_data=has_new_data,
+        manifest_version=manifest_version,
+        delta=delta_counts,
+        message=message,
     )
 
 
@@ -497,6 +547,7 @@ def upload_dataset(
 @router.post("/{hospital_id}/train-local", response_model=LocalTrainingTriggerResponse)
 def trigger_local_training(
     hospital_id: int,
+    require_new_data: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -507,6 +558,17 @@ def trigger_local_training(
 
     if not part_dir.exists():
         raise HTTPException(status_code=400, detail="Local partition does not exist.")
+
+    manifest = scan_partition_dataset(part_dir, hospital_code=h.hospital_code, save_manifest=False)
+    if require_new_data and not manifest.get("has_new_valid_training_data", False):
+        return LocalTrainingTriggerResponse(
+            hospital_code=h.hospital_code,
+            status="skipped",
+            message="Local training skipped: No valid new training data detected since last manifest scan.",
+            dataset_version=manifest.get("version_tag", h.dataset_version),
+            samples_used=0,
+            update_status="not_submitted",
+        )
 
     inspection = _inspect_dataset(part_dir)
     if not inspection["is_valid"]:

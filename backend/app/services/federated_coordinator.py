@@ -15,7 +15,7 @@ import time
 import logging
 import threading
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 import torch
 import numpy as np
@@ -30,9 +30,26 @@ sys.path.append(str(DL_ROOT / "federated"))
 
 from app.services.ws_manager import ws_manager
 from app.db.database import SessionLocal, init_db
-from app.db.models import Hospital, FederatedRound, HospitalTrainingRun, ModelVersion, HospitalUpdateLog
+from app.db.models import Hospital, FederatedRound, HospitalTrainingRun, ModelVersion, HospitalUpdateLog, RoundEvent
 
 logger = logging.getLogger("StoneSenseFLCoordinator")
+
+
+def validate_client_update(
+    weights: List[np.ndarray],
+    global_weights: List[np.ndarray],
+) -> Tuple[bool, Optional[str]]:
+    """Validates layer shapes, finite values, and compatibility of client weights."""
+    if not weights:
+        return False, "Empty weights returned from client"
+    if len(weights) != len(global_weights):
+        return False, f"Mismatched layer count: got {len(weights)}, expected {len(global_weights)}"
+    for idx, (w, gw) in enumerate(zip(weights, global_weights)):
+        if w.shape != gw.shape:
+            return False, f"Layer {idx} shape mismatch: got {w.shape}, expected {gw.shape}"
+        if not np.isfinite(w).all():
+            return False, f"Non-finite (NaN or Inf) weights detected in layer {idx}"
+    return True, None
 
 HOSPITAL_CODE_MAP = {
     "hospital_1": "HOSP-001",
@@ -82,6 +99,8 @@ class FederatedCoordinator:
         self.latest_round_metrics: Dict[str, Any] = {}
         self.selected_hospital_ids: List[int] = []
         self.selected_hospital_codes: List[str] = []
+        self.model_family: str = "resnet18"
+        self.min_participants: int = 2
         self._initialize_from_db()
 
     def _initialize_from_db(self):
@@ -166,9 +185,32 @@ class FederatedCoordinator:
         logger.info(f"FL Event: {event_type} | Round: {self.current_round} | Node: {hospital_id or 'GLOBAL'}")
         ws_manager.broadcast_sync(payload)
 
+        # Persistent audit trail in round_events table
+        try:
+            db = SessionLocal()
+            fed_round = db.query(FederatedRound).filter_by(round_number=self.current_round).first()
+            h_obj = db.query(Hospital).filter_by(hospital_code=hospital_id).first() if hospital_id else None
+            evt = RoundEvent(
+                round_number=self.current_round,
+                round_id=fed_round.id if fed_round else None,
+                event_type=event_type,
+                stage=self.status,
+                hospital_code=hospital_id,
+                hospital_id=h_obj.id if h_obj else None,
+                data=data or {},
+                created_at=datetime.utcnow(),
+            )
+            db.add(evt)
+            db.commit()
+            db.close()
+        except Exception as e_ev:
+            logger.debug(f"Event DB persistence note: {e_ev}")
+
     def start_round(
         self,
         selected_hospital_ids: Optional[List[int]] = None,
+        model_family: str = "resnet18",
+        min_participants: int = 2,
         num_rounds: int = 1,
         local_epochs: int = 1,
         batch_size: int = 32,
@@ -181,6 +223,16 @@ class FederatedCoordinator:
         with self._lock:
             if self.is_running:
                 raise RuntimeError(f"Round {self.current_round} is currently running. Duplicate execution prevented.")
+
+            norm_family = (model_family or "resnet18").strip().lower()
+            if norm_family not in ["resnet18", "resnet18_ct", "resnet"]:
+                raise ValueError(
+                    f"Model family '{model_family}' is not supported for federated training. "
+                    f"Only 'resnet18' supports federated FedAvg aggregation."
+                )
+
+            if min_participants < 2:
+                raise ValueError("min_participants must be at least 2.")
 
             db = SessionLocal()
             try:
@@ -205,8 +257,10 @@ class FederatedCoordinator:
                 ]
                 if unsupported_codes:
                     raise ValueError(f"Hospitals do not have configured DL partitions: {unsupported_codes}")
-                if not selected_hospitals:
-                    raise ValueError("No selected hospital has a configured DL partition.")
+                if len(selected_hospitals) < min_participants:
+                    raise ValueError(
+                        f"Selected {len(selected_hospitals)} hospital(s), but minimum required participants is {min_participants}."
+                    )
                 self.selected_hospital_ids = [hospital.id for hospital in selected_hospitals]
                 self.selected_hospital_codes = [hospital.hospital_code for hospital in selected_hospitals]
             finally:
@@ -224,6 +278,8 @@ class FederatedCoordinator:
 
             self.is_running = True
             self.current_round = next_round
+            self.model_family = norm_family
+            self.min_participants = min_participants
             self.previous_model_version = prev_version
             self.global_model_version = f"resnet18_fed_round_{next_round:03d}"
             self.status = "ROUND_STARTED"
@@ -252,7 +308,11 @@ class FederatedCoordinator:
         # Spawn execution in background thread
         thread = threading.Thread(
             target=self._run_round_workflow,
-            args=(next_round, local_epochs, batch_size, lr, mode, device, list(self.selected_hospital_codes), list(self.selected_hospital_ids), max_batches),
+            args=(
+                next_round, local_epochs, batch_size, lr, mode, device,
+                list(self.selected_hospital_codes), list(self.selected_hospital_ids),
+                max_batches, norm_family, min_participants
+            ),
             daemon=True,
             name=f"FL-Round-{next_round}-Worker",
         )
@@ -263,6 +323,8 @@ class FederatedCoordinator:
             "status": "started",
             "global_model_version": self.previous_model_version,
             "selected_hospital_ids": self.selected_hospital_ids,
+            "model_family": self.model_family,
+            "min_participants": self.min_participants,
             "message": f"DL Federated Round {self.current_round} initiated successfully.",
         }
 
@@ -277,6 +339,8 @@ class FederatedCoordinator:
         selected_hospital_codes: List[str],
         selected_hospital_ids: List[int],
         max_batches: Optional[int] = None,
+        model_family: str = "resnet18",
+        min_participants: int = 2,
     ):
         """Worker thread executing the real Flower / FedAvg training and aggregation."""
         try:
@@ -303,7 +367,6 @@ class FederatedCoordinator:
                 self._emit_event("MODEL_RECEIVED", hospital_id=h_code)
                 if h_code not in selected_hospital_codes:
                     self._set_hospital_state(h_code, HOSPITAL_NOT_SELECTED, "HOSPITAL_NOT_SELECTED")
-
 
             time.sleep(0.5)
 
@@ -357,6 +420,7 @@ class FederatedCoordinator:
             client_sample_counts = []
             client_fit_metrics = []
             client_eval_metrics = {}
+            accepted_partition_ids = []
 
             selected_partition_ids = [
                 h_id for h_id in HOSPITAL_IDS
@@ -376,53 +440,83 @@ class FederatedCoordinator:
                 )
 
                 client_start = time.time()
-                client = StoneSenseFLClient(
-                    hospital_id=h_code,
-                    partition_dir=partitions_root / h_id,
-                    batch_size=batch_size,
-                    device=dev,
-                    lr=lr,
+                try:
+                    client = StoneSenseFLClient(
+                        hospital_id=h_code,
+                        partition_dir=partitions_root / h_id,
+                        batch_size=batch_size,
+                        device=dev,
+                        lr=lr,
+                    )
+
+                    updated_weights, samples, fit_m = client.fit(global_weights, config)
+                    client_duration = time.time() - client_start
+
+                    # Validate update compatibility: shape, layer count, finite values
+                    is_valid, reject_reason = validate_client_update(updated_weights, global_weights)
+                    if not is_valid:
+                        logger.warning(f"Client {h_code} update rejected: {reject_reason}")
+                        self.clients_status[h_code].update({
+                            "status": HOSPITAL_FAILED,
+                            "error": reject_reason,
+                        })
+                        self._set_hospital_state(h_code, HOSPITAL_FAILED, "CLIENT_UPDATE_REJECTED", error=reject_reason)
+                        self._emit_event("CLIENT_UPDATE_REJECTED", hospital_id=h_code, data={"reason": reject_reason})
+                        continue
+
+                    client_weights.append(updated_weights)
+                    client_sample_counts.append(samples)
+                    client_fit_metrics.append(fit_m)
+                    accepted_partition_ids.append(h_id)
+
+                    # Update client status to completed
+                    acc = float(fit_m.get("train_accuracy", 0.95))
+                    f1 = float(fit_m.get("train_f1_macro", 0.94))
+                    loss = float(fit_m.get("train_loss", 0.08))
+
+                    self.clients_status[h_code].update({
+                        "status": HOSPITAL_TRAINING_COMPLETED,
+                        "samples": samples,
+                        "accuracy": round(acc, 4),
+                        "f1": round(f1, 4),
+                        "loss": round(loss, 4),
+                        "duration_sec": round(client_duration, 2),
+                    })
+                    self._set_hospital_state(
+                        h_code,
+                        HOSPITAL_TRAINING_COMPLETED,
+                        "HOSPITAL_TRAINING_COMPLETED",
+                        samples=samples,
+                        accuracy=round(acc, 4),
+                        f1=round(f1, 4),
+                        loss=round(loss, 4),
+                        duration_sec=round(client_duration, 2),
+                    )
+
+                    self._emit_event("CLIENT_UPDATE_RECEIVED", hospital_id=h_code)
+                    self._set_hospital_state(h_code, HOSPITAL_UPDATE_SUBMITTED, "HOSPITAL_UPDATE_SUBMITTED", update_submitted=True)
+                    self._set_hospital_state(h_code, HOSPITAL_WAITING_FOR_AGGREGATION, "HOSPITAL_WAITING_FOR_AGGREGATION", update_submitted=True)
+                except Exception as client_err:
+                    logger.warning(f"Client {h_code} local training error: {client_err}")
+                    self.clients_status[h_code].update({
+                        "status": HOSPITAL_FAILED,
+                        "error": str(client_err),
+                    })
+                    self._set_hospital_state(h_code, HOSPITAL_FAILED, "HOSPITAL_ROUND_FAILED", error=str(client_err))
+                    self._emit_event("CLIENT_UPDATE_REJECTED", hospital_id=h_code, data={"error": str(client_err)})
+
+            # 5b. Verify Minimum Successful Accepted Participants
+            accepted_count = len(client_weights)
+            if accepted_count < min_participants:
+                raise RuntimeError(
+                    f"Insufficient accepted participants: {accepted_count} succeeded and passed validation, "
+                    f"but at least {min_participants} required for FedAvg aggregation. Round aborted."
                 )
-
-                updated_weights, samples, fit_m = client.fit(global_weights, config)
-                client_duration = time.time() - client_start
-
-                client_weights.append(updated_weights)
-                client_sample_counts.append(samples)
-                client_fit_metrics.append(fit_m)
-
-                # Update client status to completed
-                acc = float(fit_m.get("train_accuracy", 0.95))
-                f1 = float(fit_m.get("train_f1_macro", 0.94))
-                loss = float(fit_m.get("train_loss", 0.08))
-
-                self.clients_status[h_code].update({
-                    "status": HOSPITAL_TRAINING_COMPLETED,
-                    "samples": samples,
-                    "accuracy": round(acc, 4),
-                    "f1": round(f1, 4),
-                    "loss": round(loss, 4),
-                    "duration_sec": round(client_duration, 2),
-                })
-                self._set_hospital_state(
-                    h_code,
-                    HOSPITAL_TRAINING_COMPLETED,
-                    "HOSPITAL_TRAINING_COMPLETED",
-                    samples=samples,
-                    accuracy=round(acc, 4),
-                    f1=round(f1, 4),
-                    loss=round(loss, 4),
-                    duration_sec=round(client_duration, 2),
-                )
-
-                self._emit_event("CLIENT_UPDATE_RECEIVED", hospital_id=h_code)
-                self._set_hospital_state(h_code, HOSPITAL_UPDATE_SUBMITTED, "HOSPITAL_UPDATE_SUBMITTED", update_submitted=True)
-                self._set_hospital_state(h_code, HOSPITAL_WAITING_FOR_AGGREGATION, "HOSPITAL_WAITING_FOR_AGGREGATION", update_submitted=True)
 
             # 6. FedAvg Aggregation
             self.status = "FEDAVG_STARTED"
-            self.current_step = "Aggregating hospital model weights via FedAvg"
-            self._emit_event("FEDAVG_STARTED", data={"participating_nodes": len(client_sample_counts)})
+            self.current_step = f"Aggregating {accepted_count} hospital model weights via FedAvg"
+            self._emit_event("FEDAVG_STARTED", data={"participating_nodes": accepted_count})
 
             global_weights = aggregate_weights(client_weights, client_sample_counts)
             set_model_parameters(global_model, global_weights)
@@ -509,7 +603,7 @@ class FederatedCoordinator:
 
             # 8. Checkpoint Saving & Database Persistence
             client_runs = []
-            for i, h_id in enumerate(selected_partition_ids):
+            for i, h_id in enumerate(accepted_partition_ids):
                 h_code = HOSPITAL_CODE_MAP.get(h_id, "HOSP-001")
                 fit_m = client_fit_metrics[i]
                 eval_m = client_eval_metrics.get(h_code, {})
@@ -535,7 +629,20 @@ class FederatedCoordinator:
                 client_runs=client_runs,
                 duration_sec=duration,
                 selected_hospital_ids=selected_hospital_ids,
+                model_family=model_family,
+                min_participants=min_participants,
             )
+
+            # Back-link round_id on persistent RoundEvents
+            try:
+                db = SessionLocal()
+                fed_round_obj = db.query(FederatedRound).filter_by(round_number=round_num).first()
+                if fed_round_obj:
+                    db.query(RoundEvent).filter_by(round_number=round_num, round_id=None).update({"round_id": fed_round_obj.id})
+                    db.commit()
+                db.close()
+            except Exception as back_err:
+                logger.debug(f"Backlink round events error: {back_err}")
 
             # 8b. Deployment Gate Evaluation (No auto-deploy; sets eligible/rejected/pending_review)
             gate_report = None
@@ -663,6 +770,29 @@ class FederatedCoordinator:
             "last_event_at": client_data.get("last_event_at"),
             "round_status": self.status,
         }
+
+    def get_round_events(self, round_number: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Returns persistent event history for a round from the database."""
+        target_round = round_number or self.current_round
+        db = SessionLocal()
+        try:
+            events = db.query(RoundEvent).filter_by(round_number=target_round).order_by(RoundEvent.id.asc()).all()
+            return [
+                {
+                    "id": e.id,
+                    "round_number": e.round_number,
+                    "round_id": e.round_id,
+                    "event_type": e.event_type,
+                    "stage": e.stage,
+                    "hospital_code": e.hospital_code,
+                    "hospital_id": e.hospital_id,
+                    "data": e.data or {},
+                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                }
+                for e in events
+            ]
+        finally:
+            db.close()
 
     def _set_hospital_state(self, hospital_id: str, status: str, event_type: str, **updates: Any) -> None:
         """Update live client telemetry and emit the matching hospital event."""

@@ -45,7 +45,11 @@ def init_db() -> None:
                     "deployed_at": "DATETIME",
                     "previous_deployed_version_id": "INTEGER",
                 },
-                "federated_rounds": {"selected_hospital_ids": "JSON"},
+                "federated_rounds": {
+                    "selected_hospital_ids": "JSON",
+                    "model_family": "VARCHAR(32) DEFAULT 'resnet18'",
+                    "min_participants": "INTEGER DEFAULT 2",
+                },
                 "hospitals": {
                     "dataset_size": "INTEGER",
                     "class_distribution": "JSON",

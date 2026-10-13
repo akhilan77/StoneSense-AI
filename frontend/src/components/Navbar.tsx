@@ -21,6 +21,9 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-stonesense-line bg-white/90 backdrop-blur">
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-center text-xs font-medium text-amber-800">
+        ⚠️ Research Prototype Only — Not certified for autonomous clinical diagnostic decisions. Models must be reviewed by qualified medical professionals.
+      </div>
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div>
           <div className="font-serif text-xl font-semibold text-stonesense-ink">StoneSense AI</div>

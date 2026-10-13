@@ -141,6 +141,22 @@ The repository includes modular model wrappers in [`dl/models/wrappers/`](dl/mod
 
 ---
 
+## 7-Model Accounting & Federated Learning Capabilities Matrix
+
+StoneSense-AI explicitly accounts for seven distinct computational models across deep learning and tabular machine learning:
+
+| # | Model Identifier | Category | Task | Algorithm / Backbone | FedAvg Capable? | Federation Status | Architectural Ineligibility Reason |
+| :-: | :--- | :---: | :--- | :--- | :-: | :---: | :--- |
+| **1** | `resnet18` | Deep Learning | Axial CT Classification | PyTorch ResNet18 CNN | **Yes** | **READY** | Standard parameter tensor architecture supported by StoneSenseFLClient. |
+| **2** | `yolo26` | Deep Learning | Axial CT Classification | Ultralytics YOLO26n-cls | **No** | **UNSUPPORTED** | Proprietary layer blocks and anchor head parameters are incompatible with plain FedAvg. |
+| **3** | `dinov3` | Deep Learning | Axial CT Classification | Meta ViT Foundation | **No** | **UNSUPPORTED** | Frozen foundation backbone used for zero-shot embedding extraction; local fine-tuning requires specialized adaptation. |
+| **4** | `qknn` | Deep Learning / Quantum | Axial CT Classification | PennyLane 4-Qubit Simulator | **No** | **UNSUPPORTED** | Quantum kernel angle parameters and distance matrices cannot be averaged via classical arithmetic FedAvg. |
+| **5** | `logistic_regression` | Machine Learning | Urine Risk Prediction | L2-Regularized Logistic Regression | **No** | **UNSUPPORTED** | Tabular benchmark trained via 50-fold nested CV; requires secure aggregation rather than gradient FedAvg. |
+| **6** | `random_forest` | Machine Learning | Urine Risk Prediction | Scikit-Learn RandomForestClassifier | **No** | **UNSUPPORTED** | Decision tree split structures and thresholds cannot be averaged arithmetically across nodes. |
+| **7** | `xgboost` | Machine Learning | Urine & NHANES Risk | XGBClassifier Gradient Boosting | **No** | **UNSUPPORTED** | Tree ensembles with histogram-based leaf splits require specialized Federated Tree algorithms (e.g. Federated XGBoost). |
+
+---
+
 ## Ethical, Regulatory & Clinical Disclosures
 
 1. **Bias & Population Representation**: The training data comes from unspecified public sources without demographic or regional stratification. Diagnostic accuracy may vary significantly across diverse patient populations.

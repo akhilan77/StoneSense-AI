@@ -103,6 +103,12 @@ class RollbackModelRequest(BaseModel):
     approved_by: Optional[str] = "rollback_admin"
 
 
+class ReviewCandidateRequest(BaseModel):
+    model_version_id: int
+    decision: str  # "approve" | "reject"
+    notes: Optional[str] = None
+
+
 class MLTrainingResponse(BaseModel):
     status: str
     model_family: str

@@ -26,7 +26,7 @@ target_metadata = Base.metadata
 
 
 def get_url():
-    return os.getenv("STONESENSE_DATABASE_URL", os.getenv("DATABASE_URL", DATABASE_URL))
+    return DATABASE_URL
 
 
 def run_migrations_offline() -> None:

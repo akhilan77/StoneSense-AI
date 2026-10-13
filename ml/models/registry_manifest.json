@@ -53,6 +53,82 @@
             },
             "trained_at": "2026-10-06T12:45:00Z",
             "is_deployed": false
+        },
+        "xgboost_nhanes_v002": {
+            "model_family": "xgboost",
+            "version_tag": "xgboost_nhanes_v002",
+            "status": "pending_review",
+            "is_deployed": false,
+            "dataset_name": "NHANES Kidney Stone Cohort (2007-2018)",
+            "artifact_path": "ml/models/versions/xgboost_nhanes_v002.pkl",
+            "absolute_artifact_path": "C:/Users/akhil/projects/StoneSense-AI/ml/models/versions/xgboost_nhanes_v002.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA"
+            ],
+            "threshold": 0.0714,
+            "split_counts": {
+                "train": 23296,
+                "validation": 2912,
+                "calibration": 2913,
+                "external_test": 5558,
+                "total_cohort": 34679
+            },
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.6331,
+                "roc_auc_ci_95": "[0.6110521048041804, 0.6558276574182118]",
+                "pr_auc": 0.1499,
+                "pr_auc_ci_95": "[0.1337920176600577, 0.16995950668789567]",
+                "brier_score": 0.088,
+                "sensitivity_opt": 0.8845,
+                "specificity_opt": 0.2804,
+                "sensitivity_0.5": 0.0018,
+                "specificity_0.5": 1.0,
+                "accuracy_0.5": 0.9005,
+                "f1_0.5": 0.0036
+            },
+            "trained_at": "2026-10-12T15:51:43Z"
+        },
+        "random_forest_v001": {
+            "model_family": "random_forest",
+            "version_tag": "random_forest_v001",
+            "artifact_path": "ml/models/versions/random_forest_v001.pkl",
+            "absolute_artifact_path": "C:/Users/akhil/projects/StoneSense-AI/ml/models/versions/random_forest_v001.pkl",
+            "features": [
+                "gravity",
+                "ph",
+                "osmo",
+                "cond",
+                "urea",
+                "calc"
+            ],
+            "threshold": 0.5,
+            "metrics": {
+                "roc_auc_mean": 0.8175,
+                "roc_auc_std": 0.102,
+                "roc_auc_ci_95": "[0.7122, 0.9191]",
+                "f1_mean": 0.7067,
+                "f1_ci_95": "[0.5778, 0.8302]",
+                "accuracy_mean": 0.758,
+                "mcc_mean": 0.521,
+                "sensitivity_ci_95": "[0.5143, 0.8276]",
+                "specificity_ci_95": "[0.7292, 0.9388]",
+                "permutation_p_value": 0.001
+            },
+            "trained_at": "2026-10-06T12:45:00Z",
+            "is_deployed": false
         }
     }
 }

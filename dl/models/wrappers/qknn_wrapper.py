@@ -40,6 +40,10 @@ class QKNNWrapper(BaseCTModel):
         self.prototypes = None
         self.feature_extractor = None
         self._dinov3_wrapper = dinov3_wrapper
+        self.can_federate = False
+        self.federation_strategy = None
+        self.federation_readiness = "UNSUPPORTED"
+        self.federation_ineligibility_reason = "Quantum K-Nearest Neighbors classifier uses fixed quantum circuits and prototype vectors without gradient-trainable weights for FedAvg."
 
     def load(self) -> bool:
         """Attempts to load QKNN model, PCA scaler, and quantum circuit prototypes."""

@@ -45,6 +45,7 @@ class Hospital(Base):
     update_logs = relationship("HospitalUpdateLog", back_populates="hospital")
     users = relationship("User", back_populates="hospital")
     audit_logs = relationship("AuditLog", back_populates="hospital")
+    round_events = relationship("RoundEvent", back_populates="hospital")
 
 
 class User(Base):
@@ -102,8 +103,11 @@ class FederatedRound(Base):
     status = Column(String(32), default="completed")  # "completed" | "in_progress" | "failed"
     completed_at = Column(DateTime, default=datetime.utcnow)
 
+    model_family = Column(String(32), default="resnet18", nullable=False)
+    min_participants = Column(Integer, default=2, nullable=False)
     hospital_runs = relationship("HospitalTrainingRun", back_populates="federated_round", cascade="all, delete-orphan")
     model_version = relationship("ModelVersion", back_populates="federated_round", uselist=False)
+    events = relationship("RoundEvent", back_populates="federated_round", cascade="all, delete-orphan")
 
 
 class HospitalTrainingRun(Base):
@@ -127,6 +131,24 @@ class HospitalTrainingRun(Base):
 
     hospital = relationship("Hospital", back_populates="training_runs")
     federated_round = relationship("FederatedRound", back_populates="hospital_runs")
+
+
+class RoundEvent(Base):
+    """Persistent audit trail and lifecycle events for federated learning rounds."""
+    __tablename__ = "round_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    round_number = Column(Integer, index=True, nullable=False)
+    round_id = Column(Integer, ForeignKey("federated_rounds.id"), nullable=True, index=True)
+    event_type = Column(String(64), nullable=False, index=True)
+    stage = Column(String(64), nullable=True)
+    hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=True, index=True)
+    hospital_code = Column(String(32), nullable=True, index=True)
+    data = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    federated_round = relationship("FederatedRound", back_populates="events")
+    hospital = relationship("Hospital", back_populates="round_events")
 
 
 class ModelVersion(Base):

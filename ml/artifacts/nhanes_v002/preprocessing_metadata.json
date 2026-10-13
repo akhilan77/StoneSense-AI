@@ -1,0 +1,86 @@
+{
+    "dataset_name": "NHANES Kidney Stone Cohort (2007-2018)",
+    "model_version": "xgboost_nhanes_v002",
+    "features": [
+        "RIDAGEYR",
+        "RIAGENDR",
+        "BMXBMI",
+        "LBXSCA",
+        "LBXSUA",
+        "LBXSCR",
+        "LBXSBU",
+        "LBXSGL",
+        "LBXSNASI",
+        "LBXSKSI",
+        "LBXSPH",
+        "URXUCR",
+        "URXUMA"
+    ],
+    "numerical_features": [
+        "RIDAGEYR",
+        "BMXBMI",
+        "LBXSCA",
+        "LBXSUA",
+        "LBXSCR",
+        "LBXSBU",
+        "LBXSGL",
+        "LBXSNASI",
+        "LBXSKSI",
+        "LBXSPH",
+        "URXUCR",
+        "URXUMA"
+    ],
+    "categorical_features": [
+        "RIAGENDR"
+    ],
+    "development_cycles": [
+        "2007-2008",
+        "2009-2010",
+        "2011-2012",
+        "2013-2014",
+        "2015-2016"
+    ],
+    "external_test_cycle": "2017-2018",
+    "row_counts": {
+        "train": 23296,
+        "validation": 2912,
+        "calibration": 2913,
+        "external_test": 5558,
+        "total_cohort": 34679
+    },
+    "class_prevalence": {
+        "train_pos_pct": 9.2,
+        "test_pos_pct": 9.97
+    },
+    "calibration": {
+        "best_hyperparameters": {
+            "subsample": 0.75,
+            "n_estimators": 150,
+            "min_child_weight": 5,
+            "max_depth": 5,
+            "learning_rate": 0.03,
+            "gamma": 0.2,
+            "colsample_bytree": 0.85
+        },
+        "early_stopping_iteration": 149,
+        "scale_pos_weight": 9.865671641791044,
+        "brier_sigmoid": 0.08166255680017721,
+        "brier_isotonic": 0.08071053299463271,
+        "chosen_method": "isotonic",
+        "trans_feature_names": [
+            "RIDAGEYR",
+            "BMXBMI",
+            "LBXSCA",
+            "LBXSUA",
+            "LBXSCR",
+            "LBXSBU",
+            "LBXSGL",
+            "LBXSNASI",
+            "LBXSKSI",
+            "LBXSPH",
+            "URXUCR",
+            "URXUMA",
+            "RIAGENDR_2.0"
+        ]
+    }
+}

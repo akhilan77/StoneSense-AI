@@ -87,6 +87,9 @@ class DatasetStatusOut(BaseModel):
     last_updated: Optional[datetime] = None
     last_validated: Optional[datetime] = None
     validation_message: Optional[str] = None
+    duplicate_count: int = 0
+    patient_leakage_detected: bool = False
+    has_new_valid_training_data: bool = False
 
 
 class DatasetValidateResponse(BaseModel):
@@ -95,6 +98,11 @@ class DatasetValidateResponse(BaseModel):
     total_samples: int
     classes: Dict[str, int]
     corrupted_images: int = 0
+    duplicate_count: int = 0
+    patient_leakage_detected: bool = False
+    has_new_valid_training_data: bool = False
+    manifest_version: Optional[str] = None
+    delta: Optional[Dict[str, int]] = None
     message: str
 
 
@@ -125,6 +133,8 @@ class FederatedStatusOut(BaseModel):
 
 class StartRoundRequest(BaseModel):
     selected_hospital_ids: Optional[List[int]] = Field(default=None)
+    model_family: Optional[str] = Field(default="resnet18", description="Model family for federated training")
+    min_participants: int = Field(default=2, ge=2, description="Minimum accepted hospital participants required to aggregate")
     num_rounds: int = 1
     local_epochs: int = 1
     batch_size: int = 32
@@ -139,6 +149,23 @@ class StartRoundResponse(BaseModel):
     global_model_version: str
     message: Optional[str] = None
     selected_hospital_ids: List[int] = []
+    model_family: Optional[str] = "resnet18"
+    min_participants: int = 2
+
+
+class RoundEventOut(BaseModel):
+    id: int
+    round_number: int
+    round_id: Optional[int] = None
+    event_type: str
+    stage: Optional[str] = None
+    hospital_id: Optional[int] = None
+    hospital_code: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class ClientLiveStatus(BaseModel):

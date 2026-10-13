@@ -18,17 +18,17 @@ from app.core.auth import get_current_user, require_role, log_audit
 from app.db.database import get_db
 from app.db.models import (
     ModelVersion, HospitalUpdateLog, SystemLog, DriftRecord,
-    Prediction, Hospital, FederatedRound, HospitalTrainingRun, User
+    Prediction, Hospital, FederatedRound, HospitalTrainingRun, User, RoundEvent
 )
 from app.schemas.dashboard import (
     ModelPerformanceOut, HospitalUpdateLogOut, SystemLogOut,
     DriftPointOut, SystemMonitoringSummary, DeployModelRequest,
-    RollbackModelRequest, MLTrainingResponse,
+    RollbackModelRequest, MLTrainingResponse, ReviewCandidateRequest,
 )
 from app.schemas.federated import (
     FederatedOverviewOut, FederatedRoundDetailOut, HospitalRunTelemetryOut,
     HospitalParticipationOut, StartRoundRequest, StartRoundResponse,
-    RoundLiveStatusResponse
+    RoundLiveStatusResponse, RoundEventOut
 )
 from app.services.model_loader import model_loader
 from app.services.federated_coordinator import federated_coordinator
@@ -40,6 +40,37 @@ router = APIRouter(dependencies=[Depends(require_role("developer", "admin"))])
 def start_federated_round(payload: StartRoundRequest, db: Session = Depends(get_db)):
     """Initiates a real multi-hospital DL federated learning round."""
     try:
+        model_family = (payload.model_family or "resnet18").strip().lower()
+        if model_family not in ["resnet18", "resnet18_ct", "resnet"]:
+            if model_family in ["yolo26", "yolo", "yolo26_ct"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Model family 'yolo26' is not eligible for federated learning: Bounding-box and anchor regression objectives require aligned federated detection loss; centralized training only."
+                )
+            elif model_family in ["dinov3", "dino", "dinov3_ct"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Model family 'dinov3' is not eligible for federated learning: Vision transformer foundation backbone is frozen; only centralized linear head fine-tuning is supported."
+                )
+            elif model_family in ["qknn", "qknn_ct"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Model family 'qknn' is not eligible for federated learning: Quantum kernel classifier does not have gradient-trainable weights compatible with FedAvg."
+                )
+            elif model_family in ["random_forest", "random_forest_risk", "xgboost", "xgboost_risk"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Model family '{model_family}' is a tree-ensemble model and cannot be trained using FedAvg gradient aggregation."
+                )
+            else:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Unsupported model family '{model_family}'. Only 'resnet18' is currently federable with FedAvg."
+                )
+
+        if payload.min_participants < 2:
+            raise HTTPException(status_code=422, detail="At least 2 accepted participants are required for federated aggregation.")
+
         if payload.selected_hospital_ids is not None:
             selected_ids = list(dict.fromkeys(payload.selected_hospital_ids))
             hospitals = db.query(Hospital).filter(Hospital.id.in_(selected_ids)).all()
@@ -50,11 +81,18 @@ def start_federated_round(payload: StartRoundRequest, db: Session = Depends(get_
                 raise HTTPException(status_code=422, detail=f"Unknown hospital IDs: {missing_ids}")
             if inactive_ids:
                 raise HTTPException(status_code=422, detail=f"Inactive hospitals cannot participate: {inactive_ids}")
+            if len(selected_ids) < payload.min_participants:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Selected {len(selected_ids)} hospital(s), but minimum participants threshold is {payload.min_participants}."
+                )
         else:
             selected_ids = None
 
         res = federated_coordinator.start_round(
             selected_hospital_ids=selected_ids,
+            model_family=model_family,
+            min_participants=payload.min_participants,
             num_rounds=payload.num_rounds,
             local_epochs=payload.local_epochs,
             batch_size=payload.batch_size,
@@ -63,6 +101,8 @@ def start_federated_round(payload: StartRoundRequest, db: Session = Depends(get_
             max_batches=payload.max_batches,
         )
         res["selected_hospital_ids"] = selected_ids or res.get("selected_hospital_ids", [])
+        res["model_family"] = model_family
+        res["min_participants"] = payload.min_participants
         return StartRoundResponse(**res)
     except HTTPException:
         raise
@@ -84,6 +124,20 @@ def get_current_round_status():
 def get_round_status_by_id(round_id: int):
     """Returns telemetry and status for a specific DL federated round."""
     return federated_coordinator.get_live_round_status(round_id)
+
+
+@router.get("/federated/rounds/{round_id}/events", response_model=List[RoundEventOut])
+def get_round_events(round_id: int, db: Session = Depends(get_db)):
+    """Returns persistent chronological lifecycle events for a specific round."""
+    fed_round = db.query(FederatedRound).filter(
+        (FederatedRound.id == round_id) | (FederatedRound.round_number == round_id)
+    ).first()
+    target_round_num = fed_round.round_number if fed_round else round_id
+
+    events = db.query(RoundEvent).filter(
+        (RoundEvent.round_id == round_id) | (RoundEvent.round_number == target_round_num)
+    ).order_by(RoundEvent.id.asc()).all()
+    return events
 
 
 @router.get("/federated/status")
@@ -337,6 +391,90 @@ def model_versions(model_family: str | None = None, db: Session = Depends(get_db
     if model_family:
         q = q.filter(ModelVersion.model_family == model_family)
     return q.order_by(ModelVersion.trained_at.desc()).all()
+
+
+@router.post("/model-versions/review")
+def review_model_candidate(
+    payload: ReviewCandidateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Developer review endpoint: explicitly approve or reject a model candidate.
+    
+    Safety rule: If decision is 'approve', candidate must not have failed critical gate thresholds.
+    Approved models transition to 'eligible' status, ready for deployment.
+    Rejected models transition to 'rejected' status and cannot be deployed.
+    """
+    version = db.query(ModelVersion).filter(ModelVersion.id == payload.model_version_id).first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Unknown model_version_id")
+
+    decision = payload.decision.lower().strip()
+    if decision not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="Decision must be 'approve' or 'reject'.")
+
+    now = datetime.utcnow()
+    if decision == "approve":
+        # Check if gate failed critically
+        if version.gate_report and isinstance(version.gate_report, dict):
+            gate_status = version.gate_report.get("status")
+            if gate_status == "rejected":
+                reasons = version.gate_report.get("reasons", ["Failed automated gate criteria."])
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot approve model candidate '{version.version_tag}' because it failed automated gate criteria: {'; '.join(reasons)}"
+                )
+        version.status = "eligible"
+        version.approved_by = current_user.email
+        version.approved_at = now
+    else:  # reject
+        version.status = "rejected"
+        version.approved_by = current_user.email
+        version.approved_at = now
+
+    db.commit()
+    db.refresh(version)
+
+    log_audit(
+        db=db,
+        action="MODEL_REVIEW",
+        resource_type="model_version",
+        resource_id=str(version.id),
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "version_tag": version.version_tag,
+            "decision": decision,
+            "notes": payload.notes,
+            "new_status": version.status,
+        },
+    )
+
+    if version.round_id:
+        fed_round = db.query(FederatedRound).filter(FederatedRound.id == version.round_id).first()
+        if fed_round:
+            evt = RoundEvent(
+                round_number=fed_round.round_number,
+                round_id=fed_round.id,
+                event_type="MODEL_CANDIDATE_REVIEWED",
+                stage=decision.upper(),
+                data={
+                    "version_tag": version.version_tag,
+                    "decision": decision,
+                    "reviewer": current_user.email,
+                    "notes": payload.notes,
+                },
+            )
+            db.add(evt)
+            db.commit()
+
+    return {
+        "status": version.status,
+        "version_tag": version.version_tag,
+        "decision": decision,
+        "reviewed_by": current_user.email,
+        "reviewed_at": now.isoformat(),
+    }
 
 
 @router.post("/model-versions/deploy")

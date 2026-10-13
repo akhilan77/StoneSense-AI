@@ -1,0 +1,132 @@
+{
+    "RIDAGEYR": {
+        "label": "Age",
+        "unit": "years",
+        "type": "continuous",
+        "clinical_role": "Demographic risk factor; stone incidence peaks with age",
+        "min": 20.0,
+        "max": 80.0,
+        "name": "RIDAGEYR",
+        "default": 49.0
+    },
+    "RIAGENDR": {
+        "label": "Sex",
+        "unit": "1=Male, 2=Female",
+        "type": "categorical",
+        "clinical_role": "Biological sex; historical prevalence higher in males",
+        "min": 1.0,
+        "max": 2.0,
+        "name": "RIAGENDR",
+        "default": 2.0
+    },
+    "BMXBMI": {
+        "label": "Body Mass Index (BMI)",
+        "unit": "kg/m^2",
+        "type": "continuous",
+        "clinical_role": "Adiposity marker; obesity increases urinary lithogenic excretion",
+        "min": 10.0,
+        "max": 90.0,
+        "name": "BMXBMI",
+        "default": 28.0
+    },
+    "LBXSCA": {
+        "label": "Serum Calcium",
+        "unit": "mg/dL",
+        "type": "continuous",
+        "clinical_role": "Systemic calcium metabolism; hypercalcemia elevates stone risk",
+        "min": 5.0,
+        "max": 16.0,
+        "name": "LBXSCA",
+        "default": 9.4
+    },
+    "LBXSUA": {
+        "label": "Serum Uric Acid",
+        "unit": "mg/dL",
+        "type": "continuous",
+        "clinical_role": "Hyperuricemia predisposes to uric acid and mixed stones",
+        "min": 0.5,
+        "max": 20.0,
+        "name": "LBXSUA",
+        "default": 5.3
+    },
+    "LBXSCR": {
+        "label": "Serum Creatinine",
+        "unit": "mg/dL",
+        "type": "continuous",
+        "clinical_role": "Renal filtration marker; indicator of baseline kidney function",
+        "min": 0.1,
+        "max": 20.0,
+        "name": "LBXSCR",
+        "default": 0.84
+    },
+    "LBXSBU": {
+        "label": "Blood Urea Nitrogen (BUN)",
+        "unit": "mg/dL",
+        "type": "continuous",
+        "clinical_role": "Renal clearance and protein catabolism index",
+        "min": 1.0,
+        "max": 120.0,
+        "name": "LBXSBU",
+        "default": 13.0
+    },
+    "LBXSGL": {
+        "label": "Serum Glucose",
+        "unit": "mg/dL",
+        "type": "continuous",
+        "clinical_role": "Glycemic status / diabetes marker; insulin resistance alters urine pH",
+        "min": 20.0,
+        "max": 800.0,
+        "name": "LBXSGL",
+        "default": 93.0
+    },
+    "LBXSNASI": {
+        "label": "Serum Sodium",
+        "unit": "mmol/L",
+        "type": "continuous",
+        "clinical_role": "Electrolyte and volume balance; dietary sodium drives hypercalciuria",
+        "min": 100.0,
+        "max": 170.0,
+        "name": "LBXSNASI",
+        "default": 139.0
+    },
+    "LBXSKSI": {
+        "label": "Serum Potassium",
+        "unit": "mmol/L",
+        "type": "continuous",
+        "clinical_role": "Electrolyte balance and hypocitraturia surrogate",
+        "min": 1.5,
+        "max": 8.5,
+        "name": "LBXSKSI",
+        "default": 3.98
+    },
+    "LBXSPH": {
+        "label": "Serum Phosphorus",
+        "unit": "mg/dL",
+        "type": "continuous",
+        "clinical_role": "Mineral homeostasis; phosphaturia and calcium phosphate crystallization",
+        "min": 0.5,
+        "max": 12.0,
+        "name": "LBXSPH",
+        "default": 3.7
+    },
+    "URXUCR": {
+        "label": "Urine Creatinine",
+        "unit": "mg/dL",
+        "type": "continuous",
+        "clinical_role": "Spot urine concentration / excretion rate normalizer",
+        "min": 1.0,
+        "max": 900.0,
+        "name": "URXUCR",
+        "default": 108.0
+    },
+    "URXUMA": {
+        "label": "Urine Albumin",
+        "unit": "ug/mL",
+        "type": "continuous",
+        "clinical_role": "Microvascular renal permeability and glomerular integrity",
+        "min": 0.1,
+        "max": 30000.0,
+        "name": "URXUMA",
+        "default": 8.0
+    }
+}

@@ -38,6 +38,10 @@ class ResNet18Wrapper(BaseCTModel):
         self._device = device
         self.model = None
         self.transform = None
+        self.can_federate = True
+        self.federation_strategy = "FedAvg"
+        self.federation_readiness = "READY"
+        self.federation_ineligibility_reason = None
 
     def load(self) -> bool:
         """Loads ResNet18 PyTorch state dict and validation transforms."""

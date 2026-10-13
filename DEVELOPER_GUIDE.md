@@ -117,11 +117,18 @@ Demo accounts created by seed script:
 
 ### Backend Tests & Code Coverage
 ```powershell
-# Run the complete test suite (107 test cases):
-.\backend\.venv\Scripts\python.exe -m pytest -v --cov=backend/app
+# Run the complete test suite (250+ verified test cases across backend and testing):
+.\backend\.venv\Scripts\python.exe -m pytest -v
 
-# Run fast test suite only (skipping slow simulations):
-.\backend\.venv\Scripts\python.exe -m pytest -v -m "not slow"
+# Run targeted test suites for Phase 1 - 4 architectural verifications:
+.\backend\.venv\Scripts\python.exe -m pytest testing\test_phase1_phase2_architecture.py -v
+.\backend\.venv\Scripts\python.exe -m pytest testing\test_phase2_dataset_lifecycle.py -v
+.\backend\.venv\Scripts\python.exe -m pytest testing\test_deployment_gate.py -v
+.\backend\.venv\Scripts\python.exe -m pytest testing\test_dl_model_registry.py -v
+.\backend\.venv\Scripts\python.exe -m pytest testing\test_model_registry.py -v
+.\backend\.venv\Scripts\python.exe -m pytest testing\test_multi_model_inference.py -v
+.\backend\.venv\Scripts\python.exe -m pytest testing\test_live_federated_round.py -v
+.\backend\.venv\Scripts\python.exe -m pytest backend\tests -v
 ```
 
 ### Frontend TypeScript Verification, Linting & Build
