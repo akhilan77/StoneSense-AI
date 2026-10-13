@@ -46,6 +46,8 @@ Prior evaluations reported a near-perfect accuracy of **99.63%** on axial CT sli
 - Slices were reorganized into 979 indivisible cluster units using 64-bit DCT perceptual hashing ($pHash \le 2$).
 - ResNet18 was retrained exclusively on the grouped training set and evaluated on the held-out grouped test set (1,869 slices, 142 clusters).
 
+The restored Kaggle release was independently regrouped by `dl/preprocessing/generate_grouped_split.py`: 12,446 images produced 979 connected components (829 multi-image components), including 517 SHA-256-identical pairs (1,034 images in those pairs) and 6,953 unique pHash edges at distance <=2. This global exact-duplicate pair count is not directly comparable to the historical count of pairs that crossed the old split. The deterministic grouped allocation is train 8,712, validation 1,867, test 1,867; class counts are in `dl/outputs/reports/phash_clusters.json`. All classes occur in all three splits and no group crosses partitions. This demonstrates image-level duplicate isolation only; patient IDs are unavailable.
+
 ### Audited Benchmark Results (Source: [`dl/models/ct/resnet18/metrics.json`](models/ct/resnet18/metrics.json) & [`docs/RESNET18_AUDIT_REPORT.md`](../docs/RESNET18_AUDIT_REPORT.md))
 
 | Metric | Audited Leak-Free Held-Out Test Set | Historical Leaky Baseline (Discredited) |
@@ -58,6 +60,37 @@ Prior evaluations reported a near-perfect accuracy of **99.63%** on axial CT sli
 | **Tumor Recall (Sensitivity)** | **100.0%** (343 / 343) | 99.71% |
 | **Scan / Cluster Accuracy (Majority Vote)** | **96.48%** (137 / 142) | N/A |
 | **Scan / Cluster Macro F1** | **95.47%** | N/A |
+
+---
+
+## QKNN Pipeline and Validation
+
+QKNN is a quantum-kernel nearest-neighbor classifier over frozen 384-dimensional DINOv3 CLS embeddings. Training applies a train-fitted scaler/PCA representation, selects balanced training prototypes, and scores them using a PennyLane `default.qubit` fidelity circuit with Y-axis angle encoding. It is a state-vector simulation, not a quantum-hardware model. The current circuit has no entangling gates; its fidelity can therefore be evaluated exactly as the product of per-coordinate `cos²((x - prototype) / 2)` terms.
+
+`dl/models/wrappers/qknn_wrapper.py` supports both the current `qknn_bundle.joblib` export (including its validation-selected `k`) and the older `qknn_model.pkl`/`pca_pipeline.pkl`/`prototypes.npz` artifacts. Transform order is resolved from the fitted scaler/PCA input dimensions so inference follows the saved training pipeline. Run `python dl/analysis/evaluate_qknn_validation.py` to repeat the neighbor-count and voting-weight sweep on validation embeddings; it uses validation only for selection, then reports one final test evaluation.
+
+The checked-in legacy QKNN test report is 41.95% accuracy and 35.89% macro F1. On the available validation embeddings, similarity-weighted `k=9` improves macro F1 from 40.82% (`k=40`) to 42.78%; that same setting did not improve the held-out test metrics, so the legacy model's default behavior is intentionally unchanged. Test results must be read from the existing prediction export and are not a tuning target.
+
+### Grouped-data prerequisites for QKNN notebooks
+
+`dl/notebooks/03_qknn.ipynb` accepts embedding archives with either `X`/`y`/`paths` or `embeddings`/`labels`/`paths` (the extraction notebook also retains `filenames`). Labels are integer indices `Cyst=0`, `Normal=1`, `Stone=2`, `Tumor=3`. It requires the authoritative `dl/outputs/reports/grouped_split_manifest.csv` with `filename`, `class`, `destination_split`, and `near_duplicate_group_id`; cached group IDs, when present, are checked against it. The notebook rejects incomplete split coverage, path/label mismatches, and any group appearing in multiple splits. It does not infer groups from filenames or path uniqueness.
+
+`dl/notebooks/01_dinov3.ipynb` writes the real manifest group IDs and paths into each embedding cache. An incomplete existing cache is not silently reused; set `RERUN=True` only after restoring the grouped images and manifest. Before replacing any existing cache, the notebook makes a timestamped backup. QKNN experiment exports go to `dl/models/ct/qknn_candidates/qknn/` so they cannot overwrite the legacy baseline.
+
+### Rebuilding the image-level duplicate-aware split
+
+The restored Kaggle images can be grouped without modifying the source tree:
+
+```powershell
+python dl\preprocessing\generate_grouped_split.py `
+  --source-dir "D:\Data\StoneSenseAI\datasets\ct-kidney-kaggle\extracted\CT-KIDNEY-DATASET-Normal-Cyst-Tumor-Stone\CT-KIDNEY-DATASET-Normal-Cyst-Tumor-Stone"
+```
+
+The command hashes every source image with SHA-256, computes a 64-bit DCT pHash, and connects images whose pHash Hamming distance is at most 2. Exact duplicate hashes are also joined. Connected components are indivisible groups; a deterministic, class-stratified greedy allocator targets 70/15/15 and preserves every class in every split. It copies images to the ignored `dl/processed_grouped/` tree and writes `grouped_split_manifest.csv`, `duplicate_analysis.csv`, `phash_clusters.json`, and `phash_duplicates.csv` beneath ignored `dl/outputs/reports/`. It refuses to overwrite any of those outputs; inspect or move them deliberately before any future regeneration.
+
+Connected components are transitive: two images in the same component may be more than two pHash bits apart if linked by intermediate images. pHash is a visual near-duplicate heuristic and can both merge distinct images and miss related images; SHA-256 only identifies byte-identical files. The Kaggle release has no patient identifiers, so these outputs establish image-level exact/near-duplicate isolation only—not patient-level separation.
+
+After a new split is generated, old embedding caches must not be treated as matching it unless their cached paths have the same assigned split. The existing caches currently contain records assigned to different train/validation/test partitions than the newly generated manifest (4,888 of 12,446 cached records disagree on split). The QKNN notebook's manifest join should reject them. Do not evaluate or tune against those caches as though they were generated from this split. Re-extracting embeddings is a separate, explicit follow-up.
 
 ---
 
