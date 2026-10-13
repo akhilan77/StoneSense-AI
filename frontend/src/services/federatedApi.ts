@@ -10,6 +10,7 @@ import {
   FederatedStatus,
   HospitalLiveStatus,
   HospitalParticipation,
+  RoundEventRecord,
   RoundLiveStatus,
   StartRoundResponse,
 } from '../types/federated';
@@ -136,6 +137,20 @@ export async function fetchCurrentRoundLiveStatus(): Promise<RoundLiveStatus> {
 export async function fetchRoundStatusById(roundId: number): Promise<RoundLiveStatus> {
   const { data } = await apiClient.get<RoundLiveStatus>(
     `/api/v1/developer/federated/rounds/${roundId}/status`
+  );
+  return data;
+}
+
+export async function fetchCurrentRoundEvents(): Promise<RoundEventRecord[]> {
+  const { data } = await apiClient.get<RoundEventRecord[]>(
+    '/api/v1/developer/federated/rounds/current/events'
+  );
+  return data;
+}
+
+export async function fetchRoundEvents(roundId: number): Promise<RoundEventRecord[]> {
+  const { data } = await apiClient.get<RoundEventRecord[]>(
+    `/api/v1/developer/federated/rounds/${roundId}/events`
   );
   return data;
 }
