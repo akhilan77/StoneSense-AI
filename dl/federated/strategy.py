@@ -225,7 +225,7 @@ class StoneSenseFedAvg(_FedAvgBase):
         print("\nPersisting metrics to PostgreSQL...")
 
         # Persist to database if enabled
-        if self.db_persist and round_data.get("parameters") is not None:
+        if round_data.get("parameters") is not None:
             raw_ndarrays = parameters_to_ndarrays(round_data["parameters"]) if parameters_to_ndarrays else []
             fit_summary = round_data.get("fit_metrics", {})
             eval_summary = {
@@ -235,15 +235,30 @@ class StoneSenseFedAvg(_FedAvgBase):
                 "precision_macro": metrics_aggregated.get("precision_macro", 0.0),
                 "recall_macro": metrics_aggregated.get("recall_macro", 0.0),
             }
-            persist_round_to_db(
-                round_number=server_round,
-                mode=self.mode,
-                parameters=raw_ndarrays,
-                fit_metrics=fit_summary,
-                eval_metrics=eval_summary,
-                client_runs=client_runs,
-                duration_sec=duration
-            )
+            if self.db_persist:
+                persist_round_to_db(
+                    round_number=server_round,
+                    mode=self.mode,
+                    parameters=raw_ndarrays,
+                    fit_metrics=fit_summary,
+                    eval_metrics=eval_summary,
+                    client_runs=client_runs,
+                    duration_sec=duration
+                )
+            else:
+                class_names = [CLASS_MAPPING[i] for i in range(len(CLASS_MAPPING))]
+                model = build_resnet18_classifier(num_classes=len(class_names), freeze_backbone=False)
+                set_model_parameters(model, raw_ndarrays)
+                model_manager.save_round_checkpoint(
+                    model_state_dict=model.state_dict(),
+                    round_number=server_round,
+                    metrics={
+                        "accuracy": float(metrics_aggregated.get("accuracy", 0.0)),
+                        "f1_macro": float(metrics_aggregated.get("f1_macro", 0.0)),
+                        "val_loss": float(loss_aggregated or 0.0)
+                    },
+                    is_deployed=False
+                )
 
         print(f"\nRound {server_round} completed.")
         print("=" * 50 + "\n")

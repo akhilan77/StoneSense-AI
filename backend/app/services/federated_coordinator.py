@@ -218,6 +218,7 @@ class FederatedCoordinator:
         mode: str = "iid",
         device: str = "auto",
         max_batches: Optional[int] = None,
+        execution_mode: str = "simulation",
     ) -> Dict[str, Any]:
         """Validates and kicks off a live DL federated learning round in background."""
         with self._lock:
@@ -311,7 +312,7 @@ class FederatedCoordinator:
             args=(
                 next_round, local_epochs, batch_size, lr, mode, device,
                 list(self.selected_hospital_codes), list(self.selected_hospital_ids),
-                max_batches, norm_family, min_participants
+                max_batches, norm_family, min_participants, execution_mode
             ),
             daemon=True,
             name=f"FL-Round-{next_round}-Worker",
@@ -325,7 +326,8 @@ class FederatedCoordinator:
             "selected_hospital_ids": self.selected_hospital_ids,
             "model_family": self.model_family,
             "min_participants": self.min_participants,
-            "message": f"DL Federated Round {self.current_round} initiated successfully.",
+            "execution_mode": execution_mode,
+            "message": f"DL Federated Round {self.current_round} initiated successfully ({execution_mode} mode).",
         }
 
     def _run_round_workflow(
@@ -341,6 +343,7 @@ class FederatedCoordinator:
         max_batches: Optional[int] = None,
         model_family: str = "resnet18",
         min_participants: int = 2,
+        execution_mode: str = "simulation",
     ):
         """Worker thread executing the real Flower / FedAvg training and aggregation."""
         try:

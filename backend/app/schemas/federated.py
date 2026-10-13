@@ -141,6 +141,7 @@ class StartRoundRequest(BaseModel):
     lr: float = 0.0005
     mode: str = "iid"
     max_batches: Optional[int] = None
+    execution_mode: str = Field(default="simulation", description="Execution mode: 'simulation' (fast in-process) or 'grpc' (real multi-process Flower gRPC network)")
 
 
 class StartRoundResponse(BaseModel):
@@ -151,6 +152,7 @@ class StartRoundResponse(BaseModel):
     selected_hospital_ids: List[int] = []
     model_family: Optional[str] = "resnet18"
     min_participants: int = 2
+    execution_mode: str = "simulation"
 
 
 class RoundEventOut(BaseModel):

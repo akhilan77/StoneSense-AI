@@ -99,10 +99,12 @@ def start_federated_round(payload: StartRoundRequest, db: Session = Depends(get_
             lr=payload.lr,
             mode=payload.mode,
             max_batches=payload.max_batches,
+            execution_mode=payload.execution_mode,
         )
         res["selected_hospital_ids"] = selected_ids or res.get("selected_hospital_ids", [])
         res["model_family"] = model_family
         res["min_participants"] = payload.min_participants
+        res["execution_mode"] = payload.execution_mode
         return StartRoundResponse(**res)
     except HTTPException:
         raise

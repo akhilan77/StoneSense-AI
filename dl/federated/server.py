@@ -8,11 +8,13 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["FLWR_TELEMETRY_ENABLED"] = "0"
 
 from pathlib import Path
 import sys
 import argparse
 import logging
+from typing import Optional
 import torch
 
 try:
@@ -94,10 +96,15 @@ def start_fl_server(
     server_address: str = "0.0.0.0:8088",
     rounds: int = 3,
     min_clients: int = 3,
-    mode: str = "iid"
+    mode: str = "iid",
+    db_persist: bool = True,
+    models_dir: Optional[str] = None,
 ):
     if fl is None:
         raise RuntimeError("Flower (flwr) package is not installed in current environment.")
+
+    if models_dir:
+        model_manager.set_models_dir(Path(models_dir))
 
     # 1. Instantiate Base ResNet18 model and compute exact parameters
     num_classes = len(CLASS_MAPPING)
@@ -141,7 +148,7 @@ def start_fl_server(
     strategy = StoneSenseFedAvg(
         num_classes=num_classes,
         mode=mode,
-        db_persist=True,
+        db_persist=db_persist,
         min_fit_clients=min_clients,
         min_evaluate_clients=min_clients,
         min_available_clients=min_clients,
@@ -149,7 +156,7 @@ def start_fl_server(
     )
 
     # 4. Start Flower gRPC Server
-    fl.server.start_server(
+    return fl.server.start_server(
         server_address=server_address,
         config=fl.server.ServerConfig(num_rounds=rounds),
         strategy=strategy
@@ -162,11 +169,16 @@ if __name__ == "__main__":
     parser.add_argument("--rounds", type=int, default=3, help="Number of federated learning rounds")
     parser.add_argument("--min-clients", type=int, default=3, help="Minimum hospital clients required")
     parser.add_argument("--mode", type=str, default="iid", choices=["iid", "non-iid"], help="Partition distribution mode")
+    parser.add_argument("--no-db", action="store_true", help="Disable database persistence")
+    parser.add_argument("--models-dir", type=str, default=None, help="Custom models directory for checkpoints")
 
     args = parser.parse_args()
     start_fl_server(
         server_address=args.address,
         rounds=args.rounds,
         min_clients=args.min_clients,
-        mode=args.mode
+        mode=args.mode,
+        db_persist=not args.no_db,
+        models_dir=args.models_dir,
     )
+    sys.exit(0)

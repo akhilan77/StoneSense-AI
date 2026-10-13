@@ -5,6 +5,12 @@ Trains ResNet18 locally on hospital CT partition and transmits ONLY model weight
 Guarantees zero raw patient CT scan transmission outside the hospital boundary.
 """
 
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["FLWR_TELEMETRY_ENABLED"] = "0"
+
 from pathlib import Path
 import sys
 import logging
@@ -57,12 +63,14 @@ class StoneSenseFLClient(_NumPyClientBase):
         partition_dir: Path,
         batch_size: int = 32,
         device: Optional[torch.device] = None,
-        lr: float = 0.001
+        lr: float = 0.001,
+        max_batches: Optional[int] = None,
     ):
         self.hospital_id = hospital_id
         self.partition_dir = Path(partition_dir)
         self.batch_size = batch_size
         self.lr = lr
+        self.max_batches = max_batches
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -129,7 +137,7 @@ class StoneSenseFLClient(_NumPyClientBase):
         print(f"[{h_label}] Privacy guarantee: RAW CT DATA REMAINS LOCAL (never transmitted)")
         print(f"[{h_label}] Local ResNet18 training started on {len(self.train_loader.dataset)} CT scans ({local_epochs} epoch(s))...")
 
-        max_batches = config.get("max_batches")
+        max_batches = config.get("max_batches", self.max_batches)
         self.model, metrics, sample_count = train_local(
             model=self.model,
             train_loader=self.train_loader,
@@ -168,7 +176,7 @@ class StoneSenseFLClient(_NumPyClientBase):
         """Evaluates global model on local hospital validation partition."""
         self.set_parameters(parameters)
 
-        max_batches = config.get("max_batches")
+        max_batches = config.get("max_batches", self.max_batches)
         metrics, sample_count = evaluate_local(
             model=self.model,
             val_loader=self.val_loader,
@@ -182,12 +190,24 @@ class StoneSenseFLClient(_NumPyClientBase):
         return float(metrics["loss"]), sample_count, clean_metrics
 
 
-def create_client(hospital_id: str, partitions_root: Optional[Path] = None, batch_size: int = 32, lr: float = 0.001) -> StoneSenseFLClient:
+def create_client(
+    hospital_id: str,
+    partitions_root: Optional[Path] = None,
+    batch_size: int = 32,
+    lr: float = 0.001,
+    max_batches: Optional[int] = None,
+) -> StoneSenseFLClient:
     """Factory helper to instantiate a client for a given hospital."""
     if partitions_root is None:
         partitions_root = PROJECT_ROOT / "dl" / "datasets" / "partitions"
     hospital_dir = Path(partitions_root) / hospital_id
-    return StoneSenseFLClient(hospital_id=hospital_id, partition_dir=hospital_dir, batch_size=batch_size, lr=lr)
+    return StoneSenseFLClient(
+        hospital_id=hospital_id,
+        partition_dir=hospital_dir,
+        batch_size=batch_size,
+        lr=lr,
+        max_batches=max_batches,
+    )
 
 
 if __name__ == "__main__":
@@ -199,6 +219,8 @@ if __name__ == "__main__":
     parser.add_argument("--server", type=str, default="127.0.0.1:8088", help="Flower server gRPC address")
     parser.add_argument("--batch-size", type=int, default=32, help="Local DataLoader batch size")
     parser.add_argument("--lr", type=float, default=0.0005, help="Local learning rate")
+    parser.add_argument("--partitions-dir", type=str, default=None, help="Custom partitions directory")
+    parser.add_argument("--max-batches", type=int, default=None, help="Max batches per epoch")
 
     args = parser.parse_args()
 
@@ -218,7 +240,7 @@ if __name__ == "__main__":
     print(f"Hospital Identifier:  {hospital_id} -> {hospital_names.get(hospital_id, hospital_id)}")
     print(f"Target Flower Server: {args.server}")
 
-    partitions_root = PROJECT_ROOT / "dl" / "datasets" / "partitions"
+    partitions_root = Path(args.partitions_dir) if args.partitions_dir else PROJECT_ROOT / "dl" / "datasets" / "partitions"
     dist_file = partitions_root / "distribution.json"
     if dist_file.exists():
         try:
@@ -238,12 +260,20 @@ if __name__ == "__main__":
     print(f"\n[{hospital_id}] Connecting to Flower Federated Server at {args.server}...")
     print(f"[{hospital_id}] {hospital_names.get(hospital_id, hospital_id)} connected. Waiting for server to start round...\n")
 
-    client = create_client(hospital_id=hospital_id, partitions_root=partitions_root, batch_size=args.batch_size, lr=args.lr)
+    client = create_client(
+        hospital_id=hospital_id,
+        partitions_root=partitions_root,
+        batch_size=args.batch_size,
+        lr=args.lr,
+        max_batches=args.max_batches,
+    )
 
     try:
         fl.client.start_numpy_client(server_address=args.server, client=client)
+        sys.exit(0)
     except Exception as e:
         print(f"\n[Connection Error] Could not connect to Flower Server at {args.server}.")
         print("Please verify that Terminal 2 (Flower Server) is running first on port 8088:")
         print("  Command: dl\\.venv\\Scripts\\python dl/federated/server.py --rounds 3 --min-clients 3\n")
         print(f"Details: {e}")
+        sys.exit(1)
