@@ -99,6 +99,7 @@ def start_fl_server(
     mode: str = "iid",
     db_persist: bool = True,
     models_dir: Optional[str] = None,
+    round_number: Optional[int] = None,
 ):
     if fl is None:
         raise RuntimeError("Flower (flwr) package is not installed in current environment.")
@@ -149,6 +150,7 @@ def start_fl_server(
         num_classes=num_classes,
         mode=mode,
         db_persist=db_persist,
+        round_number=round_number,
         min_fit_clients=min_clients,
         min_evaluate_clients=min_clients,
         min_available_clients=min_clients,
@@ -167,6 +169,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Start StoneSense-AI Flower Federated Server.")
     parser.add_argument("--address", type=str, default="0.0.0.0:8088", help="Server gRPC address")
     parser.add_argument("--rounds", type=int, default=3, help="Number of federated learning rounds")
+    parser.add_argument("--round-number", type=int, default=None, help="Explicit coordinator round number for persistence")
     parser.add_argument("--min-clients", type=int, default=3, help="Minimum hospital clients required")
     parser.add_argument("--mode", type=str, default="iid", choices=["iid", "non-iid"], help="Partition distribution mode")
     parser.add_argument("--no-db", action="store_true", help="Disable database persistence")
@@ -180,5 +183,6 @@ if __name__ == "__main__":
         mode=args.mode,
         db_persist=not args.no_db,
         models_dir=args.models_dir,
+        round_number=args.round_number,
     )
     sys.exit(0)

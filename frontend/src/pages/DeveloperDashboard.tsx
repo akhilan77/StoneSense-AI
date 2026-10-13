@@ -100,6 +100,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
     localEpochs: 1,
     batchSize: 32,
     learningRate: 0.0005,
+    executionMode: 'simulation' as 'simulation' | 'grpc',
   });
 
   // Filter states
@@ -253,6 +254,7 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
         batch_size: roundConfig.batchSize,
         lr: roundConfig.learningRate,
         mode: 'iid',
+        execution_mode: roundConfig.executionMode,
       });
       setIsRoundModalOpen(false);
       showToast(`Round #${res.round} initiated on central Flower coordinator!`);
@@ -821,9 +823,18 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                     {liveRoundStatus?.previous_model_version ?? 'ResNet18-FL-v2'})
                   </span>
                 </div>
-                <span className="rounded bg-white border border-[#DDE3DC] px-2 py-0.5 text-[10.5px] font-semibold text-[#101B16]/70">
-                  Zero-Raw-CT Privacy Standard
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded border px-2 py-0.5 text-[10.5px] font-semibold ${
+                    liveRoundStatus?.execution_mode === 'grpc'
+                      ? 'border-[#3B3F8C]/40 bg-[#3B3F8C]/10 text-[#3B3F8C]'
+                      : 'border-[#1F6F5C]/40 bg-[#1F6F5C]/10 text-[#1F6F5C]'
+                  }`}>
+                    {liveRoundStatus?.execution_mode === 'grpc' ? 'Flower gRPC (Multi-Process)' : 'Simulation (In-Process)'}
+                  </span>
+                  <span className="rounded bg-white border border-[#DDE3DC] px-2 py-0.5 text-[10.5px] font-semibold text-[#101B16]/70">
+                    Zero-Raw-CT Privacy Standard
+                  </span>
+                </div>
               </div>
 
               {/* Step Sequence Container */}
@@ -2376,6 +2387,41 @@ export default function DeveloperDashboard({ initialTab }: DeveloperDashboardPro
                       </label>
                     );
                   })}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[#101B16]">Execution Engine</h3>
+                <span className="font-mono text-[11px] text-[#101B16]/50">
+                  {roundConfig.executionMode === 'grpc' ? 'Network gRPC (Multi-Process)' : 'In-Process Simulation'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRoundConfig({ ...roundConfig, executionMode: 'simulation' })}
+                  className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                    roundConfig.executionMode === 'simulation'
+                      ? 'border-[#1F6F5C] bg-[#1F6F5C]/10 text-[#1F6F5C] font-semibold ring-1 ring-[#1F6F5C]'
+                      : 'border-[#DDE3DC] bg-white text-[#101B16]/70 hover:bg-[#F7F9F6]'
+                  }`}
+                >
+                  <div className="font-medium">Simulation Mode</div>
+                  <div className="text-[10px] text-[#101B16]/50">Fast in-process test</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoundConfig({ ...roundConfig, executionMode: 'grpc' })}
+                  className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                    roundConfig.executionMode === 'grpc'
+                      ? 'border-[#3B3F8C] bg-[#3B3F8C]/10 text-[#3B3F8C] font-semibold ring-1 ring-[#3B3F8C]'
+                      : 'border-[#DDE3DC] bg-white text-[#101B16]/70 hover:bg-[#F7F9F6]'
+                  }`}
+                >
+                  <div className="font-medium">Flower gRPC Mode</div>
+                  <div className="text-[10px] text-[#101B16]/50">Real multi-process network</div>
+                </button>
               </div>
             </div>
 

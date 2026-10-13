@@ -119,6 +119,7 @@ export async function startFederatedRound(params?: {
   batch_size?: number;
   lr?: number;
   mode?: string;
+  execution_mode?: 'simulation' | 'grpc';
 }): Promise<StartRoundResponse> {
   const { data } = await apiClient.post<StartRoundResponse>(
     '/api/v1/developer/federated/rounds/start',

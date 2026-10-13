@@ -100,6 +100,7 @@ class FlowerGRPCRunner:
         host: str = "127.0.0.1",
         port: Optional[int] = None,
         rounds: int = 1,
+        round_number: Optional[int] = None,
         min_clients: int = 2,
         models_dir: Optional[Path] = None,
         partitions_dir: Optional[Path] = None,
@@ -110,6 +111,7 @@ class FlowerGRPCRunner:
         self.port = port or find_free_port()
         self.server_address = f"{self.host}:{self.port}"
         self.rounds = rounds
+        self.round_number = round_number
         self.min_clients = min_clients
         self.models_dir = Path(models_dir) if models_dir else (DL_ROOT / "models")
         self.partitions_dir = Path(partitions_dir) if partitions_dir else (DL_ROOT / "datasets" / "partitions")
@@ -138,6 +140,8 @@ class FlowerGRPCRunner:
             "--min-clients", str(self.min_clients),
             "--models-dir", str(self.models_dir),
         ]
+        if self.round_number is not None:
+            cmd.extend(["--round-number", str(self.round_number)])
         if not self.db_persist:
             cmd.append("--no-db")
 
@@ -291,7 +295,8 @@ class FlowerGRPCRunner:
                 and all(code == 0 for k, code in self.exit_codes.items() if k != "server")
             )
 
-            expected_ckpt = self.models_dir / "federated" / f"resnet18_fed_round_{self.rounds:03d}.pth"
+            target_round = self.round_number if self.round_number is not None else self.rounds
+            expected_ckpt = self.models_dir / "federated" / f"resnet18_fed_round_{target_round:03d}.pth"
 
             return {
                 "success": success,

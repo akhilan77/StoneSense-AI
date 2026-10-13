@@ -192,6 +192,7 @@ class RoundLiveStatusResponse(BaseModel):
     current_step: Optional[str] = None
     error_message: Optional[str] = None
     metrics: Optional[Dict[str, Any]] = None
+    execution_mode: Optional[str] = "simulation"
 
 
 class HospitalLiveStatusResponse(BaseModel):

@@ -99,6 +99,7 @@ class StoneSenseFedAvg(_FedAvgBase):
         num_classes: int = 4,
         mode: str = "iid",
         db_persist: bool = True,
+        round_number: Optional[int] = None,
         *args,
         **kwargs
     ):
@@ -111,6 +112,7 @@ class StoneSenseFedAvg(_FedAvgBase):
         self.num_classes = num_classes
         self.mode = mode
         self.db_persist = db_persist
+        self.round_number = round_number
         self.round_start_time = datetime.utcnow()
         self.latest_round_metrics: Dict[int, Dict[str, Any]] = {}
 
@@ -138,11 +140,13 @@ class StoneSenseFedAvg(_FedAvgBase):
         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregates fit results, extracts per-hospital telemetry, and weights."""
+        effective_round = self.round_number if self.round_number is not None else server_round
+        prev_round = max(effective_round - 1, 0)
+        prev_ver = f"v{prev_round}" if prev_round > 0 else "v0"
         print("")
         print("=" * 50)
-        print(f"FEDERATED ROUND {server_round}")
+        print(f"FEDERATED ROUND {effective_round}")
         print("=" * 50)
-        prev_ver = f"v{server_round-1}" if server_round > 1 else "v0"
         print(f"\nGlobal Model: {prev_ver}")
         print("\nClients selected:")
         print("- Hospital 1 (Apollo Kidney Care)")
@@ -214,9 +218,11 @@ class StoneSenseFedAvg(_FedAvgBase):
                     run["val_acc"] = float(m.get("accuracy", 0.0))
                     run["val_f1"] = float(m.get("f1_macro", 0.0))
 
-        prev_ver = f"v{server_round-1}" if server_round > 1 else "v0"
-        new_ver = f"v{server_round}"
-        ckpt_file = f"resnet18_fed_round_{server_round:03d}.pth"
+        effective_round = self.round_number if self.round_number is not None else server_round
+        prev_round = max(effective_round - 1, 0)
+        prev_ver = f"v{prev_round}" if prev_round > 0 else "v0"
+        new_ver = f"v{effective_round}"
+        ckpt_file = f"resnet18_fed_round_{effective_round:03d}.pth"
 
         print("\nGlobal Model:")
         print(f"  Previous: {prev_ver}")
@@ -237,7 +243,7 @@ class StoneSenseFedAvg(_FedAvgBase):
             }
             if self.db_persist:
                 persist_round_to_db(
-                    round_number=server_round,
+                    round_number=effective_round,
                     mode=self.mode,
                     parameters=raw_ndarrays,
                     fit_metrics=fit_summary,
@@ -251,7 +257,7 @@ class StoneSenseFedAvg(_FedAvgBase):
                 set_model_parameters(model, raw_ndarrays)
                 model_manager.save_round_checkpoint(
                     model_state_dict=model.state_dict(),
-                    round_number=server_round,
+                    round_number=effective_round,
                     metrics={
                         "accuracy": float(metrics_aggregated.get("accuracy", 0.0)),
                         "f1_macro": float(metrics_aggregated.get("f1_macro", 0.0)),
@@ -260,7 +266,7 @@ class StoneSenseFedAvg(_FedAvgBase):
                     is_deployed=False
                 )
 
-        print(f"\nRound {server_round} completed.")
+        print(f"\nRound {effective_round} completed.")
         print("=" * 50 + "\n")
 
         return loss_aggregated, metrics_aggregated

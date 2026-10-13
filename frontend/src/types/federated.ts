@@ -157,6 +157,7 @@ export interface RoundLiveStatus {
     recall?: number;
   };
   selected_hospital_ids?: number[];
+  execution_mode?: 'simulation' | 'grpc' | string;
 }
 
 export interface HospitalLiveStatus {
@@ -188,6 +189,7 @@ export interface FederatedEventMessage {
   previous_model_version?: string;
   status?: string;
   current_step?: string;
+  execution_mode?: 'simulation' | 'grpc' | string;
   data?: Record<string, any>;
   payload?: Record<string, any>;
   timestamp?: string;
@@ -198,4 +200,5 @@ export interface StartRoundResponse {
   status: string;
   global_model_version: string;
   message?: string;
+  execution_mode?: 'simulation' | 'grpc' | string;
 }

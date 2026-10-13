@@ -151,3 +151,34 @@ def test_grpc_runner_cleanup_on_timeout():
     runner.cleanup()
     time.sleep(0.5)
     assert proc.poll() is not None
+
+
+def test_grpc_runner_handles_client_crash(tmp_path):
+    """Verify FlowerGRPCRunner detects client crash, raises RuntimeError, and reaps all processes."""
+    test_models_dir = tmp_path / "models"
+    test_models_dir.mkdir(parents=True, exist_ok=True)
+    test_partitions_dir = tmp_path / "partitions"
+    test_partitions_dir.mkdir(parents=True, exist_ok=True)
+    # Note: partitions are intentionally NOT created so client exits with error
+
+    runner = FlowerGRPCRunner(
+        host="127.0.0.1",
+        rounds=1,
+        min_clients=2,
+        models_dir=test_models_dir,
+        partitions_dir=test_partitions_dir,
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        runner.run_round(
+            client_ids=["hospital_1", "hospital_2"],
+            round_timeout=15.0,
+        )
+
+    assert "exited prematurely" in str(exc_info.value)
+    # Ensure server and clients were terminated
+    if runner.server_process:
+        assert runner.server_process.poll() is not None
+    for p in runner.client_processes.values():
+        assert p.poll() is not None
+

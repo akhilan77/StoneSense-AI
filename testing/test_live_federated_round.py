@@ -146,3 +146,71 @@ def test_end_to_end_fl_execution_and_persistence():
     finally:
         db.close()
 
+
+def test_start_federated_round_api_grpc_mode():
+    """Verify that selecting 'grpc' execution mode via API initiates real Flower gRPC multi-process round."""
+    # Ensure coordinator is not busy
+    max_wait = 60
+    start_t = time.time()
+    while federated_coordinator.is_running and (time.time() - start_t < max_wait):
+        time.sleep(0.5)
+
+    base_prod_model = PROJECT_ROOT / "dl" / "models" / "kidney_resnet18.pth"
+    prod_mtime = base_prod_model.stat().st_mtime if base_prod_model.exists() else None
+
+    response = client.post(
+        "/api/v1/developer/federated/rounds/start",
+        json={
+            "execution_mode": "grpc",
+            "num_rounds": 1,
+            "min_participants": 2,
+            "max_batches": 1,
+            "batch_size": 4,
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "started"
+    assert data["execution_mode"] == "grpc"
+    target_round = data["round"]
+
+    # Verify live round status endpoint reflects gRPC mode
+    status_res = client.get("/api/v1/developer/federated/rounds/current/status")
+    assert status_res.status_code == 200
+    status_data = status_res.json()
+    assert status_data["execution_mode"] == "grpc"
+
+    # Wait for completion
+    timeout = 120
+    t0 = time.time()
+    while federated_coordinator.is_running and (time.time() - t0 < timeout):
+        time.sleep(1)
+
+    assert federated_coordinator.is_running is False
+    assert federated_coordinator.status == "COMPLETED"
+
+    db = SessionLocal()
+    try:
+        # Verify Database Agreement
+        fed_round = db.query(FederatedRound).filter_by(round_number=target_round).first()
+        assert fed_round is not None
+        assert fed_round.status == "completed"
+
+        tag = f"resnet18_fed_round_{target_round:03d}"
+        mv = db.query(ModelVersion).filter_by(version_tag=tag).first()
+        assert mv is not None
+        assert mv.is_deployed is False
+        assert mv.status in ["eligible", "rejected", "pending_review"]
+        assert mv.gate_report is not None
+
+        # Verify Checkpoint on disk
+        from dl.federated.model_manager import model_manager
+        expected_ckpt = model_manager.fed_dir / f"{tag}.pth"
+        assert expected_ckpt.exists()
+
+        # Verify kidney_resnet18.pth was untouched
+        if prod_mtime is not None:
+            assert base_prod_model.stat().st_mtime == prod_mtime
+    finally:
+        db.close()
+
