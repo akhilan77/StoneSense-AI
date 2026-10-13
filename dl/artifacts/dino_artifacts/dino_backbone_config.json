@@ -1,0 +1,6 @@
+{
+  "model_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+  "hidden_size": 384,
+  "input_size": 224,
+  "feature": "ViT CLS token"
+}
