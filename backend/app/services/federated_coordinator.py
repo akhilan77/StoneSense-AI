@@ -31,6 +31,7 @@ sys.path.append(str(DL_ROOT / "federated"))
 from app.services.ws_manager import ws_manager
 from app.db.database import SessionLocal, init_db
 from app.db.models import Hospital, FederatedRound, HospitalTrainingRun, ModelVersion, HospitalUpdateLog, RoundEvent
+from dl.federated.model_manager import model_manager
 
 logger = logging.getLogger("StoneSenseFLCoordinator")
 
@@ -815,18 +816,145 @@ class FederatedCoordinator:
             for h_code, client_data in self.clients_status.items():
                 if client_data.get("status") not in (HOSPITAL_COMPLETED, HOSPITAL_MODEL_UPDATED):
                     self._set_hospital_state(h_code, HOSPITAL_FAILED, "HOSPITAL_ROUND_FAILED", error=str(e))
+
+            # Persist failure to database for truthful recovery and audit
+            try:
+                db_err = SessionLocal()
+                duration = (datetime.utcnow() - self.round_start_time).total_seconds() if self.round_start_time else 0.0
+                fed_round_failed = db_err.query(FederatedRound).filter_by(round_number=round_num).first()
+                if not fed_round_failed:
+                    fed_round_failed = FederatedRound(
+                        round_number=round_num,
+                        mode=mode,
+                        selected_hospital_ids=selected_hospital_ids,
+                        participants_count=len(selected_hospital_codes),
+                        model_family=model_family,
+                        min_participants=min_participants,
+                        status="failed",
+                        duration_sec=duration,
+                        completed_at=datetime.utcnow(),
+                    )
+                    db_err.add(fed_round_failed)
+                    db_err.flush()
+                else:
+                    fed_round_failed.status = "failed"
+                    fed_round_failed.duration_sec = duration
+
+                db_err.query(RoundEvent).filter_by(round_number=round_num, round_id=None).update({"round_id": fed_round_failed.id})
+                db_err.commit()
+                db_err.close()
+            except Exception as e_fail_persist:
+                logger.debug(f"Failed to persist round failure: {e_fail_persist}")
         finally:
             with self._lock:
                 self.is_running = False
 
     def get_live_round_status(self, round_id: Optional[int] = None) -> Dict[str, Any]:
-        """Returns live status of current or most recent round."""
+        """Returns live status of current or specific/most recent round, recovering from DB if idle."""
+        # If looking up a historical round or if coordinator is idle/not running, recover from DB
+        if round_id is not None or not self.is_running:
+            try:
+                db = SessionLocal()
+                if round_id is not None:
+                    fed_round = db.query(FederatedRound).filter(
+                        (FederatedRound.id == round_id) | (FederatedRound.round_number == round_id)
+                    ).first()
+                else:
+                    fed_round = db.query(FederatedRound).order_by(FederatedRound.round_number.desc()).first()
+
+                if fed_round:
+                    r_num = fed_round.round_number
+                    mv = db.query(ModelVersion).filter_by(version_tag=f"resnet18_fed_round_{r_num:03d}").first()
+                    if not mv:
+                        mv = db.query(ModelVersion).filter_by(round_id=fed_round.id).first()
+
+                    prev_num = max(r_num - 1, 1)
+                    prev_ver = f"resnet18_fed_round_{prev_num:03d}" if prev_num < r_num else "resnet18_centralized_v1"
+
+                    runs = db.query(HospitalTrainingRun).filter_by(round_number=r_num).all()
+                    clients = []
+                    for h_code in ["HOSP-001", "HOSP-002", "HOSP-003"]:
+                        h_name = HOSPITAL_NAMES.get(h_code, f"Hospital {h_code}")
+                        run = next((r for r in runs if r.hospital_code == h_code), None)
+                        if run:
+                            clients.append({
+                                "hospital_id": h_code,
+                                "hospital_name": h_name,
+                                "status": HOSPITAL_COMPLETED if fed_round.status == "completed" else HOSPITAL_FAILED,
+                                "samples": run.sample_count,
+                                "accuracy": run.val_acc or run.train_acc,
+                                "f1": run.val_f1 or run.train_f1,
+                                "loss": run.val_loss or run.train_loss,
+                                "duration_sec": run.duration_sec,
+                                "update_submitted": True,
+                                "model_updated": fed_round.status == "completed",
+                            })
+                        else:
+                            is_sel = bool(fed_round.selected_hospital_ids and (
+                                (h_code == "HOSP-001" and 1 in fed_round.selected_hospital_ids) or
+                                (h_code == "HOSP-002" and 2 in fed_round.selected_hospital_ids) or
+                                (h_code == "HOSP-003" and 3 in fed_round.selected_hospital_ids)
+                            ))
+                            clients.append({
+                                "hospital_id": h_code,
+                                "hospital_name": h_name,
+                                "status": HOSPITAL_FAILED if (is_sel and fed_round.status == "failed") else HOSPITAL_NOT_SELECTED,
+                                "samples": None,
+                                "accuracy": None,
+                                "f1": None,
+                                "loss": None,
+                                "duration_sec": None,
+                                "update_submitted": False,
+                                "model_updated": False,
+                            })
+
+                    gate_rep = mv.gate_report if mv and isinstance(mv.gate_report, dict) else {}
+                    cand_metrics = gate_rep.get("candidate_metrics", {})
+                    metrics = {
+                        "accuracy": round(fed_round.global_val_acc, 4) if fed_round.global_val_acc is not None else None,
+                        "f1": round(fed_round.global_val_f1, 4) if fed_round.global_val_f1 is not None else None,
+                        "loss": round(fed_round.global_val_loss, 4) if fed_round.global_val_loss is not None else None,
+                        "precision": round(fed_round.global_val_precision, 4) if fed_round.global_val_precision is not None else None,
+                        "recall": round(fed_round.global_val_recall, 4) if fed_round.global_val_recall is not None else None,
+                        "recall_stone": round(float(cand_metrics.get("recall_stone", 0.0)), 4) if cand_metrics.get("recall_stone") is not None else None,
+                        "recall_tumor": round(float(cand_metrics.get("recall_tumor", 0.0)), 4) if cand_metrics.get("recall_tumor") is not None else None,
+                    }
+
+                    completed_count = sum(1 for c in clients if c["status"] == HOSPITAL_COMPLETED)
+                    part_count = len([c for c in clients if c["status"] in (HOSPITAL_COMPLETED, HOSPITAL_FAILED)])
+
+                    checkpoint_filename = f"resnet18_fed_round_{r_num:03d}.pth"
+                    checkpoint_full = str(model_manager.models_dir / "federated" / checkpoint_filename)
+
+                    db.close()
+                    return {
+                        "round": r_num,
+                        "status": "COMPLETED" if fed_round.status == "completed" else "FAILED",
+                        "previous_model_version": prev_ver,
+                        "global_model_version": mv.version_tag if mv else f"resnet18_fed_round_{r_num:03d}",
+                        "participating_hospitals": part_count or len(clients),
+                        "completed_hospitals": completed_count,
+                        "clients": clients,
+                        "current_step": "Round execution completed" if fed_round.status == "completed" else "Round execution failed",
+                        "error_message": None if fed_round.status == "completed" else "Round failed",
+                        "metrics": metrics,
+                        "execution_mode": getattr(self, "execution_mode", "simulation"),
+                        "checkpoint_path": checkpoint_full,
+                        "gate_status": mv.status if mv else "pending_review",
+                        "is_deployed": mv.is_deployed if mv else False,
+                    }
+                db.close()
+            except Exception as e_rec:
+                logger.debug(f"Note recovering round status from DB: {e_rec}")
+
         completed_count = sum(
             1 for c in self.clients_status.values()
             if c.get("hospital_id") in self.selected_hospital_codes
             and c.get("status") in (HOSPITAL_COMPLETED, HOSPITAL_MODEL_UPDATED)
         )
         clients_list = list(self.clients_status.values())
+        checkpoint_filename = f"resnet18_fed_round_{self.current_round:03d}.pth"
+        checkpoint_full = str(model_manager.models_dir / "federated" / checkpoint_filename)
 
         return {
             "round": self.current_round,
@@ -840,6 +968,9 @@ class FederatedCoordinator:
             "error_message": self.error_message,
             "metrics": self.latest_round_metrics,
             "execution_mode": self.execution_mode,
+            "checkpoint_path": checkpoint_full if self.status == "COMPLETED" else None,
+            "gate_status": "pending_review",
+            "is_deployed": False,
         }
 
     def get_hospital_live_status(self, hospital_identifier: str) -> Dict[str, Any]:
@@ -847,7 +978,27 @@ class FederatedCoordinator:
         db_code = HOSPITAL_CODE_MAP.get(str(hospital_identifier), str(hospital_identifier))
         if db_code not in self.clients_status:
             raise KeyError(f"Unknown hospital identifier: {hospital_identifier}")
-        client_data = self.clients_status.get(db_code, {})
+        client_data = dict(self.clients_status.get(db_code, {}))
+
+        if not self.is_running and client_data.get("samples") is None:
+            try:
+                db = SessionLocal()
+                latest_run = (
+                    db.query(HospitalTrainingRun)
+                    .filter_by(hospital_code=db_code)
+                    .order_by(HospitalTrainingRun.round_number.desc())
+                    .first()
+                )
+                if latest_run:
+                    client_data["samples"] = latest_run.sample_count
+                    client_data["accuracy"] = latest_run.val_acc or latest_run.train_acc
+                    client_data["f1"] = latest_run.val_f1 or latest_run.train_f1
+                    client_data["loss"] = latest_run.val_loss or latest_run.train_loss
+                    client_data["duration_sec"] = latest_run.duration_sec
+                    client_data["status"] = HOSPITAL_COMPLETED
+                db.close()
+            except Exception as e_h:
+                logger.debug(f"Note hydrating hospital status from DB: {e_h}")
 
         return {
             "hospital_id": db_code,

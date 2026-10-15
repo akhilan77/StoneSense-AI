@@ -193,6 +193,9 @@ class RoundLiveStatusResponse(BaseModel):
     error_message: Optional[str] = None
     metrics: Optional[Dict[str, Any]] = None
     execution_mode: Optional[str] = "simulation"
+    checkpoint_path: Optional[str] = None
+    gate_status: Optional[str] = None
+    is_deployed: Optional[bool] = False
 
 
 class HospitalLiveStatusResponse(BaseModel):

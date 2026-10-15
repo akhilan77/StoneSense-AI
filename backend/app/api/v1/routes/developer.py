@@ -128,6 +128,22 @@ def get_round_status_by_id(round_id: int):
     return federated_coordinator.get_live_round_status(round_id)
 
 
+@router.get("/federated/rounds/current/events", response_model=List[RoundEventOut])
+def get_current_round_events(db: Session = Depends(get_db)):
+    """Returns persistent chronological lifecycle events for the current active or latest round."""
+    target_round_num = federated_coordinator.current_round
+    if not target_round_num:
+        latest = db.query(FederatedRound).order_by(FederatedRound.round_number.desc()).first()
+        target_round_num = latest.round_number if latest else 1
+    events = (
+        db.query(RoundEvent)
+        .filter(RoundEvent.round_number == target_round_num)
+        .order_by(RoundEvent.id.asc())
+        .all()
+    )
+    return events
+
+
 @router.get("/federated/rounds/{round_id}/events", response_model=List[RoundEventOut])
 def get_round_events(round_id: int, db: Session = Depends(get_db)):
     """Returns persistent chronological lifecycle events for a specific round."""

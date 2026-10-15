@@ -155,9 +155,27 @@ export interface RoundLiveStatus {
     loss?: number;
     precision?: number;
     recall?: number;
+    recall_stone?: number;
+    recall_tumor?: number;
+    [key: string]: any;
   };
   selected_hospital_ids?: number[];
   execution_mode?: 'simulation' | 'grpc' | string;
+  checkpoint_path?: string;
+  gate_status?: string;
+  is_deployed?: boolean;
+}
+
+export interface RoundEventRecord {
+  id: number;
+  round_number: number;
+  round_id?: number | null;
+  event_type: string;
+  stage?: string | null;
+  hospital_id?: number | null;
+  hospital_code?: string | null;
+  data?: Record<string, any>;
+  created_at: string;
 }
 
 export interface HospitalLiveStatus {

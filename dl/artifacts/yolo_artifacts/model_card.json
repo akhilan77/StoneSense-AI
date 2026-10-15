@@ -1,0 +1,22 @@
+{
+  "model_name": "YOLO26",
+  "model_family": "yolo26",
+  "variant": "yolo26n-cls",
+  "task": "4-class kidney CT image classification",
+  "test_accuracy": 0.9218833600856072,
+  "test_f1_macro": 0.9047056468363432,
+  "stone_recall": 0.9420289855072463,
+  "tumor_recall": 0.9912536443148688,
+  "test_samples": 1869,
+  "evaluated_at_utc": "2026-10-08T08:38:37.666824+00:00",
+  "classes": [
+    "Cyst",
+    "Normal",
+    "Stone",
+    "Tumor"
+  ],
+  "input_size": [
+    224,
+    224
+  ]
+}
