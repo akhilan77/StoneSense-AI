@@ -1,5 +1,6 @@
 import type { PatientRecord } from '../types/dashboard';
 import type { DLModelListResponse, StoneDetection } from '../types/stoneDetection';
+import type { NhanesCompareResponse, NhanesFeatureSpecResponse, NhanesFeatureValues } from '../types/riskPrediction';
 import { apiClient } from './apiClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -63,6 +64,21 @@ export async function health(): Promise<HealthResponse> {
 
 export async function predictRisk(payload: unknown): Promise<RiskPrediction> {
   const response = await api.post<RiskPrediction>('/api/v1/predict/risk', payload);
+  return response.data;
+}
+
+export async function fetchNhanesSpec(): Promise<NhanesFeatureSpecResponse> {
+  const response = await api.get<NhanesFeatureSpecResponse>('/api/v1/predict/risk/compare/spec');
+  return response.data;
+}
+
+export async function predictRiskCompare(payload: {
+  features: NhanesFeatureValues;
+  hospital_id: number;
+  patient_id?: number;
+  operating_point?: 'accuracy' | 'balanced';
+}): Promise<NhanesCompareResponse> {
+  const response = await api.post<NhanesCompareResponse>('/api/v1/predict/risk/compare', payload);
   return response.data;
 }
 

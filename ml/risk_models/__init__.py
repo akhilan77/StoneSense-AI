@@ -5,8 +5,14 @@ from .wrappers import (
     LogisticRegressionRiskModel,
     RandomForestRiskModel,
     XGBoostRiskModel,
+    XGBoostNhanesRiskModel,
+    CatBoostRiskModel,
+    LightGBMRiskModel,
+    EBMRiskModel,
+    NhanesBundleRiskModel,
     FAMILY_MODEL_MAP,
 )
+from .nhanes_bundle import NhanesBundle
 from .registry import ModelRegistry, registry
 
 __all__ = [
@@ -14,6 +20,12 @@ __all__ = [
     "LogisticRegressionRiskModel",
     "RandomForestRiskModel",
     "XGBoostRiskModel",
+    "XGBoostNhanesRiskModel",
+    "CatBoostRiskModel",
+    "LightGBMRiskModel",
+    "EBMRiskModel",
+    "NhanesBundleRiskModel",
+    "NhanesBundle",
     "FAMILY_MODEL_MAP",
     "ModelRegistry",
     "registry",

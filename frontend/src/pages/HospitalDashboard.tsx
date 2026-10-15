@@ -5,6 +5,9 @@ import { useHospital } from '../context/useHospital';
 import { createPatient, fetchPatients, predictImage, predictRisk, RiskPrediction } from '../services/api';
 import { StoneDetection } from '../types/stoneDetection';
 import { ConcordanceCard } from '../components/ConcordanceCard';
+import { NhanesClinicalProfile } from '../components/NhanesClinicalProfile';
+import { NhanesComparisonResults } from '../components/NhanesComparisonResults';
+import type { NhanesCompareResponse } from '../types/riskPrediction';
 import type { ImagingOutputInput, TabularRiskInput } from '../types/concordance';
 import {
   createFederatedWebSocket,
@@ -176,6 +179,8 @@ export default function HospitalDashboard() {
   const [urea, setUrea] = useState('380');
   const [calcium, setCalcium] = useState('4.5');
   const [workflowRiskResult, setWorkflowRiskResult] = useState<RiskPrediction | null>(null);
+  const [riskMode, setRiskMode] = useState<'urine' | 'nhanes'>('urine');
+  const [nhanesResult, setNhanesResult] = useState<NhanesCompareResponse | null>(null);
   const [workflowCtResult, setWorkflowCtResult] = useState<StoneDetection | null>(null);
   const [workflowCtFile, setWorkflowCtFile] = useState<File | null>(null);
   const [isEvaluatingWorkflow, setIsEvaluatingWorkflow] = useState(false);
@@ -221,6 +226,7 @@ export default function HospitalDashboard() {
     setIsEvaluatingWorkflow(true);
     showToast('Evaluating clinical biomarker risk and CT image slices...');
     try {
+      if (riskMode === 'urine') {
       const riskPayload = {
         age: 45,
         gender: 'male',
@@ -243,6 +249,7 @@ export default function HospitalDashboard() {
 
       const riskRes = await predictRisk(riskPayload);
       setWorkflowRiskResult(riskRes);
+      }
 
       if (workflowCtFile) {
         const formData = new FormData();
@@ -854,9 +861,47 @@ export default function HospitalDashboard() {
                     Patient input
                   </h2>
                   <p className="text-xs text-[#101B16]/55 mb-4">
-                    Urine biomarkers and CT scan slice for{' '}
+                    {riskMode === 'urine' ? 'Urine biomarkers' : 'Clinical profile (NHANES)'} and CT scan slice for{' '}
                     {selectedPatientForWorkflow?.name ?? 'this patient'}.
                   </p>
+                  <div role="tablist" aria-label="Risk model input" className="mb-4 inline-flex rounded-lg border border-[#DDE3DC] bg-white p-1">
+                    {([
+                      ['urine', 'Urine biomarkers'],
+                      ['nhanes', 'Clinical profile (NHANES)'],
+                    ] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        role="tab"
+                        type="button"
+                        aria-selected={riskMode === key}
+                        onClick={() => setRiskMode(key)}
+                        className={`rounded-md px-3 py-1 text-xs font-medium cursor-pointer ${
+                          riskMode === key ? 'bg-[#1F6F5C] text-white' : 'text-[#101B16]/70 hover:bg-black/5'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {riskMode === 'nhanes' && (
+                    <div className="mb-4">
+                      <NhanesClinicalProfile
+                        key={selectedPatientForWorkflow?.id ?? 'none'}
+                        patientId={selectedPatientForWorkflow?.id}
+                        hospitalId={activeHospId}
+                        showResults={false}
+                        onResult={setNhanesResult}
+                        submitLabel="Score clinical profile"
+                      />
+                      {nhanesResult && (
+                        <p className="mt-2 text-xs text-[#1F6F5C]">
+                          Scored: average {(nhanesResult.average_probability * 100).toFixed(1)}% across {nhanesResult.models.length} models.
+                          Open &quot;ML &amp; DL results&quot; to compare them.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {riskMode === 'urine' && (
                   <div className="grid grid-cols-2 gap-3">
                     <label className="text-xs text-[#101B16]/60">
                       <span className="block mb-1 font-medium">Specific gravity</span>
@@ -907,6 +952,7 @@ export default function HospitalDashboard() {
                       />
                     </label>
                   </div>
+                  )}
                   <label className="mt-4 block rounded-lg border border-dashed border-[#DDE3DC] p-6 text-center text-xs text-[#101B16]/55 cursor-pointer hover:border-[#1F6F5C]/50 transition-colors bg-[#F9FAF8]">
                     <span className="block font-medium text-[#101B16]">
                       {workflowCtFile ? `Selected: ${workflowCtFile.name}` : 'Drop a CT scan slice here (PNG / JPG)'}
@@ -932,7 +978,13 @@ export default function HospitalDashboard() {
                     disabled={isEvaluatingWorkflow}
                     className="btn-primary mt-4 rounded-md bg-[#1F6F5C] px-5 py-2.5 text-xs font-medium text-white hover:bg-[#185849] cursor-pointer shadow-xs disabled:opacity-50"
                   >
-                    {isEvaluatingWorkflow ? 'Evaluating assessments...' : 'Run clinical assessment'}
+                    {isEvaluatingWorkflow
+                      ? 'Evaluating assessments...'
+                      : riskMode === 'nhanes'
+                      ? workflowCtFile
+                        ? 'Run CT & view results'
+                        : 'View results'
+                      : 'Run clinical assessment'}
                   </button>
                 </div>
               )}
@@ -972,7 +1024,9 @@ export default function HospitalDashboard() {
                         </>
                       ) : (
                         <p className="text-xs text-[#101B16]/50 mt-2">
-                          Assessment pending. Provide urine biomarker values in Step 1.
+                          {nhanesResult
+                            ? 'Urine-model assessment not run. See the NHANES four-model comparison below.'
+                            : 'Assessment pending. Provide urine biomarker values in Step 1.'}
                         </p>
                       )}
                       <button
@@ -1028,6 +1082,11 @@ export default function HospitalDashboard() {
                       </button>
                     </div>
                   </div>
+                  {nhanesResult && (
+                    <div className="mt-6">
+                      <NhanesComparisonResults result={nhanesResult} />
+                    </div>
+                  )}
                   <div className="mt-6 flex justify-end">
                     <button
                       onClick={() => setActiveStep('explain')}

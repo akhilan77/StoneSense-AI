@@ -1,0 +1,35 @@
+{
+  "hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+  "cohort_file": "nhanes_kidney_stone_cohort_v2.csv",
+  "cohort_sha256": "4b6cf9a2e01ed265da6ab52a33ab5313282fe2baa3bd05e3a62cd5bdd1e0f75a",
+  "cycles": {
+    "train": [
+      "2007-2008",
+      "2009-2010",
+      "2011-2012",
+      "2013-2014"
+    ],
+    "validation": [
+      "2015-2016"
+    ],
+    "test": [
+      "2017-2018"
+    ]
+  },
+  "counts": {
+    "train": 23416,
+    "validation": 5705,
+    "test": 5558
+  },
+  "positives": {
+    "train": 2074,
+    "validation": 606,
+    "test": 554
+  },
+  "positive_rate": {
+    "train": 0.0886,
+    "validation": 0.1062,
+    "test": 0.0997
+  },
+  "seed": 42
+}

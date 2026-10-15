@@ -73,6 +73,7 @@ flowchart TD
 | **Image Upload Validation & OOD Gate** | **DONE** | Implemented in [`backend/app/utils/image_utils.py`](backend/app/utils/image_utils.py) and `/api/v1/predict/image`. Enforces bounded 10 MB payload limits (HTTP 413), content-based magic bytes verification (PNG/JPEG only, HTTP 415), scoped Pillow decompression-bomb rejection at 1x MAX_IMAGE_PIXELS (HTTP 413), degenerate dimension & aspect ratio checks, and model-level OOD/uncertainty gate. |
 | **Authentication & RBAC** | **DONE** | JWT access/refresh tokens with bcrypt password hashing; role-based access control (`hospital_user`, `developer`, `admin`) and hospital scoping enforced in [`backend/app/core/auth.py`](backend/app/core/auth.py). Audit logging to database records all administrative and clinical actions without logging PII. |
 | **Patient Record Encryption (PII)** | **DONE** | Implemented in [`backend/app/core/pii_crypto.py`](backend/app/core/pii_crypto.py) and [`backend/app/db/pii_types.py`](backend/app/db/pii_types.py). Authenticated AES-256-GCM column encryption with fresh 96-bit nonces for `name`, `phone`, `email` in SQLite/PostgreSQL. Keyed HMAC-SHA256 blind indexing for exact-match search without exposing plaintext. Idempotent migration backfill and fail-closed key management. |
+| **NHANES Clinical-Profile Models (v003b)** | **DONE (pending review)** | Four models (EBM, CatBoost, XGBoost, LightGBM) + a logistic-regression reference, each trained in its own notebook in [`ml/notebooks/nhanes_v003/`](ml/notebooks/nhanes_v003/) on one frozen cycle-based split; shared code in [`ml/training/nhanes_common.py`](ml/training/nhanes_common.py); registered as `*_nhanes_v003b` (not deployed; `*_nhanes_v003` kept), with an accuracy-focused and a balanced operating point; compared side by side via `POST /api/v1/predict/risk/compare` and the "Clinical profile (NHANES)" mode of the risk page. |
 | **Infrastructure & CI** | **DONE** | Pinned dependencies in [`requirements.txt`](requirements.txt), Docker Compose ([`docker-compose.yml`](docker-compose.yml)), Nginx proxy config (`client_max_body_size 10M`), Alembic migrations, and GitHub Actions CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). |
 
 ---
@@ -94,6 +95,23 @@ All metrics reported below are backed by verified evaluation files committed on 
 > [!NOTE]
 > **Why Logistic Regression is Deployed:** Under the **1-Standard-Error rule** with Nadeau-Bengio corrected variance, Logistic Regression achieves the highest mean ROC-AUC (0.8387) and is the parsimonious model chosen by the automated selection pipeline.  
 > *Legacy Note on "91.67% Tabular Accuracy":* That historical number was evaluated on a non-stratified, 12-sample test subset ($11/12 = 91.67\%$). It is **unverified** across the broader distribution and is superseded by the 50-fold nested CV result.
+
+---
+
+### 1b. NHANES Clinical-Profile Models (`nhanes_v003b`: EBM, CatBoost, XGBoost, LightGBM)
+*Backing files:* [`ml/outputs/reports/nhanes_v003_report.md`](ml/outputs/reports/nhanes_v003_report.md) (generated, git-ignored), `ml/outputs/metrics/nhanes_v003/*.json` (with provenance), the executed notebooks in [`ml/notebooks/nhanes_v003/`](ml/notebooks/nhanes_v003/), and the `*_nhanes_v003b` entries of [`ml/models/registry_manifest.json`](ml/models/registry_manifest.json) (status `pending_review`, not deployed; the earlier `*_nhanes_v003` entries are kept).
+*Protocol:* frozen splits by survey cycle (train 2007-2014, validation 2015-2016, test 2017-2018); resampling only on training rows (imblearn Pipeline); validation cycle split by `SEQN` into an early-stopping half and a calibration/threshold half; two operating points per model chosen on validation only; test cycle scored once per frozen model with 1,000-sample bootstrap 95% CIs. Test cycle: n = 5,558, stone prevalence 10.0%.
+
+| Model | ROC-AUC (95% CI) | Accuracy-focused: accuracy / sensitivity / specificity | Balanced: accuracy / sensitivity / specificity / balanced acc. |
+|:---|:---:|:---:|:---:|
+| EBM | 0.674 [0.651, 0.697] | 71.6% / 50.4% / 73.9% | 61.5% / 63.0% / 61.3% / 62.2% |
+| CatBoost | 0.675 [0.653, 0.699] | 72.7% / 48.2% / 75.5% | 66.1% / 57.4% / 67.0% / 62.2% |
+| XGBoost | 0.677 [0.655, 0.701] | 72.5% / 50.0% / 75.0% | 64.1% / 60.3% / 64.5% / 62.4% |
+| LightGBM | 0.675 [0.653, 0.698] | 72.4% / 48.4% / 75.1% | 66.1% / 57.6% / 67.0% / 62.3% |
+| Logistic regression (reference) | 0.654 [0.631, 0.679] | 84.5% / 23.6% / 91.2% | 59.1% / 63.9% / 58.6% / 61.2% |
+
+> [!WARNING]
+> **Accuracy above 70% is obtained at the cost of sensitivity.** 90.0% of the test cohort has no stone, so "no stone for everyone" scores 90.0% accuracy. The accuracy-focused point (highest sensitivity with validation accuracy >= 72%) reaches 71.6% to 72.7% test accuracy for the four models (all above 70%) but finds only 48.2% to 50.4% of true cases. ROC-AUC (0.674 to 0.677, overlapping CIs) and balanced accuracy (62.2% to 62.4%) are not above 70% and were not forced. The label is self-reported and the data are US adults only. See [`MODEL_CARD.md`](MODEL_CARD.md) (Model Card 5) for the full tables, the LightGBM early-stop diagnosis (best_iteration 3 -> 190) and the class-imbalance comparison.
 
 ---
 
@@ -137,7 +155,7 @@ The frontend is built with React 18, Vite, TypeScript, and Tailwind CSS. The act
 | `/hospital-dashboard` | `HospitalDashboard.tsx` | `hospital_user`, `developer`, `admin` | `/api/v1/hospital/list`, `/api/v1/patients`, `/api/v1/predict/risk`, `/api/v1/predict/image`, `/api/v1/hospital/{id}/history` | Stepped clinical workflow (biomarkers $\to$ CT scan $\to$ XAI $\to$ assessment) + patient queue. *Note: "Trustworthy assessment" concordance is currently hardcoded text.* |
 | `/hospital/federated-learning` | `HospitalFederatedLearning.tsx` | `hospital_user`, `developer`, `admin` | `/api/v1/hospital/{id}/federated-status`, `/api/v1/hospital/{id}/train-local`, WebSocket `/hospital/{id}/federated/ws` | Hospital-side federated client dashboard: local dataset size, training trigger, round status. |
 | `/hospital/private-dataset` | `HospitalPrivateDataset.tsx` | `hospital_user`, `developer`, `admin` | `/api/v1/hospital/{id}/dataset-status`, `/api/v1/hospital/{id}/dataset-validate`, `/api/v1/hospital/{id}/dataset-upload` | Upload and validate private hospital CT partitions. |
-| `/risk-prediction/:patientId` | `RiskPredictionPage.tsx` | `hospital_user`, `developer`, `admin` | `POST /api/v1/predict/risk`, `GET /api/v1/patients/{id}` | Direct risk prediction form for a specific patient. |
+| `/risk-prediction/:patientId` | `RiskPredictionPage.tsx` | `hospital_user`, `developer`, `admin` | `POST /api/v1/predict/risk`, `POST /api/v1/predict/risk/compare`, `GET /api/v1/predict/risk/compare/spec`, `GET /api/v1/patients/{id}` | Direct risk prediction for a specific patient: urine-biomarker mode (existing model) or "Clinical profile (NHANES)" mode (four-model comparison with each model's held-out test metrics). The same mode switch appears in the dashboard workflow. |
 | `/stone-detection/:patientId` | `StoneDetectionPage.tsx` | `hospital_user`, `developer`, `admin` | `POST /api/v1/predict/image`, `GET /api/v1/patients/{id}` | CT image upload and Grad-CAM visualization for a specific patient. |
 | `/developer-dashboard` | `DeveloperDashboard.tsx` | `developer`, `admin` | `/api/v1/developer/*` (stats, model-performance, model-versions, deploy, rollback, federated-overview, system-monitoring, audit-logs) | Full developer console with tabs: Overview, Federated Learning, Model Registry & Gate, Access/Audit Logs, System Health. |
 | `/home` | `HomePage.tsx` | Public | `GET /api/v1/health`, `GET /api/v1/models` | *Legacy marketing view.* Card links to `/risk-prediction` and `/stone-detection` lack `:patientId` parameter and redirect to `/`. |
@@ -151,7 +169,7 @@ The backend exposes **52 endpoints** organized into modular FastAPI routers regi
 
 - **Health & Info**: `GET /api/v1/health` (public), `GET /api/v1/models` (requires auth), `GET /api/v1/models/dl`.
 - **Authentication**: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `GET /api/v1/auth/me`.
-- **Clinical Inference**: `POST /api/v1/predict/risk` (urine biomarkers + SHAP), `POST /api/v1/predict/image` (hardened CT upload + OOD gate + Grad-CAM), `POST /api/v1/predict/concordance` (evidence concordance engine).
+- **Clinical Inference**: `POST /api/v1/predict/risk` (urine biomarkers + SHAP), `POST /api/v1/predict/risk/compare` (NHANES clinical profile scored by the four v003b models, returning both operating points (`accuracy` default, `balanced`) with thresholds, risk level and held-out test metrics per model, selectable with `operating_point`; inputs validated against `ml/artifacts/nhanes_v003/feature_spec.json`, not stored; `GET /api/v1/predict/risk/compare/spec` returns that spec), `POST /api/v1/predict/image` (hardened CT upload + OOD gate + Grad-CAM), `POST /api/v1/predict/concordance` (evidence concordance engine).
 - **Patient Management**: `GET /api/v1/patients`, `POST /api/v1/patients`, `GET /api/v1/patients/{id}`.
 - **Hospital Endpoints** (registered at both `/api/v1/hospital` and `/api/v1/hospitals`): `/list`, `/{id}/detail`, `/{id}/current-model`, `/{id}/dataset-status`, `/{id}/dataset-upload`, `/{id}/dataset-validate`, `/{id}/train-local`, `/{id}/training-history`, `/{id}/federated-status`, `/{id}/history`.
 - **Developer Endpoints**: `/system-stats`, `/statistics`, `/model-performance`, `/model-versions`, `/model-versions/deploy`, `/model-versions/rollback`, `/federated-overview`, `/federated/rounds/start`, `/federated/rounds/current/status`, `/hospital-participation`, `/round-history`, `/system-monitoring`, `/drift-analysis`, `/system-logs`, `/hospital-logs`.
@@ -198,7 +216,7 @@ Frontend dev server runs at `http://localhost:5173`.
 # Activate backend virtual environment from repository root:
 .\backend\.venv\Scripts\python.exe -m pytest -v --cov=backend/app
 ```
-*Current test suite: 221 passed, 1 skipped (partition leakage check requires local dataset archives), 0 failed.*
+*Test run for the NHANES v003 change (full suite, `CUDA_VISIBLE_DEVICES=-1`, this checkout): 290 passed, 1 skipped, 13 failed. The 13 failures are environmental and also fail on a clean checkout of `HEAD` where the same tests run (QKNN weights not present, CT image/partition archives and `model_b_report.md` not present locally, Flower gRPC server start-up timeouts); none involve the tabular risk code. New: `testing/test_nhanes_common.py` (18 tests) and `backend/tests/test_nhanes_compare.py` (29 tests).*
 
 ### 4. Running Frontend Type Checks & Production Build
 ```bash
@@ -207,6 +225,27 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
+
+---
+
+### 5. NHANES v003b Notebooks (four-model comparison)
+Requires the project requirements plus [`requirements-ml.txt`](requirements-ml.txt) (`jupyter`, `nbconvert`, `ipykernel`, `imbalanced-learn`) and the NHANES zip extracted into `ml/datasets/` (git-ignored; never commit data):
+```bash
+pip install -r requirements.txt -r requirements-ml.txt
+python ml/preprocessing/extract_nhanes_zip.py C:\path\to\nhanes_raw.zip   # safe extract + copy of the cohort CSV
+python ml/training/run_nhanes_notebooks.py                                 # executes the notebooks below in order, fresh kernel each, outputs saved in place
+python ml/training/run_nhanes_notebooks.py --dry-run                       # development run: the test cycle is NOT touched
+```
+All training, tuning, imbalance comparison, calibration, threshold selection and evaluation happen in the executed notebook cells; `ml/training/nhanes_common.py` holds shared helper functions only and `run_nhanes_notebooks.py` only executes notebooks. (`ml/notebooks/nhanes_v003/_build_*.py` merely write the notebook sources; they train nothing.)
+
+| Order | Notebook (`ml/notebooks/nhanes_v003/`) | What it does |
+| :-: | :--- | :--- |
+| 1 | `00_data_and_splits.ipynb` | Re-verifies the cohort against the raw `KIQ_U` files, builds the v2 cohort (history features, `KIQ029` dropped), per-cycle history check, leakage audit, freezes the cycle-based splits (hash), screens feature sets on train+validation only, writes `feature_spec.json`. |
+| 2-5 | `01_ebm`, `02_catboost`, `03_xgboost`, `04_lightgbm` | One model each: baseline, **class-imbalance comparison** (none / class weights / random over / random under / SMOTENC), tuning with early stopping, calibration, **two operating points** (balanced; accuracy-focused with validation accuracy >= 72%), leave-one-cycle-out CV with per-fold accuracy and sensitivity, **one** test-set evaluation with bootstrap CIs, explanations, saved bundles and a metrics JSON with provenance. Every stage prints the same full metric table (`nhanes_common.show_metrics_table`: ROC-AUC, PR-AUC, Brier, accuracy, balanced accuracy, sensitivity, specificity, precision, F1, MCC, majority baseline, positive-prediction rate, confusion counts). `04_lightgbm` also diagnoses and fixes the early stop. XGBoost / CatBoost use the GPU when available (LightGBM falls back to CPU, EBM is CPU-only). |
+| 6 | `04b_logistic_regression_baseline` | Reference baseline with the same pipeline. |
+| 7 | `05_compare_and_register` | Loads only the saved JSONs (fails loudly on a missing file, missing provenance or a different split hash; no retraining, no test evaluation), builds the cross-model imbalance table, both operating points and plots, registers `<model>_nhanes_v003b` as `pending_review`, writes `ml/outputs/reports/nhanes_v003_report.md`. |
+
+Each frozen model's test cycle is scored once: a ledger (`ml/outputs/metrics/nhanes_v003/test_ledger.json`) returns the stored result when a notebook is re-run unchanged and refuses a changed model unless `NHANES_ALLOW_TEST_REEVAL=1` is set deliberately. Race/ethnicity and income are opt-in inputs; to register the variant without them set `NHANES_PRIMARY_VARIANT=base_history` and re-run notebooks 00-05. The compare endpoint needs no schema change (inputs are scored, not stored), so there is no Alembic migration for this feature. Tests: `testing/test_nhanes_v003b.py`, `testing/test_nhanes_notebooks.py` (parses the executed notebooks), `testing/test_nhanes_common.py`, `backend/tests/test_nhanes_compare.py`.
 
 ---
 

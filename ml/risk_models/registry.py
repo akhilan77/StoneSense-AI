@@ -63,7 +63,8 @@ class ModelRegistry:
         self,
         model: BaseRiskModel,
         metadata: Optional[Dict[str, Any]] = None,
-        set_active: bool = False
+        set_active: bool = False,
+        extra_entry_fields: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Registers a BaseRiskModel instance into the registry.
         
@@ -71,6 +72,7 @@ class ModelRegistry:
             model: Instance of BaseRiskModel.
             metadata: Evaluation metrics, training configuration, threshold, etc.
             set_active: Whether to mark this model as the currently active/deployed model.
+            extra_entry_fields: Additional manifest fields (e.g. status, split_counts, device).
             
         Returns:
             version_tag: Registered version identifier.
@@ -109,6 +111,8 @@ class ModelRegistry:
             "is_deployed": set_active or (self._manifest.get("active_model_version") == version_tag)
         }
 
+        if extra_entry_fields:
+            model_entry.update(extra_entry_fields)
         self._manifest["models"][version_tag] = model_entry
 
         if set_active or self._manifest.get("active_model_version") is None:
@@ -187,10 +191,15 @@ class ModelRegistry:
         if active_ver and self._manifest["models"].get(active_ver, {}).get("model_family") == model_family:
             return self.get_model(active_ver)
 
-        # Look for any registered model with this family
-        for v_tag, entry in reversed(list(self._manifest["models"].items())):
-            if entry.get("model_family") == model_family:
-                return self.get_model(v_tag)
+        # Look for any registered model with this family. NHANES v003 bundles take raw clinical rows rather than a
+        # preprocessed matrix, so legacy entries are preferred; bundles are returned only when nothing else exists
+        # (or when requested explicitly by version_tag).
+        entries = list(reversed(list(self._manifest["models"].items())))
+        for want_bundle in (False, True):
+            for v_tag, entry in entries:
+                is_bundle = entry.get("artifact_format") == "nhanes_bundle_v3"
+                if entry.get("model_family") == model_family and is_bundle == want_bundle:
+                    return self.get_model(v_tag)
 
         raise KeyError(f"No model found for family '{model_family}' in registry.")
 

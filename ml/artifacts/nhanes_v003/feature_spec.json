@@ -1,0 +1,483 @@
+{
+  "version": "nhanes_v003",
+  "primary_variant": "base_history_sensitive",
+  "variants": {
+    "base": [
+      "RIDAGEYR",
+      "RIAGENDR",
+      "BMXBMI",
+      "LBXSCA",
+      "LBXSUA",
+      "LBXSCR",
+      "LBXSBU",
+      "LBXSGL",
+      "LBXSNASI",
+      "LBXSKSI",
+      "LBXSPH",
+      "URXUCR",
+      "URXUMA",
+      "BMXWAIST",
+      "LBXSCLSI",
+      "LBXSTB",
+      "URDACT"
+    ],
+    "base_history": [
+      "RIDAGEYR",
+      "RIAGENDR",
+      "BMXBMI",
+      "LBXSCA",
+      "LBXSUA",
+      "LBXSCR",
+      "LBXSBU",
+      "LBXSGL",
+      "LBXSNASI",
+      "LBXSKSI",
+      "LBXSPH",
+      "URXUCR",
+      "URXUMA",
+      "BMXWAIST",
+      "LBXSCLSI",
+      "LBXSTB",
+      "URDACT",
+      "BPQ020",
+      "BPQ080",
+      "DIQ010",
+      "MCQ080"
+    ],
+    "base_history_sensitive": [
+      "RIDAGEYR",
+      "RIAGENDR",
+      "BMXBMI",
+      "LBXSCA",
+      "LBXSUA",
+      "LBXSCR",
+      "LBXSBU",
+      "LBXSGL",
+      "LBXSNASI",
+      "LBXSKSI",
+      "LBXSPH",
+      "URXUCR",
+      "URXUMA",
+      "BMXWAIST",
+      "LBXSCLSI",
+      "LBXSTB",
+      "URDACT",
+      "BPQ020",
+      "BPQ080",
+      "DIQ010",
+      "MCQ080",
+      "RIDRETH1",
+      "INDFMPIR"
+    ]
+  },
+  "features": [
+    {
+      "label": "Age",
+      "unit": "years",
+      "type": "continuous",
+      "min": 20,
+      "max": 80,
+      "group": "Demographics",
+      "clinical_role": "Stone incidence rises through mid-life",
+      "required": true,
+      "default": 49.0,
+      "name": "RIDAGEYR",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Sex",
+      "unit": "",
+      "type": "binary",
+      "min": 1,
+      "max": 2,
+      "group": "Demographics",
+      "options": [
+        {
+          "value": 1,
+          "label": "Male"
+        },
+        {
+          "value": 2,
+          "label": "Female"
+        }
+      ],
+      "clinical_role": "Stones are historically more prevalent in males",
+      "required": true,
+      "default": 2.0,
+      "name": "RIAGENDR",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Body mass index",
+      "unit": "kg/m2",
+      "type": "continuous",
+      "min": 10,
+      "max": 90,
+      "group": "Body measures",
+      "clinical_role": "Adiposity is associated with stone formation",
+      "required": true,
+      "default": 27.52,
+      "name": "BMXBMI",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum calcium",
+      "unit": "mg/dL",
+      "type": "continuous",
+      "min": 5,
+      "max": 16,
+      "group": "Blood chemistry",
+      "clinical_role": "Calcium metabolism",
+      "required": true,
+      "default": 9.4,
+      "name": "LBXSCA",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum uric acid",
+      "unit": "mg/dL",
+      "type": "continuous",
+      "min": 0.5,
+      "max": 20,
+      "group": "Blood chemistry",
+      "clinical_role": "Hyperuricemia predisposes to uric-acid stones",
+      "required": true,
+      "default": 5.2,
+      "name": "LBXSUA",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum creatinine",
+      "unit": "mg/dL",
+      "type": "continuous",
+      "min": 0.1,
+      "max": 20,
+      "group": "Blood chemistry",
+      "clinical_role": "Kidney function",
+      "required": true,
+      "default": 0.82,
+      "name": "LBXSCR",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Blood urea nitrogen",
+      "unit": "mg/dL",
+      "type": "continuous",
+      "min": 1,
+      "max": 120,
+      "group": "Blood chemistry",
+      "clinical_role": "Renal clearance / protein catabolism",
+      "required": true,
+      "default": 12.0,
+      "name": "LBXSBU",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum glucose",
+      "unit": "mg/dL",
+      "type": "continuous",
+      "min": 20,
+      "max": 800,
+      "group": "Blood chemistry",
+      "clinical_role": "Glycaemic status",
+      "required": true,
+      "default": 91.0,
+      "name": "LBXSGL",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum sodium",
+      "unit": "mmol/L",
+      "type": "continuous",
+      "min": 100,
+      "max": 170,
+      "group": "Blood chemistry",
+      "clinical_role": "Electrolyte and volume balance",
+      "required": true,
+      "default": 139.0,
+      "name": "LBXSNASI",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum potassium",
+      "unit": "mmol/L",
+      "type": "continuous",
+      "min": 1.5,
+      "max": 8.5,
+      "group": "Blood chemistry",
+      "clinical_role": "Electrolyte balance",
+      "required": true,
+      "default": 3.9,
+      "name": "LBXSKSI",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum phosphorus",
+      "unit": "mg/dL",
+      "type": "continuous",
+      "min": 0.5,
+      "max": 12,
+      "group": "Blood chemistry",
+      "clinical_role": "Mineral homeostasis",
+      "required": true,
+      "default": 3.7,
+      "name": "LBXSPH",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Urine creatinine",
+      "unit": "mg/dL",
+      "type": "continuous",
+      "min": 1,
+      "max": 900,
+      "group": "Urine",
+      "clinical_role": "Urine concentration",
+      "required": true,
+      "default": 103.0,
+      "name": "URXUCR",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Urine albumin",
+      "unit": "ug/mL",
+      "type": "continuous",
+      "min": 0.1,
+      "max": 30000,
+      "group": "Urine",
+      "clinical_role": "Glomerular permeability",
+      "required": true,
+      "default": 7.3,
+      "name": "URXUMA",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Waist circumference",
+      "unit": "cm",
+      "type": "continuous",
+      "min": 40,
+      "max": 200,
+      "group": "Body measures",
+      "clinical_role": "Central adiposity / metabolic syndrome marker",
+      "required": true,
+      "default": 95.6,
+      "name": "BMXWAIST",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum chloride",
+      "unit": "mmol/L",
+      "type": "continuous",
+      "min": 70,
+      "max": 130,
+      "group": "Blood chemistry",
+      "clinical_role": "Acid-base balance",
+      "required": true,
+      "default": 104.0,
+      "name": "LBXSCLSI",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Serum total bilirubin",
+      "unit": "mg/dL",
+      "type": "continuous",
+      "min": 0,
+      "max": 20,
+      "group": "Blood chemistry",
+      "clinical_role": "Hepatic marker",
+      "required": true,
+      "default": 0.6,
+      "name": "LBXSTB",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Urine albumin/creatinine ratio",
+      "unit": "mg/g",
+      "type": "derived",
+      "min": 0.1,
+      "max": 100000,
+      "group": "Urine",
+      "derived_from": [
+        "URXUMA",
+        "URXUCR"
+      ],
+      "formula": "URXUMA / URXUCR * 100",
+      "clinical_role": "Derived from urine albumin and urine creatinine",
+      "required": false,
+      "default": 4.87,
+      "name": "URDACT",
+      "sensitive": false,
+      "is_history": false
+    },
+    {
+      "label": "Told you have high blood pressure",
+      "unit": "",
+      "type": "binary",
+      "min": 0,
+      "max": 1,
+      "group": "Medical history",
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Yes"
+        }
+      ],
+      "question": "Has a doctor or other health professional ever told you that you have high blood pressure?",
+      "required": false,
+      "default": null,
+      "name": "BPQ020",
+      "sensitive": false,
+      "is_history": true
+    },
+    {
+      "label": "Told you have high cholesterol",
+      "unit": "",
+      "type": "binary",
+      "min": 0,
+      "max": 1,
+      "group": "Medical history",
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Yes"
+        }
+      ],
+      "question": "Has a doctor or other health professional ever told you that your blood cholesterol level was high?",
+      "required": false,
+      "default": null,
+      "name": "BPQ080",
+      "sensitive": false,
+      "is_history": true
+    },
+    {
+      "label": "Told you have diabetes",
+      "unit": "",
+      "type": "ordinal",
+      "min": 0,
+      "max": 1,
+      "group": "Medical history",
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 0.5,
+          "label": "Borderline / pre-diabetes"
+        },
+        {
+          "value": 1,
+          "label": "Yes"
+        }
+      ],
+      "question": "Has a doctor or other health professional ever told you that you have diabetes or sugar diabetes?",
+      "required": false,
+      "default": null,
+      "name": "DIQ010",
+      "sensitive": false,
+      "is_history": true
+    },
+    {
+      "label": "Told you were overweight",
+      "unit": "",
+      "type": "binary",
+      "min": 0,
+      "max": 1,
+      "group": "Medical history",
+      "options": [
+        {
+          "value": 0,
+          "label": "No"
+        },
+        {
+          "value": 1,
+          "label": "Yes"
+        }
+      ],
+      "question": "Has a doctor or other health professional ever told you that you were overweight?",
+      "required": false,
+      "default": null,
+      "name": "MCQ080",
+      "sensitive": false,
+      "is_history": true
+    },
+    {
+      "label": "Race / ethnicity",
+      "unit": "",
+      "type": "categorical",
+      "min": 1,
+      "max": 5,
+      "group": "Sensitive",
+      "options": [
+        {
+          "value": 1,
+          "label": "Mexican American"
+        },
+        {
+          "value": 2,
+          "label": "Other Hispanic"
+        },
+        {
+          "value": 3,
+          "label": "Non-Hispanic White"
+        },
+        {
+          "value": 4,
+          "label": "Non-Hispanic Black"
+        },
+        {
+          "value": 5,
+          "label": "Other / multiracial"
+        }
+      ],
+      "clinical_role": "Sensitive demographic input; off by default",
+      "required": false,
+      "default": null,
+      "name": "RIDRETH1",
+      "sensitive": true,
+      "is_history": false
+    },
+    {
+      "label": "Family income-to-poverty ratio",
+      "unit": "ratio",
+      "type": "continuous",
+      "min": 0,
+      "max": 5,
+      "group": "Sensitive",
+      "clinical_role": "Sensitive socio-economic input; off by default",
+      "required": false,
+      "default": null,
+      "name": "INDFMPIR",
+      "sensitive": true,
+      "is_history": false
+    }
+  ],
+  "target": "target_stone (self-reported kidney stone, NHANES KIQ026)",
+  "notes": [
+    "History items are optional; an unanswered item is imputed with the training median.",
+    "URDACT is derived by the server from urine albumin and urine creatinine."
+  ]
+}

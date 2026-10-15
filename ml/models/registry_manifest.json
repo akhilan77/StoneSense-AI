@@ -129,6 +129,1994 @@
             },
             "trained_at": "2026-10-06T12:45:00Z",
             "is_deployed": false
+        },
+        "ebm_nhanes_v003": {
+            "model_family": "ebm",
+            "version_tag": "ebm_nhanes_v003",
+            "artifact_path": "ml/models/versions/ebm_nhanes_v003.pkl",
+            "absolute_artifact_path": "ml/models/versions/ebm_nhanes_v003.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA",
+                "BMXWAIST",
+                "LBXSCLSI",
+                "LBXSTB",
+                "URDACT",
+                "BPQ020",
+                "BPQ080",
+                "DIQ010",
+                "MCQ080",
+                "INDFMPIR",
+                "RIDRETH1"
+            ],
+            "threshold": 0.12433264218385334,
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.6788565537461727,
+                "accuracy": 0.6997121266642677,
+                "balanced_accuracy": 0.6301738392679358,
+                "sensitivity": 0.5433212996389891,
+                "specificity": 0.7170263788968825,
+                "majority_baseline_accuracy": 0.9003238575026988
+            },
+            "trained_at": "2026-10-13T17:05:00Z",
+            "is_deployed": false,
+            "status": "pending_review",
+            "dataset_name": "NHANES Kidney Stone Cohort v2 (2007-2018) with self-reported history",
+            "artifact_format": "nhanes_bundle_v3",
+            "variant": "base_history_sensitive",
+            "threshold_rule": "maximise balanced accuracy on the validation cycle (2015-2016)",
+            "thresholds": {
+                "balanced_accuracy": 0.12433264218385334,
+                "accuracy_ge_75": 0.14260964582285612
+            },
+            "split_counts": {
+                "train": 23416,
+                "validation": 5705,
+                "test": 5558
+            },
+            "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+            "device": {
+                "requested": "cpu",
+                "actual": "cpu",
+                "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                "probe": {
+                    "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "xgboost_cuda": true,
+                    "catboost_gpu": true,
+                    "lightgbm_gpu": false
+                }
+            },
+            "calibration_method": "sigmoid",
+            "test_metrics": {
+                "evaluated_on": "test (2017-2018)",
+                "test_cycle": "2017-2018",
+                "n": 5558,
+                "positives": 554,
+                "prevalence": 0.09967614249730118,
+                "majority_baseline_accuracy": 0.9003238575026988,
+                "roc_auc": 0.6788565537461727,
+                "roc_auc_ci95": [
+                    0.6565645371843319,
+                    0.7023506243343891
+                ],
+                "pr_auc": 0.19034358087887762,
+                "pr_auc_ci95": [
+                    0.16878201319248226,
+                    0.21850224161864298
+                ],
+                "brier": 0.08618198817351043,
+                "brier_ci95": [
+                    0.08044540700807529,
+                    0.0921215116051427
+                ],
+                "at_balanced_accuracy_threshold": {
+                    "threshold": 0.12433264218385334,
+                    "accuracy": 0.6997121266642677,
+                    "accuracy_ci95": [
+                        0.6876529327096078,
+                        0.7123065851025548
+                    ],
+                    "balanced_accuracy": 0.6301738392679358,
+                    "balanced_accuracy_ci95": [
+                        0.6093587710926229,
+                        0.6513692109615092
+                    ],
+                    "sensitivity": 0.5433212996389891,
+                    "sensitivity_ci95": [
+                        0.5035398443476237,
+                        0.5842507855459544
+                    ],
+                    "specificity": 0.7170263788968825,
+                    "specificity_ci95": [
+                        0.7047024256131506,
+                        0.7300169860046217
+                    ]
+                },
+                "at_accuracy_ge_75_threshold": {
+                    "threshold": 0.14260964582285612,
+                    "accuracy": 0.7635840230298668,
+                    "accuracy_ci95": [
+                        0.7522445124145376,
+                        0.7740194314501619
+                    ],
+                    "balanced_accuracy": 0.6190942552816951,
+                    "balanced_accuracy_ci95": [
+                        0.5981587778720544,
+                        0.6393043726429494
+                    ],
+                    "sensitivity": 0.43862815884476536,
+                    "sensitivity_ci95": [
+                        0.3976239906487099,
+                        0.48115237281463913
+                    ],
+                    "specificity": 0.799560351718625,
+                    "specificity_ci95": [
+                        0.7886965819695625,
+                        0.8107652619177027
+                    ]
+                }
+            }
+        },
+        "catboost_nhanes_v003": {
+            "model_family": "catboost",
+            "version_tag": "catboost_nhanes_v003",
+            "artifact_path": "ml/models/versions/catboost_nhanes_v003.pkl",
+            "absolute_artifact_path": "ml/models/versions/catboost_nhanes_v003.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA",
+                "BMXWAIST",
+                "LBXSCLSI",
+                "LBXSTB",
+                "URDACT",
+                "BPQ020",
+                "BPQ080",
+                "DIQ010",
+                "MCQ080",
+                "INDFMPIR",
+                "RIDRETH1"
+            ],
+            "threshold": 0.11589705818892189,
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.6738955406072255,
+                "accuracy": 0.6396185678301547,
+                "balanced_accuracy": 0.6232865693005163,
+                "sensitivity": 0.6028880866425993,
+                "specificity": 0.6436850519584333,
+                "majority_baseline_accuracy": 0.9003238575026988
+            },
+            "trained_at": "2026-10-13T17:10:56Z",
+            "is_deployed": false,
+            "status": "pending_review",
+            "dataset_name": "NHANES Kidney Stone Cohort v2 (2007-2018) with self-reported history",
+            "artifact_format": "nhanes_bundle_v3",
+            "variant": "base_history_sensitive",
+            "threshold_rule": "maximise balanced accuracy on the validation cycle (2015-2016)",
+            "thresholds": {
+                "balanced_accuracy": 0.11589705818892189,
+                "accuracy_ge_75": 0.1436882339051559
+            },
+            "split_counts": {
+                "train": 23416,
+                "validation": 5705,
+                "test": 5558
+            },
+            "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+            "device": {
+                "requested": "GPU",
+                "actual": "GPU",
+                "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                "probe": {
+                    "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "xgboost_cuda": true,
+                    "catboost_gpu": true,
+                    "lightgbm_gpu": false
+                }
+            },
+            "calibration_method": "sigmoid",
+            "test_metrics": {
+                "evaluated_on": "test (2017-2018)",
+                "test_cycle": "2017-2018",
+                "n": 5558,
+                "positives": 554,
+                "prevalence": 0.09967614249730118,
+                "majority_baseline_accuracy": 0.9003238575026988,
+                "roc_auc": 0.6738955406072255,
+                "roc_auc_ci95": [
+                    0.6506709450184139,
+                    0.6979358912528123
+                ],
+                "pr_auc": 0.1908048655272513,
+                "pr_auc_ci95": [
+                    0.1692632024829145,
+                    0.22111843319149552
+                ],
+                "brier": 0.08630270693134455,
+                "brier_ci95": [
+                    0.08054006104949883,
+                    0.09230015982678226
+                ],
+                "at_balanced_accuracy_threshold": {
+                    "threshold": 0.11589705818892189,
+                    "accuracy": 0.6396185678301547,
+                    "accuracy_ci95": [
+                        0.6266642677222022,
+                        0.6523929471032746
+                    ],
+                    "balanced_accuracy": 0.6232865693005163,
+                    "balanced_accuracy_ci95": [
+                        0.6011413567934543,
+                        0.6438816053869069
+                    ],
+                    "sensitivity": 0.6028880866425993,
+                    "sensitivity_ci95": [
+                        0.5607404882773961,
+                        0.6447252194331078
+                    ],
+                    "specificity": 0.6436850519584333,
+                    "specificity_ci95": [
+                        0.6298199734712743,
+                        0.657309984393929
+                    ]
+                },
+                "at_accuracy_ge_75_threshold": {
+                    "threshold": 0.1436882339051559,
+                    "accuracy": 0.7603454480028787,
+                    "accuracy_ci95": [
+                        0.7488260165527169,
+                        0.7711451961137099
+                    ],
+                    "balanced_accuracy": 0.6148878730950258,
+                    "balanced_accuracy_ci95": [
+                        0.5925064730277521,
+                        0.6358019845236327
+                    ],
+                    "sensitivity": 0.4332129963898917,
+                    "sensitivity_ci95": [
+                        0.3899389835993142,
+                        0.47456216006216007
+                    ],
+                    "specificity": 0.7965627498001598,
+                    "specificity_ci95": [
+                        0.7857271247745803,
+                        0.8079757860585911
+                    ]
+                }
+            }
+        },
+        "xgboost_nhanes_v003": {
+            "model_family": "xgboost",
+            "version_tag": "xgboost_nhanes_v003",
+            "artifact_path": "ml/models/versions/xgboost_nhanes_v003.pkl",
+            "absolute_artifact_path": "ml/models/versions/xgboost_nhanes_v003.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA",
+                "BMXWAIST",
+                "LBXSCLSI",
+                "LBXSTB",
+                "URDACT",
+                "BPQ020",
+                "BPQ080",
+                "DIQ010",
+                "MCQ080",
+                "INDFMPIR",
+                "RIDRETH1"
+            ],
+            "threshold": 0.1100620131121537,
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.6695313424350773,
+                "accuracy": 0.6173083843109032,
+                "balanced_accuracy": 0.6197251585013577,
+                "sensitivity": 0.6227436823104693,
+                "specificity": 0.6167066346922462,
+                "majority_baseline_accuracy": 0.9003238575026988
+            },
+            "trained_at": "2026-10-13T17:12:18Z",
+            "is_deployed": false,
+            "status": "pending_review",
+            "dataset_name": "NHANES Kidney Stone Cohort v2 (2007-2018) with self-reported history",
+            "artifact_format": "nhanes_bundle_v3",
+            "variant": "base_history_sensitive",
+            "threshold_rule": "maximise balanced accuracy on the validation cycle (2015-2016)",
+            "thresholds": {
+                "balanced_accuracy": 0.1100620131121537,
+                "accuracy_ge_75": 0.14421717461012226
+            },
+            "split_counts": {
+                "train": 23416,
+                "validation": 5705,
+                "test": 5558
+            },
+            "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+            "device": {
+                "requested": "cuda",
+                "actual": "cuda:0",
+                "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                "probe": {
+                    "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "xgboost_cuda": true,
+                    "catboost_gpu": true,
+                    "lightgbm_gpu": false
+                }
+            },
+            "calibration_method": "sigmoid",
+            "test_metrics": {
+                "evaluated_on": "test (2017-2018)",
+                "test_cycle": "2017-2018",
+                "n": 5558,
+                "positives": 554,
+                "prevalence": 0.09967614249730118,
+                "majority_baseline_accuracy": 0.9003238575026988,
+                "roc_auc": 0.6695313424350773,
+                "roc_auc_ci95": [
+                    0.6472532096146573,
+                    0.693338811658909
+                ],
+                "pr_auc": 0.18421803612516074,
+                "pr_auc_ci95": [
+                    0.16203228193458413,
+                    0.21260841364019567
+                ],
+                "brier": 0.08656097191029268,
+                "brier_ci95": [
+                    0.08086218357577667,
+                    0.09254974728500864
+                ],
+                "at_balanced_accuracy_threshold": {
+                    "threshold": 0.1100620131121537,
+                    "accuracy": 0.6173083843109032,
+                    "accuracy_ci95": [
+                        0.6034544800287873,
+                        0.630082763584023
+                    ],
+                    "balanced_accuracy": 0.6197251585013577,
+                    "balanced_accuracy_ci95": [
+                        0.597080495081328,
+                        0.641468958753848
+                    ],
+                    "sensitivity": 0.6227436823104693,
+                    "sensitivity_ci95": [
+                        0.5806842105263158,
+                        0.6660383351025579
+                    ],
+                    "specificity": 0.6167066346922462,
+                    "specificity_ci95": [
+                        0.6029681260024636,
+                        0.6301134309644735
+                    ]
+                },
+                "at_accuracy_ge_75_threshold": {
+                    "threshold": 0.14421717461012226,
+                    "accuracy": 0.7648434688736956,
+                    "accuracy_ci95": [
+                        0.7538593019071609,
+                        0.7752788772939907
+                    ],
+                    "balanced_accuracy": 0.6045441625039318,
+                    "balanced_accuracy_ci95": [
+                        0.5821039304875014,
+                        0.6255554146907506
+                    ],
+                    "sensitivity": 0.4043321299638989,
+                    "sensitivity_ci95": [
+                        0.3617476397381335,
+                        0.4465211599701474
+                    ],
+                    "specificity": 0.8047561950439648,
+                    "specificity_ci95": [
+                        0.7941037731265862,
+                        0.8152870049226951
+                    ]
+                }
+            }
+        },
+        "lightgbm_nhanes_v003": {
+            "model_family": "lightgbm",
+            "version_tag": "lightgbm_nhanes_v003",
+            "artifact_path": "ml/models/versions/lightgbm_nhanes_v003.pkl",
+            "absolute_artifact_path": "ml/models/versions/lightgbm_nhanes_v003.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA",
+                "BMXWAIST",
+                "LBXSCLSI",
+                "LBXSTB",
+                "URDACT",
+                "BPQ020",
+                "BPQ080",
+                "DIQ010",
+                "MCQ080",
+                "INDFMPIR",
+                "RIDRETH1"
+            ],
+            "threshold": 0.1281531649777205,
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.666711756948232,
+                "accuracy": 0.6500539762504498,
+                "balanced_accuracy": 0.6146350067960072,
+                "sensitivity": 0.5703971119133574,
+                "specificity": 0.6588729016786571,
+                "majority_baseline_accuracy": 0.9003238575026988
+            },
+            "trained_at": "2026-10-13T17:13:10Z",
+            "is_deployed": false,
+            "status": "pending_review",
+            "dataset_name": "NHANES Kidney Stone Cohort v2 (2007-2018) with self-reported history",
+            "artifact_format": "nhanes_bundle_v3",
+            "variant": "base_history_sensitive",
+            "threshold_rule": "maximise balanced accuracy on the validation cycle (2015-2016)",
+            "thresholds": {
+                "balanced_accuracy": 0.1281531649777205,
+                "accuracy_ge_75": 0.15197358337804576
+            },
+            "split_counts": {
+                "train": 23416,
+                "validation": 5705,
+                "test": 5558
+            },
+            "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+            "device": {
+                "requested": "cpu",
+                "actual": "cpu",
+                "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                "probe": {
+                    "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "xgboost_cuda": true,
+                    "catboost_gpu": true,
+                    "lightgbm_gpu": false
+                }
+            },
+            "calibration_method": "sigmoid",
+            "test_metrics": {
+                "evaluated_on": "test (2017-2018)",
+                "test_cycle": "2017-2018",
+                "n": 5558,
+                "positives": 554,
+                "prevalence": 0.09967614249730118,
+                "majority_baseline_accuracy": 0.9003238575026988,
+                "roc_auc": 0.666711756948232,
+                "roc_auc_ci95": [
+                    0.6438709489770151,
+                    0.6895725538296826
+                ],
+                "pr_auc": 0.17885604316677,
+                "pr_auc_ci95": [
+                    0.15731036417821578,
+                    0.20453246538446965
+                ],
+                "brier": 0.0869889102251362,
+                "brier_ci95": [
+                    0.08130632761836452,
+                    0.09283800067353956
+                ],
+                "at_balanced_accuracy_threshold": {
+                    "threshold": 0.1281531649777205,
+                    "accuracy": 0.6500539762504498,
+                    "accuracy_ci95": [
+                        0.6374595178121627,
+                        0.6624685138539043
+                    ],
+                    "balanced_accuracy": 0.6146350067960072,
+                    "balanced_accuracy_ci95": [
+                        0.5923773469440262,
+                        0.6355160347017227
+                    ],
+                    "sensitivity": 0.5703971119133574,
+                    "sensitivity_ci95": [
+                        0.5296150878054535,
+                        0.6109024265208476
+                    ],
+                    "specificity": 0.6588729016786571,
+                    "specificity_ci95": [
+                        0.6452325985375684,
+                        0.6714083208829292
+                    ]
+                },
+                "at_accuracy_ge_75_threshold": {
+                    "threshold": 0.15197358337804576,
+                    "accuracy": 0.7558474271320619,
+                    "accuracy_ci95": [
+                        0.7450521770421015,
+                        0.7668225980568549
+                    ],
+                    "balanced_accuracy": 0.603561194365807,
+                    "balanced_accuracy_ci95": [
+                        0.5817108729691366,
+                        0.6240599087269477
+                    ],
+                    "sensitivity": 0.41335740072202165,
+                    "sensitivity_ci95": [
+                        0.3707482287302844,
+                        0.4540443660572337
+                    ],
+                    "specificity": 0.7937649880095923,
+                    "specificity_ci95": [
+                        0.782600822325256,
+                        0.8048770715211435
+                    ]
+                }
+            }
+        },
+        "ebm_nhanes_v003b": {
+            "model_family": "ebm",
+            "version_tag": "ebm_nhanes_v003b",
+            "artifact_path": "ml/models/versions/ebm_nhanes_v003b.pkl",
+            "absolute_artifact_path": "ml/models/versions/ebm_nhanes_v003b.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA",
+                "BMXWAIST",
+                "LBXSCLSI",
+                "LBXSTB",
+                "URDACT",
+                "BPQ020",
+                "BPQ080",
+                "DIQ010",
+                "MCQ080",
+                "INDFMPIR",
+                "RIDRETH1"
+            ],
+            "threshold": 0.13144362935370063,
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.6735712513022073,
+                "operating_point": "accuracy",
+                "accuracy": 0.7157250809643757,
+                "balanced_accuracy": 0.6214093706983872,
+                "sensitivity": 0.5036101083032491,
+                "specificity": 0.7392086330935251,
+                "majority_baseline_accuracy": 0.9003238575026988
+            },
+            "trained_at": "2026-10-15T08:35:14Z",
+            "is_deployed": false,
+            "status": "pending_review",
+            "dataset_name": "NHANES Kidney Stone Cohort v2 (2007-2018) with self-reported history",
+            "artifact_format": "nhanes_bundle_v3",
+            "variant": "base_history_sensitive",
+            "default_operating_point": "accuracy",
+            "threshold_rule": "maximise sensitivity subject to validation accuracy >= 72% (validation cycle 2015-2016)",
+            "thresholds": {
+                "balanced": 0.11002675692054281,
+                "accuracy": 0.13144362935370063
+            },
+            "operating_points": {
+                "balanced": {
+                    "label": "Balanced (max balanced accuracy)",
+                    "rule": "maximise balanced accuracy on the validation cycle (2015-2016)",
+                    "threshold": 0.11002675692054281,
+                    "validation": {
+                        "threshold": 0.11002675692054281,
+                        "accuracy": 0.6400280406589555,
+                        "balanced_accuracy": 0.6212288875946419,
+                        "sensitivity": 0.5973597359735974,
+                        "specificity": 0.6450980392156863,
+                        "precision": 0.16666666666666666,
+                        "f1": 0.2606191504679626,
+                        "mcc": 0.15384887781321893,
+                        "positive_rate": 0.38065194532071506,
+                        "tp": 181,
+                        "fp": 905,
+                        "tn": 1645,
+                        "fn": 122
+                    },
+                    "test": {
+                        "threshold": 0.11002675692054281,
+                        "tp": 349,
+                        "fp": 1936,
+                        "tn": 3068,
+                        "fn": 205,
+                        "accuracy": 0.6147894926232458,
+                        "accuracy_ci95": [
+                            0.602554875854624,
+                            0.6279237135660309
+                        ],
+                        "balanced_accuracy": 0.6215367056535277,
+                        "balanced_accuracy_ci95": [
+                            0.599694158255648,
+                            0.6421857178862775
+                        ],
+                        "sensitivity": 0.6299638989169675,
+                        "sensitivity_ci95": [
+                            0.5901860298101274,
+                            0.6685738636363636
+                        ],
+                        "specificity": 0.6131095123900879,
+                        "specificity_ci95": [
+                            0.6002404774253033,
+                            0.626828388143396
+                        ],
+                        "precision": 0.1527352297592998,
+                        "precision_ci95": [
+                            0.13747701974124574,
+                            0.1676940055251222
+                        ],
+                        "f1": 0.2458612187389926,
+                        "f1_ci95": [
+                            0.22365118952739532,
+                            0.26745472209693893
+                        ],
+                        "mcc": 0.1479908565980616,
+                        "mcc_ci95": [
+                            0.12063567783235736,
+                            0.17492803176472957
+                        ],
+                        "positive_rate": 0.41111910759265924,
+                        "positive_rate_ci95": [
+                            0.39816480748470673,
+                            0.42335822238215187
+                        ]
+                    }
+                },
+                "accuracy": {
+                    "label": "Accuracy-focused (>70% accuracy)",
+                    "rule": "maximise sensitivity subject to validation accuracy >= 72% (validation cycle 2015-2016)",
+                    "threshold": 0.13144362935370063,
+                    "validation": {
+                        "threshold": 0.13144362935370063,
+                        "accuracy": 0.7202944269190326,
+                        "balanced_accuracy": 0.6065132983886624,
+                        "sensitivity": 0.46204620462046203,
+                        "specificity": 0.7509803921568627,
+                        "precision": 0.18064516129032257,
+                        "f1": 0.2597402597402597,
+                        "mcc": 0.1475542119263627,
+                        "positive_rate": 0.27164388363126535,
+                        "tp": 140,
+                        "fp": 635,
+                        "tn": 1915,
+                        "fn": 163
+                    },
+                    "test": {
+                        "threshold": 0.13144362935370063,
+                        "tp": 279,
+                        "fp": 1305,
+                        "tn": 3699,
+                        "fn": 275,
+                        "accuracy": 0.7157250809643757,
+                        "accuracy_ci95": [
+                            0.7038458078445484,
+                            0.7275998560633321
+                        ],
+                        "balanced_accuracy": 0.6214093706983872,
+                        "balanced_accuracy_ci95": [
+                            0.599701590887835,
+                            0.6418149670112758
+                        ],
+                        "sensitivity": 0.5036101083032491,
+                        "sensitivity_ci95": [
+                            0.46124406664729245,
+                            0.5460875315654672
+                        ],
+                        "specificity": 0.7392086330935251,
+                        "specificity_ci95": [
+                            0.7271585211477363,
+                            0.7514498848271335
+                        ],
+                        "precision": 0.17613636363636365,
+                        "precision_ci95": [
+                            0.15620431128188378,
+                            0.1948803584267257
+                        ],
+                        "f1": 0.2609915809167446,
+                        "f1_ci95": [
+                            0.23494713547726856,
+                            0.2861048462649576
+                        ],
+                        "mcc": 0.16114031807467516,
+                        "mcc_ci95": [
+                            0.1319231794661354,
+                            0.18971812408586752
+                        ],
+                        "positive_rate": 0.284994602374955,
+                        "positive_rate_ci95": [
+                            0.27275548758546236,
+                            0.2966894566390788
+                        ]
+                    }
+                }
+            },
+            "imbalance_strategy": "none",
+            "split_counts": {
+                "train": 23416,
+                "validation": 5705,
+                "test": 5558
+            },
+            "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+            "device": {
+                "requested": "cpu",
+                "actual": "cpu",
+                "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                "probe": {
+                    "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "xgboost_cuda": true,
+                    "catboost_gpu": true,
+                    "lightgbm_gpu": false
+                }
+            },
+            "calibration_method": "sigmoid",
+            "provenance": {
+                "notebook": "01_ebm.ipynb",
+                "executed_at": "2026-10-15T08:35:14Z",
+                "device": {
+                    "requested": "cpu",
+                    "actual": "cpu",
+                    "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "probe": {
+                        "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                        "xgboost_cuda": true,
+                        "catboost_gpu": true,
+                        "lightgbm_gpu": false
+                    }
+                },
+                "training_seconds": 291.37,
+                "notebook_seconds": 316.45,
+                "libraries": {
+                    "python": "3.12.9",
+                    "numpy": "2.5.3",
+                    "pandas": "3.0.5",
+                    "sklearn": "1.9.0",
+                    "imblearn": "0.14.2",
+                    "xgboost": "3.4.1",
+                    "catboost": "1.2.10",
+                    "lightgbm": "4.7.0",
+                    "interpret": "0.7.8",
+                    "shap": "0.52.0",
+                    "joblib": "1.6.0"
+                },
+                "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+                "seed": 42
+            },
+            "test_metrics": {
+                "evaluated_on": "test (2017-2018)",
+                "test_cycle": "2017-2018",
+                "n": 5558,
+                "positives": 554,
+                "prevalence": 0.09967614249730118,
+                "majority_baseline_accuracy": 0.9003238575026988,
+                "roc_auc": 0.6735712513022073,
+                "roc_auc_ci95": [
+                    0.6507472936102736,
+                    0.6973935044050055
+                ],
+                "pr_auc": 0.1924998201922432,
+                "pr_auc_ci95": [
+                    0.169622837124722,
+                    0.22273886497676165
+                ],
+                "brier": 0.0863350557799738,
+                "brier_ci95": [
+                    0.08065329094995174,
+                    0.09220940201843712
+                ],
+                "at_balanced_threshold": {
+                    "threshold": 0.11002675692054281,
+                    "tp": 349,
+                    "fp": 1936,
+                    "tn": 3068,
+                    "fn": 205,
+                    "accuracy": 0.6147894926232458,
+                    "accuracy_ci95": [
+                        0.602554875854624,
+                        0.6279237135660309
+                    ],
+                    "balanced_accuracy": 0.6215367056535277,
+                    "balanced_accuracy_ci95": [
+                        0.599694158255648,
+                        0.6421857178862775
+                    ],
+                    "sensitivity": 0.6299638989169675,
+                    "sensitivity_ci95": [
+                        0.5901860298101274,
+                        0.6685738636363636
+                    ],
+                    "specificity": 0.6131095123900879,
+                    "specificity_ci95": [
+                        0.6002404774253033,
+                        0.626828388143396
+                    ],
+                    "precision": 0.1527352297592998,
+                    "precision_ci95": [
+                        0.13747701974124574,
+                        0.1676940055251222
+                    ],
+                    "f1": 0.2458612187389926,
+                    "f1_ci95": [
+                        0.22365118952739532,
+                        0.26745472209693893
+                    ],
+                    "mcc": 0.1479908565980616,
+                    "mcc_ci95": [
+                        0.12063567783235736,
+                        0.17492803176472957
+                    ],
+                    "positive_rate": 0.41111910759265924,
+                    "positive_rate_ci95": [
+                        0.39816480748470673,
+                        0.42335822238215187
+                    ]
+                },
+                "at_accuracy_threshold": {
+                    "threshold": 0.13144362935370063,
+                    "tp": 279,
+                    "fp": 1305,
+                    "tn": 3699,
+                    "fn": 275,
+                    "accuracy": 0.7157250809643757,
+                    "accuracy_ci95": [
+                        0.7038458078445484,
+                        0.7275998560633321
+                    ],
+                    "balanced_accuracy": 0.6214093706983872,
+                    "balanced_accuracy_ci95": [
+                        0.599701590887835,
+                        0.6418149670112758
+                    ],
+                    "sensitivity": 0.5036101083032491,
+                    "sensitivity_ci95": [
+                        0.46124406664729245,
+                        0.5460875315654672
+                    ],
+                    "specificity": 0.7392086330935251,
+                    "specificity_ci95": [
+                        0.7271585211477363,
+                        0.7514498848271335
+                    ],
+                    "precision": 0.17613636363636365,
+                    "precision_ci95": [
+                        0.15620431128188378,
+                        0.1948803584267257
+                    ],
+                    "f1": 0.2609915809167446,
+                    "f1_ci95": [
+                        0.23494713547726856,
+                        0.2861048462649576
+                    ],
+                    "mcc": 0.16114031807467516,
+                    "mcc_ci95": [
+                        0.1319231794661354,
+                        0.18971812408586752
+                    ],
+                    "positive_rate": 0.284994602374955,
+                    "positive_rate_ci95": [
+                        0.27275548758546236,
+                        0.2966894566390788
+                    ]
+                }
+            }
+        },
+        "catboost_nhanes_v003b": {
+            "model_family": "catboost",
+            "version_tag": "catboost_nhanes_v003b",
+            "artifact_path": "ml/models/versions/catboost_nhanes_v003b.pkl",
+            "absolute_artifact_path": "ml/models/versions/catboost_nhanes_v003b.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA",
+                "BMXWAIST",
+                "LBXSCLSI",
+                "LBXSTB",
+                "URDACT",
+                "BPQ020",
+                "BPQ080",
+                "DIQ010",
+                "MCQ080",
+                "INDFMPIR",
+                "RIDRETH1"
+            ],
+            "threshold": 0.13321082120337113,
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.6753059646145899,
+                "operating_point": "accuracy",
+                "accuracy": 0.7274199352284995,
+                "balanced_accuracy": 0.6182728907127006,
+                "sensitivity": 0.48194945848375453,
+                "specificity": 0.7545963229416467,
+                "majority_baseline_accuracy": 0.9003238575026988
+            },
+            "trained_at": "2026-10-15T08:42:06Z",
+            "is_deployed": false,
+            "status": "pending_review",
+            "dataset_name": "NHANES Kidney Stone Cohort v2 (2007-2018) with self-reported history",
+            "artifact_format": "nhanes_bundle_v3",
+            "variant": "base_history_sensitive",
+            "default_operating_point": "accuracy",
+            "threshold_rule": "maximise sensitivity subject to validation accuracy >= 72% (validation cycle 2015-2016)",
+            "thresholds": {
+                "balanced": 0.11900909315177487,
+                "accuracy": 0.13321082120337113
+            },
+            "operating_points": {
+                "balanced": {
+                    "label": "Balanced (max balanced accuracy)",
+                    "rule": "maximise balanced accuracy on the validation cycle (2015-2016)",
+                    "threshold": 0.11900909315177487,
+                    "validation": {
+                        "threshold": 0.11900909315177487,
+                        "accuracy": 0.6663161584297231,
+                        "balanced_accuracy": 0.6213939040962919,
+                        "sensitivity": 0.5643564356435643,
+                        "specificity": 0.6784313725490196,
+                        "precision": 0.17255297679112008,
+                        "f1": 0.2642967542503864,
+                        "mcc": 0.15710558108222533,
+                        "positive_rate": 0.34735366281107605,
+                        "tp": 171,
+                        "fp": 820,
+                        "tn": 1730,
+                        "fn": 132
+                    },
+                    "test": {
+                        "threshold": 0.11900909315177487,
+                        "tp": 318,
+                        "fp": 1650,
+                        "tn": 3354,
+                        "fn": 236,
+                        "accuracy": 0.6606693055055776,
+                        "accuracy_ci95": [
+                            0.6487900323857503,
+                            0.6729039222741994
+                        ],
+                        "balanced_accuracy": 0.6221355045927157,
+                        "balanced_accuracy_ci95": [
+                            0.6003254672540457,
+                            0.642903422906176
+                        ],
+                        "sensitivity": 0.5740072202166066,
+                        "sensitivity_ci95": [
+                            0.5316232961586121,
+                            0.6168806221889055
+                        ],
+                        "specificity": 0.670263788968825,
+                        "specificity_ci95": [
+                            0.6573696675245803,
+                            0.6841062162112934
+                        ],
+                        "precision": 0.16158536585365854,
+                        "precision_ci95": [
+                            0.14539651227879175,
+                            0.17739057625136717
+                        ],
+                        "f1": 0.2521808088818398,
+                        "f1_ci95": [
+                            0.22952083669130457,
+                            0.2730112306760585
+                        ],
+                        "mcc": 0.1530120691986139,
+                        "mcc_ci95": [
+                            0.1248068153097783,
+                            0.17871356850396433
+                        ],
+                        "positive_rate": 0.3540842029507017,
+                        "positive_rate_ci95": [
+                            0.3405901403382512,
+                            0.3677581863979849
+                        ]
+                    }
+                },
+                "accuracy": {
+                    "label": "Accuracy-focused (>70% accuracy)",
+                    "rule": "maximise sensitivity subject to validation accuracy >= 72% (validation cycle 2015-2016)",
+                    "threshold": 0.13321082120337113,
+                    "validation": {
+                        "threshold": 0.13321082120337113,
+                        "accuracy": 0.7202944269190326,
+                        "balanced_accuracy": 0.615237817899437,
+                        "sensitivity": 0.48184818481848185,
+                        "specificity": 0.7486274509803922,
+                        "precision": 0.1855146124523507,
+                        "f1": 0.26788990825688075,
+                        "mcc": 0.15887805020675771,
+                        "positive_rate": 0.27584998247458814,
+                        "tp": 146,
+                        "fp": 641,
+                        "tn": 1909,
+                        "fn": 157
+                    },
+                    "test": {
+                        "threshold": 0.13321082120337113,
+                        "tp": 267,
+                        "fp": 1228,
+                        "tn": 3776,
+                        "fn": 287,
+                        "accuracy": 0.7274199352284995,
+                        "accuracy_ci95": [
+                            0.7160804246131702,
+                            0.738579525008996
+                        ],
+                        "balanced_accuracy": 0.6182728907127006,
+                        "balanced_accuracy_ci95": [
+                            0.5968559967115863,
+                            0.6395446863980851
+                        ],
+                        "sensitivity": 0.48194945848375453,
+                        "sensitivity_ci95": [
+                            0.4405440685045948,
+                            0.5245231503799909
+                        ],
+                        "specificity": 0.7545963229416467,
+                        "specificity_ci95": [
+                            0.7429554397285966,
+                            0.7667466340602574
+                        ],
+                        "precision": 0.17859531772575252,
+                        "precision_ci95": [
+                            0.15842216416315796,
+                            0.197137402945389
+                        ],
+                        "f1": 0.26061493411420206,
+                        "f1_ci95": [
+                            0.23401063460585028,
+                            0.28517593418229437
+                        ],
+                        "mcc": 0.15980292805698532,
+                        "mcc_ci95": [
+                            0.12914383165301674,
+                            0.1881972422551568
+                        ],
+                        "positive_rate": 0.2689816480748471,
+                        "positive_rate_ci95": [
+                            0.2565671104713926,
+                            0.2803166606693055
+                        ]
+                    }
+                }
+            },
+            "imbalance_strategy": "class_weight",
+            "split_counts": {
+                "train": 23416,
+                "validation": 5705,
+                "test": 5558
+            },
+            "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+            "device": {
+                "requested": "GPU",
+                "actual": "GPU",
+                "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                "probe": {
+                    "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "xgboost_cuda": true,
+                    "catboost_gpu": true,
+                    "lightgbm_gpu": false
+                }
+            },
+            "calibration_method": "sigmoid",
+            "provenance": {
+                "notebook": "02_catboost.ipynb",
+                "executed_at": "2026-10-15T08:42:06Z",
+                "device": {
+                    "requested": "GPU",
+                    "actual": "GPU",
+                    "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "probe": {
+                        "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                        "xgboost_cuda": true,
+                        "catboost_gpu": true,
+                        "lightgbm_gpu": false
+                    }
+                },
+                "training_seconds": 380.28,
+                "notebook_seconds": 407.4,
+                "libraries": {
+                    "python": "3.12.9",
+                    "numpy": "2.5.3",
+                    "pandas": "3.0.5",
+                    "sklearn": "1.9.0",
+                    "imblearn": "0.14.2",
+                    "xgboost": "3.4.1",
+                    "catboost": "1.2.10",
+                    "lightgbm": "4.7.0",
+                    "interpret": "0.7.8",
+                    "shap": "0.52.0",
+                    "joblib": "1.6.0"
+                },
+                "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+                "seed": 42
+            },
+            "test_metrics": {
+                "evaluated_on": "test (2017-2018)",
+                "test_cycle": "2017-2018",
+                "n": 5558,
+                "positives": 554,
+                "prevalence": 0.09967614249730118,
+                "majority_baseline_accuracy": 0.9003238575026988,
+                "roc_auc": 0.6753059646145899,
+                "roc_auc_ci95": [
+                    0.6526138375606072,
+                    0.6986493463114118
+                ],
+                "pr_auc": 0.19445462347041756,
+                "pr_auc_ci95": [
+                    0.1714773891516515,
+                    0.22391488516600316
+                ],
+                "brier": 0.08625125199068086,
+                "brier_ci95": [
+                    0.08052093400802059,
+                    0.09215785774092332
+                ],
+                "at_balanced_threshold": {
+                    "threshold": 0.11900909315177487,
+                    "tp": 318,
+                    "fp": 1650,
+                    "tn": 3354,
+                    "fn": 236,
+                    "accuracy": 0.6606693055055776,
+                    "accuracy_ci95": [
+                        0.6487900323857503,
+                        0.6729039222741994
+                    ],
+                    "balanced_accuracy": 0.6221355045927157,
+                    "balanced_accuracy_ci95": [
+                        0.6003254672540457,
+                        0.642903422906176
+                    ],
+                    "sensitivity": 0.5740072202166066,
+                    "sensitivity_ci95": [
+                        0.5316232961586121,
+                        0.6168806221889055
+                    ],
+                    "specificity": 0.670263788968825,
+                    "specificity_ci95": [
+                        0.6573696675245803,
+                        0.6841062162112934
+                    ],
+                    "precision": 0.16158536585365854,
+                    "precision_ci95": [
+                        0.14539651227879175,
+                        0.17739057625136717
+                    ],
+                    "f1": 0.2521808088818398,
+                    "f1_ci95": [
+                        0.22952083669130457,
+                        0.2730112306760585
+                    ],
+                    "mcc": 0.1530120691986139,
+                    "mcc_ci95": [
+                        0.1248068153097783,
+                        0.17871356850396433
+                    ],
+                    "positive_rate": 0.3540842029507017,
+                    "positive_rate_ci95": [
+                        0.3405901403382512,
+                        0.3677581863979849
+                    ]
+                },
+                "at_accuracy_threshold": {
+                    "threshold": 0.13321082120337113,
+                    "tp": 267,
+                    "fp": 1228,
+                    "tn": 3776,
+                    "fn": 287,
+                    "accuracy": 0.7274199352284995,
+                    "accuracy_ci95": [
+                        0.7160804246131702,
+                        0.738579525008996
+                    ],
+                    "balanced_accuracy": 0.6182728907127006,
+                    "balanced_accuracy_ci95": [
+                        0.5968559967115863,
+                        0.6395446863980851
+                    ],
+                    "sensitivity": 0.48194945848375453,
+                    "sensitivity_ci95": [
+                        0.4405440685045948,
+                        0.5245231503799909
+                    ],
+                    "specificity": 0.7545963229416467,
+                    "specificity_ci95": [
+                        0.7429554397285966,
+                        0.7667466340602574
+                    ],
+                    "precision": 0.17859531772575252,
+                    "precision_ci95": [
+                        0.15842216416315796,
+                        0.197137402945389
+                    ],
+                    "f1": 0.26061493411420206,
+                    "f1_ci95": [
+                        0.23401063460585028,
+                        0.28517593418229437
+                    ],
+                    "mcc": 0.15980292805698532,
+                    "mcc_ci95": [
+                        0.12914383165301674,
+                        0.1881972422551568
+                    ],
+                    "positive_rate": 0.2689816480748471,
+                    "positive_rate_ci95": [
+                        0.2565671104713926,
+                        0.2803166606693055
+                    ]
+                }
+            }
+        },
+        "xgboost_nhanes_v003b": {
+            "model_family": "xgboost",
+            "version_tag": "xgboost_nhanes_v003b",
+            "artifact_path": "ml/models/versions/xgboost_nhanes_v003b.pkl",
+            "absolute_artifact_path": "ml/models/versions/xgboost_nhanes_v003b.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA",
+                "BMXWAIST",
+                "LBXSCLSI",
+                "LBXSTB",
+                "URDACT",
+                "BPQ020",
+                "BPQ080",
+                "DIQ010",
+                "MCQ080",
+                "INDFMPIR",
+                "RIDRETH1"
+            ],
+            "threshold": 0.13162687740832296,
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.6766812182023334,
+                "operating_point": "accuracy",
+                "accuracy": 0.7249010435408421,
+                "balanced_accuracy": 0.6249000799360511,
+                "sensitivity": 0.5,
+                "specificity": 0.7498001598721024,
+                "majority_baseline_accuracy": 0.9003238575026988
+            },
+            "trained_at": "2026-10-15T08:44:07Z",
+            "is_deployed": false,
+            "status": "pending_review",
+            "dataset_name": "NHANES Kidney Stone Cohort v2 (2007-2018) with self-reported history",
+            "artifact_format": "nhanes_bundle_v3",
+            "variant": "base_history_sensitive",
+            "default_operating_point": "accuracy",
+            "threshold_rule": "maximise sensitivity subject to validation accuracy >= 72% (validation cycle 2015-2016)",
+            "thresholds": {
+                "balanced": 0.11378059268958603,
+                "accuracy": 0.13162687740832296
+            },
+            "operating_points": {
+                "balanced": {
+                    "label": "Balanced (max balanced accuracy)",
+                    "rule": "maximise balanced accuracy on the validation cycle (2015-2016)",
+                    "threshold": 0.11378059268958603,
+                    "validation": {
+                        "threshold": 0.11378059268958603,
+                        "accuracy": 0.6470382053978269,
+                        "balanced_accuracy": 0.6164259367113182,
+                        "sensitivity": 0.5775577557755776,
+                        "specificity": 0.6552941176470588,
+                        "precision": 0.16603415559772297,
+                        "f1": 0.2579218865143699,
+                        "mcc": 0.148639848425266,
+                        "positive_rate": 0.36943568173852087,
+                        "tp": 175,
+                        "fp": 879,
+                        "tn": 1671,
+                        "fn": 128
+                    },
+                    "test": {
+                        "threshold": 0.11378059268958603,
+                        "tp": 334,
+                        "fp": 1775,
+                        "tn": 3229,
+                        "fn": 220,
+                        "accuracy": 0.6410579345088161,
+                        "accuracy_ci95": [
+                            0.6288233177401943,
+                            0.653832313781936
+                        ],
+                        "balanced_accuracy": 0.624085929812107,
+                        "balanced_accuracy_ci95": [
+                            0.602338544906109,
+                            0.6450364487071573
+                        ],
+                        "sensitivity": 0.6028880866425993,
+                        "sensitivity_ci95": [
+                            0.5626167376223349,
+                            0.6438879486750492
+                        ],
+                        "specificity": 0.6452837729816147,
+                        "specificity_ci95": [
+                            0.6320726972765638,
+                            0.6583532070929281
+                        ],
+                        "precision": 0.15836889521100048,
+                        "precision_ci95": [
+                            0.14192605814978926,
+                            0.17424631211283748
+                        ],
+                        "f1": 0.2508449117536613,
+                        "f1_ci95": [
+                            0.22842079143550625,
+                            0.27338906043112815
+                        ],
+                        "mcc": 0.15320790741861817,
+                        "mcc_ci95": [
+                            0.1252900096379941,
+                            0.17963112018651126
+                        ],
+                        "positive_rate": 0.37945304066210866,
+                        "positive_rate_ci95": [
+                            0.3668585822238215,
+                            0.39222741993522847
+                        ]
+                    }
+                },
+                "accuracy": {
+                    "label": "Accuracy-focused (>70% accuracy)",
+                    "rule": "maximise sensitivity subject to validation accuracy >= 72% (validation cycle 2015-2016)",
+                    "threshold": 0.13162687740832296,
+                    "validation": {
+                        "threshold": 0.13162687740832296,
+                        "accuracy": 0.7202944269190326,
+                        "balanced_accuracy": 0.6108755581440497,
+                        "sensitivity": 0.47194719471947194,
+                        "specificity": 0.7498039215686274,
+                        "precision": 0.18309859154929578,
+                        "f1": 0.26383763837638374,
+                        "mcc": 0.1532275391156229,
+                        "positive_rate": 0.27374693305292674,
+                        "tp": 143,
+                        "fp": 638,
+                        "tn": 1912,
+                        "fn": 160
+                    },
+                    "test": {
+                        "threshold": 0.13162687740832296,
+                        "tp": 277,
+                        "fp": 1252,
+                        "tn": 3752,
+                        "fn": 277,
+                        "accuracy": 0.7249010435408421,
+                        "accuracy_ci95": [
+                            0.7132016912558474,
+                            0.7362405541561713
+                        ],
+                        "balanced_accuracy": 0.6249000799360511,
+                        "balanced_accuracy_ci95": [
+                            0.6021742388289492,
+                            0.6459291286024658
+                        ],
+                        "sensitivity": 0.5,
+                        "sensitivity_ci95": [
+                            0.45829822097378276,
+                            0.5414684959349594
+                        ],
+                        "specificity": 0.7498001598721024,
+                        "specificity_ci95": [
+                            0.7376941819721519,
+                            0.7619669400261505
+                        ],
+                        "precision": 0.18116415958142576,
+                        "precision_ci95": [
+                            0.16068943580516643,
+                            0.20110544105848774
+                        ],
+                        "f1": 0.2659625540086414,
+                        "f1_ci95": [
+                            0.2406394126803456,
+                            0.2907908549508174
+                        ],
+                        "mcc": 0.1675729319788183,
+                        "mcc_ci95": [
+                            0.13684043818556924,
+                            0.19636358366173357
+                        ],
+                        "positive_rate": 0.275098956459158,
+                        "positive_rate_ci95": [
+                            0.263039762504498,
+                            0.2866138898884491
+                        ]
+                    }
+                }
+            },
+            "imbalance_strategy": "none",
+            "split_counts": {
+                "train": 23416,
+                "validation": 5705,
+                "test": 5558
+            },
+            "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+            "device": {
+                "requested": "cuda",
+                "actual": "cuda:0",
+                "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                "probe": {
+                    "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "xgboost_cuda": true,
+                    "catboost_gpu": true,
+                    "lightgbm_gpu": false
+                }
+            },
+            "calibration_method": "sigmoid",
+            "provenance": {
+                "notebook": "03_xgboost.ipynb",
+                "executed_at": "2026-10-15T08:44:07Z",
+                "device": {
+                    "requested": "cuda",
+                    "actual": "cuda:0",
+                    "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "probe": {
+                        "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                        "xgboost_cuda": true,
+                        "catboost_gpu": true,
+                        "lightgbm_gpu": false
+                    }
+                },
+                "training_seconds": 81.62,
+                "notebook_seconds": 108.16,
+                "libraries": {
+                    "python": "3.12.9",
+                    "numpy": "2.5.3",
+                    "pandas": "3.0.5",
+                    "sklearn": "1.9.0",
+                    "imblearn": "0.14.2",
+                    "xgboost": "3.4.1",
+                    "catboost": "1.2.10",
+                    "lightgbm": "4.7.0",
+                    "interpret": "0.7.8",
+                    "shap": "0.52.0",
+                    "joblib": "1.6.0"
+                },
+                "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+                "seed": 42
+            },
+            "test_metrics": {
+                "evaluated_on": "test (2017-2018)",
+                "test_cycle": "2017-2018",
+                "n": 5558,
+                "positives": 554,
+                "prevalence": 0.09967614249730118,
+                "majority_baseline_accuracy": 0.9003238575026988,
+                "roc_auc": 0.6766812182023334,
+                "roc_auc_ci95": [
+                    0.6548585256679826,
+                    0.7005519055862367
+                ],
+                "pr_auc": 0.19460011376529415,
+                "pr_auc_ci95": [
+                    0.1718357808086364,
+                    0.2246403816128565
+                ],
+                "brier": 0.08619806547359979,
+                "brier_ci95": [
+                    0.08041654345499755,
+                    0.09206750956030563
+                ],
+                "at_balanced_threshold": {
+                    "threshold": 0.11378059268958603,
+                    "tp": 334,
+                    "fp": 1775,
+                    "tn": 3229,
+                    "fn": 220,
+                    "accuracy": 0.6410579345088161,
+                    "accuracy_ci95": [
+                        0.6288233177401943,
+                        0.653832313781936
+                    ],
+                    "balanced_accuracy": 0.624085929812107,
+                    "balanced_accuracy_ci95": [
+                        0.602338544906109,
+                        0.6450364487071573
+                    ],
+                    "sensitivity": 0.6028880866425993,
+                    "sensitivity_ci95": [
+                        0.5626167376223349,
+                        0.6438879486750492
+                    ],
+                    "specificity": 0.6452837729816147,
+                    "specificity_ci95": [
+                        0.6320726972765638,
+                        0.6583532070929281
+                    ],
+                    "precision": 0.15836889521100048,
+                    "precision_ci95": [
+                        0.14192605814978926,
+                        0.17424631211283748
+                    ],
+                    "f1": 0.2508449117536613,
+                    "f1_ci95": [
+                        0.22842079143550625,
+                        0.27338906043112815
+                    ],
+                    "mcc": 0.15320790741861817,
+                    "mcc_ci95": [
+                        0.1252900096379941,
+                        0.17963112018651126
+                    ],
+                    "positive_rate": 0.37945304066210866,
+                    "positive_rate_ci95": [
+                        0.3668585822238215,
+                        0.39222741993522847
+                    ]
+                },
+                "at_accuracy_threshold": {
+                    "threshold": 0.13162687740832296,
+                    "tp": 277,
+                    "fp": 1252,
+                    "tn": 3752,
+                    "fn": 277,
+                    "accuracy": 0.7249010435408421,
+                    "accuracy_ci95": [
+                        0.7132016912558474,
+                        0.7362405541561713
+                    ],
+                    "balanced_accuracy": 0.6249000799360511,
+                    "balanced_accuracy_ci95": [
+                        0.6021742388289492,
+                        0.6459291286024658
+                    ],
+                    "sensitivity": 0.5,
+                    "sensitivity_ci95": [
+                        0.45829822097378276,
+                        0.5414684959349594
+                    ],
+                    "specificity": 0.7498001598721024,
+                    "specificity_ci95": [
+                        0.7376941819721519,
+                        0.7619669400261505
+                    ],
+                    "precision": 0.18116415958142576,
+                    "precision_ci95": [
+                        0.16068943580516643,
+                        0.20110544105848774
+                    ],
+                    "f1": 0.2659625540086414,
+                    "f1_ci95": [
+                        0.2406394126803456,
+                        0.2907908549508174
+                    ],
+                    "mcc": 0.1675729319788183,
+                    "mcc_ci95": [
+                        0.13684043818556924,
+                        0.19636358366173357
+                    ],
+                    "positive_rate": 0.275098956459158,
+                    "positive_rate_ci95": [
+                        0.263039762504498,
+                        0.2866138898884491
+                    ]
+                }
+            }
+        },
+        "lightgbm_nhanes_v003b": {
+            "model_family": "lightgbm",
+            "version_tag": "lightgbm_nhanes_v003b",
+            "artifact_path": "ml/models/versions/lightgbm_nhanes_v003b.pkl",
+            "absolute_artifact_path": "ml/models/versions/lightgbm_nhanes_v003b.pkl",
+            "features": [
+                "RIDAGEYR",
+                "RIAGENDR",
+                "BMXBMI",
+                "LBXSCA",
+                "LBXSUA",
+                "LBXSCR",
+                "LBXSBU",
+                "LBXSGL",
+                "LBXSNASI",
+                "LBXSKSI",
+                "LBXSPH",
+                "URXUCR",
+                "URXUMA",
+                "BMXWAIST",
+                "LBXSCLSI",
+                "LBXSTB",
+                "URDACT",
+                "BPQ020",
+                "BPQ080",
+                "DIQ010",
+                "MCQ080",
+                "INDFMPIR",
+                "RIDRETH1"
+            ],
+            "threshold": 0.13156812584991803,
+            "metrics": {
+                "test_cycle": "2017-2018",
+                "roc_auc": 0.6750965653470004,
+                "operating_point": "accuracy",
+                "accuracy": 0.7240014393666787,
+                "balanced_accuracy": 0.617177016509536,
+                "sensitivity": 0.48375451263537905,
+                "specificity": 0.750599520383693,
+                "majority_baseline_accuracy": 0.9003238575026988
+            },
+            "trained_at": "2026-10-15T08:46:54Z",
+            "is_deployed": false,
+            "status": "pending_review",
+            "dataset_name": "NHANES Kidney Stone Cohort v2 (2007-2018) with self-reported history",
+            "artifact_format": "nhanes_bundle_v3",
+            "variant": "base_history_sensitive",
+            "default_operating_point": "accuracy",
+            "threshold_rule": "maximise sensitivity subject to validation accuracy >= 72% (validation cycle 2015-2016)",
+            "thresholds": {
+                "balanced": 0.11705531798254377,
+                "accuracy": 0.13156812584991803
+            },
+            "operating_points": {
+                "balanced": {
+                    "label": "Balanced (max balanced accuracy)",
+                    "rule": "maximise balanced accuracy on the validation cycle (2015-2016)",
+                    "threshold": 0.11705531798254377,
+                    "validation": {
+                        "threshold": 0.11705531798254377,
+                        "accuracy": 0.6673676831405538,
+                        "balanced_accuracy": 0.6161657930498932,
+                        "sensitivity": 0.5511551155115512,
+                        "specificity": 0.6811764705882353,
+                        "precision": 0.1704081632653061,
+                        "f1": 0.26032735775526106,
+                        "mcc": 0.15073625989327288,
+                        "positive_rate": 0.3434980722046968,
+                        "tp": 167,
+                        "fp": 813,
+                        "tn": 1737,
+                        "fn": 136
+                    },
+                    "test": {
+                        "threshold": 0.11705531798254377,
+                        "tp": 319,
+                        "fp": 1650,
+                        "tn": 3354,
+                        "fn": 235,
+                        "accuracy": 0.6608492263404102,
+                        "accuracy_ci95": [
+                            0.6482547679021231,
+                            0.6729219143576827
+                        ],
+                        "balanced_accuracy": 0.623038031668528,
+                        "balanced_accuracy_ci95": [
+                            0.6012510757608328,
+                            0.6447448040914288
+                        ],
+                        "sensitivity": 0.575812274368231,
+                        "sensitivity_ci95": [
+                            0.5357094067135051,
+                            0.6166411755758733
+                        ],
+                        "specificity": 0.670263788968825,
+                        "specificity_ci95": [
+                            0.6572150842818187,
+                            0.6836538426916126
+                        ],
+                        "precision": 0.16201117318435754,
+                        "precision_ci95": [
+                            0.14544265479256388,
+                            0.17740785061183229
+                        ],
+                        "f1": 0.25287356321839083,
+                        "f1_ci95": [
+                            0.23005597710449333,
+                            0.2737037595108679
+                        ],
+                        "mcc": 0.15412508037405503,
+                        "mcc_ci95": [
+                            0.12654602922189673,
+                            0.18169340682195717
+                        ],
+                        "positive_rate": 0.35426412378553435,
+                        "positive_rate_ci95": [
+                            0.3416696653472472,
+                            0.36649874055415615
+                        ]
+                    }
+                },
+                "accuracy": {
+                    "label": "Accuracy-focused (>70% accuracy)",
+                    "rule": "maximise sensitivity subject to validation accuracy >= 72% (validation cycle 2015-2016)",
+                    "threshold": 0.13156812584991803,
+                    "validation": {
+                        "threshold": 0.13156812584991803,
+                        "accuracy": 0.7202944269190326,
+                        "balanced_accuracy": 0.6036051252184041,
+                        "sensitivity": 0.45544554455445546,
+                        "specificity": 0.7517647058823529,
+                        "precision": 0.17898832684824903,
+                        "f1": 0.2569832402234637,
+                        "mcc": 0.14375901501279836,
+                        "positive_rate": 0.27024185068349105,
+                        "tp": 138,
+                        "fp": 633,
+                        "tn": 1917,
+                        "fn": 165
+                    },
+                    "test": {
+                        "threshold": 0.13156812584991803,
+                        "tp": 268,
+                        "fp": 1248,
+                        "tn": 3756,
+                        "fn": 286,
+                        "accuracy": 0.7240014393666787,
+                        "accuracy_ci95": [
+                            0.7128463476070529,
+                            0.7351610291471752
+                        ],
+                        "balanced_accuracy": 0.617177016509536,
+                        "balanced_accuracy_ci95": [
+                            0.5946270763724372,
+                            0.639414701077151
+                        ],
+                        "sensitivity": 0.48375451263537905,
+                        "sensitivity_ci95": [
+                            0.44109714118517757,
+                            0.5278364772402425
+                        ],
+                        "specificity": 0.750599520383693,
+                        "specificity_ci95": [
+                            0.7390517620160179,
+                            0.762341304281989
+                        ],
+                        "precision": 0.17678100263852242,
+                        "precision_ci95": [
+                            0.1566331454246519,
+                            0.1959391757069792
+                        ],
+                        "f1": 0.2589371980676328,
+                        "f1_ci95": [
+                            0.23214456358151084,
+                            0.2837005833598908
+                        ],
+                        "mcc": 0.15762975820364603,
+                        "mcc_ci95": [
+                            0.1265323103107116,
+                            0.18731878379547315
+                        ],
+                        "positive_rate": 0.2727599856063332,
+                        "positive_rate_ci95": [
+                            0.2610606333213386,
+                            0.2842794170564952
+                        ]
+                    }
+                }
+            },
+            "imbalance_strategy": "none",
+            "split_counts": {
+                "train": 23416,
+                "validation": 5705,
+                "test": 5558
+            },
+            "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+            "device": {
+                "requested": "cpu",
+                "actual": "cpu",
+                "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                "probe": {
+                    "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "xgboost_cuda": true,
+                    "catboost_gpu": true,
+                    "lightgbm_gpu": false
+                }
+            },
+            "calibration_method": "sigmoid",
+            "provenance": {
+                "notebook": "04_lightgbm.ipynb",
+                "executed_at": "2026-10-15T08:46:54Z",
+                "device": {
+                    "requested": "cpu",
+                    "actual": "cpu",
+                    "hardware": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                    "probe": {
+                        "nvidia_smi": "NVIDIA GeForce RTX 5070 Laptop GPU, 8151 MiB, 592.15",
+                        "xgboost_cuda": true,
+                        "catboost_gpu": true,
+                        "lightgbm_gpu": false
+                    }
+                },
+                "training_seconds": 115.39,
+                "notebook_seconds": 161.96,
+                "libraries": {
+                    "python": "3.12.9",
+                    "numpy": "2.5.3",
+                    "pandas": "3.0.5",
+                    "sklearn": "1.9.0",
+                    "imblearn": "0.14.2",
+                    "xgboost": "3.4.1",
+                    "catboost": "1.2.10",
+                    "lightgbm": "4.7.0",
+                    "interpret": "0.7.8",
+                    "shap": "0.52.0",
+                    "joblib": "1.6.0"
+                },
+                "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+                "seed": 42
+            },
+            "test_metrics": {
+                "evaluated_on": "test (2017-2018)",
+                "test_cycle": "2017-2018",
+                "n": 5558,
+                "positives": 554,
+                "prevalence": 0.09967614249730118,
+                "majority_baseline_accuracy": 0.9003238575026988,
+                "roc_auc": 0.6750965653470004,
+                "roc_auc_ci95": [
+                    0.6528696108926874,
+                    0.6984740589255053
+                ],
+                "pr_auc": 0.1910390921266295,
+                "pr_auc_ci95": [
+                    0.16934125362805635,
+                    0.21856973471945662
+                ],
+                "brier": 0.08628679596159639,
+                "brier_ci95": [
+                    0.08065371695056306,
+                    0.0922025868150452
+                ],
+                "at_balanced_threshold": {
+                    "threshold": 0.11705531798254377,
+                    "tp": 319,
+                    "fp": 1650,
+                    "tn": 3354,
+                    "fn": 235,
+                    "accuracy": 0.6608492263404102,
+                    "accuracy_ci95": [
+                        0.6482547679021231,
+                        0.6729219143576827
+                    ],
+                    "balanced_accuracy": 0.623038031668528,
+                    "balanced_accuracy_ci95": [
+                        0.6012510757608328,
+                        0.6447448040914288
+                    ],
+                    "sensitivity": 0.575812274368231,
+                    "sensitivity_ci95": [
+                        0.5357094067135051,
+                        0.6166411755758733
+                    ],
+                    "specificity": 0.670263788968825,
+                    "specificity_ci95": [
+                        0.6572150842818187,
+                        0.6836538426916126
+                    ],
+                    "precision": 0.16201117318435754,
+                    "precision_ci95": [
+                        0.14544265479256388,
+                        0.17740785061183229
+                    ],
+                    "f1": 0.25287356321839083,
+                    "f1_ci95": [
+                        0.23005597710449333,
+                        0.2737037595108679
+                    ],
+                    "mcc": 0.15412508037405503,
+                    "mcc_ci95": [
+                        0.12654602922189673,
+                        0.18169340682195717
+                    ],
+                    "positive_rate": 0.35426412378553435,
+                    "positive_rate_ci95": [
+                        0.3416696653472472,
+                        0.36649874055415615
+                    ]
+                },
+                "at_accuracy_threshold": {
+                    "threshold": 0.13156812584991803,
+                    "tp": 268,
+                    "fp": 1248,
+                    "tn": 3756,
+                    "fn": 286,
+                    "accuracy": 0.7240014393666787,
+                    "accuracy_ci95": [
+                        0.7128463476070529,
+                        0.7351610291471752
+                    ],
+                    "balanced_accuracy": 0.617177016509536,
+                    "balanced_accuracy_ci95": [
+                        0.5946270763724372,
+                        0.639414701077151
+                    ],
+                    "sensitivity": 0.48375451263537905,
+                    "sensitivity_ci95": [
+                        0.44109714118517757,
+                        0.5278364772402425
+                    ],
+                    "specificity": 0.750599520383693,
+                    "specificity_ci95": [
+                        0.7390517620160179,
+                        0.762341304281989
+                    ],
+                    "precision": 0.17678100263852242,
+                    "precision_ci95": [
+                        0.1566331454246519,
+                        0.1959391757069792
+                    ],
+                    "f1": 0.2589371980676328,
+                    "f1_ci95": [
+                        0.23214456358151084,
+                        0.2837005833598908
+                    ],
+                    "mcc": 0.15762975820364603,
+                    "mcc_ci95": [
+                        0.1265323103107116,
+                        0.18731878379547315
+                    ],
+                    "positive_rate": 0.2727599856063332,
+                    "positive_rate_ci95": [
+                        0.2610606333213386,
+                        0.2842794170564952
+                    ]
+                }
+            }
         }
     }
 }

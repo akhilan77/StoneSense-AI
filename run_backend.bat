@@ -22,7 +22,7 @@ if not exist "backend\.venv\Scripts\python.exe" (
 )
 
 echo Checking backend dependencies...
-backend\.venv\Scripts\python.exe -c "import fastapi, uvicorn, joblib, xgboost, torch"
+backend\.venv\Scripts\python.exe -c "import fastapi, uvicorn, joblib, xgboost, torch, catboost, lightgbm, interpret"
 if !ERRORLEVEL! neq 0 (
     echo [WARNING] Backend dependencies are incomplete. Installing requirements...
     backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt

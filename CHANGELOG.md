@@ -4,6 +4,24 @@ All notable changes to the StoneSense-AI project are documented in this file bas
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### NHANES v003b: LightGBM early-stop fix, class-imbalance comparison, accuracy-focused operating point (pending review, not deployed)
+- **LightGBM:** `best_iteration_` 3 -> 190. Cause (computed in notebook 04): the objective's default `binary_logloss` was evaluated next to AUC, early stopping stopped on the first metric to stall, and `scale_pos_weight` made unweighted validation logloss rise immediately. Fix: stop on AUC only (`first_metric_only=True`, patience 200), conservative parameters, one imbalance strategy, early-stopping half separated from the calibration half.
+- **Imbalance:** every model notebook compares none / class weights / random oversampling / random undersampling / SMOTENC in an `imblearn` Pipeline (training rows only; SMOTENC with declared categorical columns), calibrates each on the real-prevalence validation half and selects on validation only. `imbalanced-learn` added to `requirements-ml.txt`.
+- **Operating points:** `accuracy` (max sensitivity s.t. validation accuracy >= 72%) and `balanced` (max balanced accuracy), both stored in `registry_manifest.json` with validation and test metrics. Test accuracy 71.6% to 72.7% at the accuracy point, at sensitivity 48.2% to 50.4%.
+- **Notebooks:** one `show_metrics_table` helper prints the full metric set (accuracy included) at every stage; per-fold LOCO accuracy / sensitivity; provenance (notebook, timestamp, device, training time, library versions, split hash) in every metrics JSON; notebook 05 fails loudly on missing / mismatched artifacts.
+- **Backend / frontend:** compare endpoint returns both operating points per model and accepts `operating_point`; the four-model table has an operating-point toggle (accuracy-focused default) with sensitivity next to accuracy and a caution line. Models registered as `*_nhanes_v003b`.
+- **Tests:** `testing/test_nhanes_v003b.py`, `testing/test_nhanes_notebooks.py`; `backend/tests/test_nhanes_compare.py` updated.
+
+### NHANES v003: four-model clinical-profile comparison (pending review, not deployed)
+- **Cohort v2:** `ml/preprocessing/add_history_features.py` adds self-reported history features (`BPQ020`, `BPQ080`, `DIQ010`, `MCQ080` usable; `MCQ520`/`MCQ550` excluded because they exist only in 2017-2018) by a one-to-one merge, drops `KIQ029`, and writes `history_feature_availability.csv`. `ml/preprocessing/extract_nhanes_zip.py` extracts the raw zip safely.
+- **Notebooks:** `ml/notebooks/nhanes_v003/00-05` (+ `04b` logistic-regression reference) train EBM, CatBoost, XGBoost and LightGBM on one frozen, hash-checked cycle-based split; shared code in `ml/training/nhanes_common.py`; run with `python ml/training/run_nhanes_notebooks.py`. Each model's test cycle is scored once (ledger-enforced).
+- **Registry:** `CatBoostRiskModel`, `LightGBMRiskModel`, `EBMRiskModel`, `XGBoostNhanesRiskModel` wrappers around a self-contained `NhanesBundle`; `*_nhanes_v003` entries added as `pending_review`. `get_model_by_family` keeps preferring legacy models.
+- **Backend:** `POST /api/v1/predict/risk/compare` and `GET /api/v1/predict/risk/compare/spec` (inputs validated against `feature_spec.json`, not persisted, no migration).
+- **Frontend:** "Clinical profile (NHANES)" mode on the risk page and in the dashboard workflow, built from `feature_spec.json`, with each model's held-out test metrics and the majority-class baseline.
+- **Dependencies:** `catboost`, `lightgbm`, `interpret` pinned; notebook tooling in `requirements-ml.txt`.
+
 ## [1.2.0] - 2026-10-12
 
 ### End-to-End Hardening & Security Release

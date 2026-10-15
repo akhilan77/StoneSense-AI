@@ -1,0 +1,149 @@
+{
+  "primary_variant": "base_history_sensitive",
+  "variants": {
+    "base": [
+      "RIDAGEYR",
+      "RIAGENDR",
+      "BMXBMI",
+      "LBXSCA",
+      "LBXSUA",
+      "LBXSCR",
+      "LBXSBU",
+      "LBXSGL",
+      "LBXSNASI",
+      "LBXSKSI",
+      "LBXSPH",
+      "URXUCR",
+      "URXUMA",
+      "BMXWAIST",
+      "LBXSCLSI",
+      "LBXSTB",
+      "URDACT"
+    ],
+    "base_history": [
+      "RIDAGEYR",
+      "RIAGENDR",
+      "BMXBMI",
+      "LBXSCA",
+      "LBXSUA",
+      "LBXSCR",
+      "LBXSBU",
+      "LBXSGL",
+      "LBXSNASI",
+      "LBXSKSI",
+      "LBXSPH",
+      "URXUCR",
+      "URXUMA",
+      "BMXWAIST",
+      "LBXSCLSI",
+      "LBXSTB",
+      "URDACT",
+      "BPQ020",
+      "BPQ080",
+      "DIQ010",
+      "MCQ080"
+    ],
+    "base_history_sensitive": [
+      "RIDAGEYR",
+      "RIAGENDR",
+      "BMXBMI",
+      "LBXSCA",
+      "LBXSUA",
+      "LBXSCR",
+      "LBXSBU",
+      "LBXSGL",
+      "LBXSNASI",
+      "LBXSKSI",
+      "LBXSPH",
+      "URXUCR",
+      "URXUMA",
+      "BMXWAIST",
+      "LBXSCLSI",
+      "LBXSTB",
+      "URDACT",
+      "BPQ020",
+      "BPQ080",
+      "DIQ010",
+      "MCQ080",
+      "RIDRETH1",
+      "INDFMPIR"
+    ]
+  },
+  "base_features": [
+    "RIDAGEYR",
+    "RIAGENDR",
+    "BMXBMI",
+    "LBXSCA",
+    "LBXSUA",
+    "LBXSCR",
+    "LBXSBU",
+    "LBXSGL",
+    "LBXSNASI",
+    "LBXSKSI",
+    "LBXSPH",
+    "URXUCR",
+    "URXUMA",
+    "BMXWAIST",
+    "LBXSCLSI",
+    "LBXSTB",
+    "URDACT"
+  ],
+  "sensitive_features": [
+    "RIDRETH1",
+    "INDFMPIR"
+  ],
+  "history_features_used": [
+    "BPQ020",
+    "BPQ080",
+    "DIQ010",
+    "MCQ080"
+  ],
+  "history_questions": {
+    "BPQ020": "Has a doctor or other health professional ever told you that you have high blood pressure?",
+    "BPQ080": "Has a doctor or other health professional ever told you that your blood cholesterol level was high?",
+    "DIQ010": "Has a doctor or other health professional ever told you that you have diabetes or sugar diabetes?",
+    "MCQ080": "Has a doctor or other health professional ever told you that you were overweight?"
+  },
+  "history_excluded": {
+    "MCQ520": "not collected in cycle(s) 2007-2008, 2009-2010, 2011-2012, 2013-2014, 2015-2016",
+    "MCQ550": "not collected in cycle(s) 2007-2008, 2009-2010, 2011-2012, 2013-2014, 2015-2016"
+  },
+  "screening": [
+    {
+      "variant": "base",
+      "n_features": 17,
+      "val_auc": 0.635,
+      "loco_auc_mean": 0.6513,
+      "loco_auc_std": 0.003,
+      "loco_auc_min": 0.6483,
+      "loco_auc_max": 0.6554,
+      "grouped_cv_auc_mean": 0.65,
+      "grouped_cv_auc_std": 0.0143
+    },
+    {
+      "variant": "base_history",
+      "n_features": 21,
+      "val_auc": 0.6433,
+      "loco_auc_mean": 0.6613,
+      "loco_auc_std": 0.001,
+      "loco_auc_min": 0.6604,
+      "loco_auc_max": 0.6622,
+      "grouped_cv_auc_mean": 0.6601,
+      "grouped_cv_auc_std": 0.0163
+    },
+    {
+      "variant": "base_history_sensitive",
+      "n_features": 23,
+      "val_auc": 0.6616,
+      "loco_auc_mean": 0.6848,
+      "loco_auc_std": 0.0032,
+      "loco_auc_min": 0.682,
+      "loco_auc_max": 0.6884,
+      "grouped_cv_auc_mean": 0.6813,
+      "grouped_cv_auc_std": 0.0076
+    }
+  ],
+  "selection_rule": "history if LOCO-AUC +0.005 and val-AUC not lower; sensitive only if LOCO-AUC and val-AUC both +0.010",
+  "split_hash": "a2c3bdb15ffb9f3b943ec517e878cd8c59a92c444acd15ef7e35446fd0fcc7e7",
+  "seed": 42
+}

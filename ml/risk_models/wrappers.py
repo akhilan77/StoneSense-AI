@@ -4,6 +4,7 @@ Implements BaseRiskModel wrappers for:
 - LogisticRegressionRiskModel (model_family: logistic_regression)
 - RandomForestRiskModel (model_family: random_forest)
 - XGBoostRiskModel (model_family: xgboost)
+- CatBoostRiskModel / LightGBMRiskModel / EBMRiskModel (NHANES v003 bundles)
 """
 
 from pathlib import Path
@@ -26,6 +27,7 @@ except ImportError:
     from sklearn.ensemble import GradientBoostingClassifier as XGBClassifier
 
 from .base import BaseRiskModel
+from .nhanes_bundle import NhanesBundle
 
 
 def format_shap_explanation(
@@ -322,6 +324,8 @@ class XGBoostRiskModel(BaseRiskModel):
     @classmethod
     def load(cls, path: Union[str, Path]) -> "XGBoostRiskModel":
         obj = joblib.load(path)
+        if isinstance(obj, NhanesBundle):
+            return XGBoostNhanesRiskModel(bundle=obj, version_tag=Path(path).stem)
         if isinstance(obj, (XGBClassifier, getattr(joblib, "XGBClassifier", type(None)))):
             return cls(version_tag=Path(path).stem, estimator=obj)
         elif isinstance(obj, cls) or type(obj).__name__ == cls.__name__:
@@ -341,8 +345,85 @@ class XGBoostRiskModel(BaseRiskModel):
             raise TypeError(f"Loaded object from {path} is of unexpected type: {type(obj)}")
 
 
+class NhanesBundleRiskModel(BaseRiskModel):
+    """Adapter around a NhanesBundle (NHANES v003 clinical-profile models).
+
+    Unlike the v001 adapters, predict_proba/explain take RAW feature rows (DataFrame or dict keyed by
+    the bundle's input features): preprocessing and calibration live inside the bundle. Models are
+    trained in ml/notebooks/nhanes_v003/, so fit() is intentionally unsupported here.
+    """
+
+    FAMILY = "base"
+
+    def __init__(
+        self,
+        bundle: Optional[NhanesBundle] = None,
+        version_tag: Optional[str] = None,
+        threshold: Optional[float] = None,
+        feature_names: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            model_family=self.FAMILY,
+            version_tag=version_tag or (bundle.model_name if bundle else f"{self.FAMILY}_nhanes_v003"),
+            feature_names=feature_names or (bundle.input_features if bundle else None),
+            threshold=threshold if threshold is not None else (bundle.threshold if bundle else 0.5),
+            metadata=metadata,
+        )
+        self.bundle = bundle
+        self.estimator = bundle.estimator if bundle else None
+
+    def fit(self, X, y):
+        raise NotImplementedError("NHANES v003 models are trained in ml/notebooks/nhanes_v003/.")
+
+    def predict_proba(self, X: Union[np.ndarray, pd.DataFrame, Dict[str, Any]]) -> np.ndarray:
+        p = self.bundle.predict_proba(X)
+        return np.column_stack([1.0 - p, p])
+
+    def explain(self, X: Union[np.ndarray, pd.DataFrame, Dict[str, Any]]) -> Dict[str, Any]:
+        contrib = self.bundle.contributions(X)[0]
+        summary = None
+        if self.bundle.family == "ebm":
+            summary = ("The strongest contributors are the EBM's native additive term scores for this request "
+                       "(interaction terms are split between their two features); they do not establish causation.")
+        return format_shap_explanation(self.bundle.input_features, contrib, summary_text=summary)
+
+    def save(self, path: Union[str, Path]) -> None:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(self.bundle, p)
+
+    @classmethod
+    def load(cls, path: Union[str, Path]) -> "NhanesBundleRiskModel":
+        obj = joblib.load(path)
+        if isinstance(obj, cls):
+            return obj
+        if not isinstance(obj, NhanesBundle):
+            raise TypeError(f"Expected a NhanesBundle in {path}, got {type(obj)}")
+        return cls(bundle=obj, version_tag=Path(path).stem)
+
+
+class XGBoostNhanesRiskModel(NhanesBundleRiskModel):
+    FAMILY = "xgboost"
+
+
+class CatBoostRiskModel(NhanesBundleRiskModel):
+    FAMILY = "catboost"
+
+
+class LightGBMRiskModel(NhanesBundleRiskModel):
+    FAMILY = "lightgbm"
+
+
+class EBMRiskModel(NhanesBundleRiskModel):
+    FAMILY = "ebm"
+
+
 FAMILY_MODEL_MAP = {
     "logistic_regression": LogisticRegressionRiskModel,
     "random_forest": RandomForestRiskModel,
     "xgboost": XGBoostRiskModel,
+    "catboost": CatBoostRiskModel,
+    "lightgbm": LightGBMRiskModel,
+    "ebm": EBMRiskModel,
 }

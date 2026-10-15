@@ -18,6 +18,7 @@ from app.schemas.concordance import (
     ImagingOutputInput,
     TabularRiskInput,
 )
+from app.schemas.nhanes_risk import NhanesCompareRequest, NhanesCompareResponse
 from app.schemas.patient import PatientInformation
 from app.schemas.responses import (
     RiskPredictionResponse,
@@ -29,6 +30,11 @@ from app.services.explainability_service import (
     generate_shap_for_patient,
 )
 from app.services.model_loader import model_loader
+from app.services.nhanes_compare_service import (
+    FeatureValidationError,
+    ModelsUnavailableError,
+    nhanes_compare_service,
+)
 from app.services.prediction_service import PredictionService
 from app.utils.image_utils import (
     evaluate_ct_ood_gate,
@@ -233,6 +239,64 @@ async def predict_risk(
         shap=shap,
         prediction_id=prediction_id,
     )
+
+
+@router.get("/risk/compare/spec")
+def nhanes_compare_spec(current_user: User = Depends(get_current_user)) -> dict:
+    """Returns ml/artifacts/nhanes_v003/feature_spec.json: the definition the clinical-profile form is built from."""
+    try:
+        return nhanes_compare_service.get_spec()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@router.post("/risk/compare", response_model=NhanesCompareResponse)
+def predict_risk_compare(
+    payload: NhanesCompareRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> NhanesCompareResponse:
+    """Scores a clinical profile with the four NHANES v003b models (EBM, CatBoost, XGBoost, LightGBM).
+
+    Returns each model's calibrated probability, risk level at the selected operating point ('accuracy' or 'balanced';
+    both are returned per model with their thresholds and stored held-out TEST metrics), top contributing factors, plus the average probability and whether the models agree.
+    Auth, RBAC and tenant scoping match /predict/risk. The submitted values are used for scoring only and are
+    not stored (no schema change); only an audit-log entry without feature values is written.
+    """
+    effective_hospital_id = get_scoped_hospital_id(current_user, payload.hospital_id)
+
+    patient = None
+    if payload.patient_id is not None:
+        patient = db.query(Patient).filter(
+            Patient.id == payload.patient_id,
+            Patient.hospital_id == effective_hospital_id,
+        ).first()
+        if patient is None:
+            raise HTTPException(status_code=404, detail="Patient not found for this hospital.")
+
+    try:
+        result = nhanes_compare_service.compare(payload.features, operating_point=payload.operating_point)
+    except FeatureValidationError as exc:
+        raise HTTPException(status_code=422, detail={"message": "Invalid clinical profile.", "problems": exc.problems})
+    except (ModelsUnavailableError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    log_audit(
+        db=db,
+        action="PREDICTION_RISK_COMPARE",
+        resource_type="prediction",
+        hospital_id=effective_hospital_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "patient_id": patient.id if patient else None,
+            "prediction_type": "risk_compare",
+            "model_version": "nhanes_v003b",
+            "result_label": f"{result['n_high']}/4 models High; agree={result['models_agree']}",
+            "confidence": result["average_probability"],
+        },
+    )
+    return NhanesCompareResponse(**result)
 
 
 @router.post("/image", response_model=StoneDetectionResponse)
